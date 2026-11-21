@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from '@/i18n/routing';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 export default function LoginPage() {
   const t = useTranslations('auth');
   const tCommon = useTranslations('common');
+  const locale = useLocale();
   const router = useRouter();
 
   const [email, setEmail] = useState('');
@@ -77,7 +78,19 @@ export default function LoginPage() {
       }
 
       toast.success(t('signedIn'));
-      router.push('/dashboard');
+
+      // Check callbackUrl in URL search parameters
+      const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      const callback = params?.get('callbackUrl');
+
+      if (callback && callback.startsWith('/')) {
+        router.push(callback);
+      } else {
+        const role = data.user?.role;
+        const defaultPath = role === 'student' ? '/ask' : role === 'researcher' ? '/library' : '/dashboard';
+        router.push(defaultPath);
+      }
+      router.refresh();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('errorInvalid');
       setError(message);
@@ -126,9 +139,14 @@ export default function LoginPage() {
           <CardContent className="space-y-5">
             {/* Quick Demo Account Selector */}
             <div className="space-y-2">
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {t('demoAccounts')}
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  {t('demoAccounts')}
+                </Label>
+                <span className="text-[11px] font-mono text-muted-foreground bg-muted/80 border border-border/60 px-2 py-0.5 rounded font-medium">
+                  {locale === 'bn' ? 'পাসওয়ার্ড: demo123' : 'Password: demo123'}
+                </span>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 {demoAccounts.map((acc) => {
                   const isSelected = email === acc.email;
@@ -186,7 +204,7 @@ export default function LoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="demo123"
                   required
                   className="h-9 text-sm"
                 />

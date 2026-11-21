@@ -21,13 +21,8 @@ import {
   UserCheck,
   ArrowRight,
   ChevronRight,
-  HeartPulse,
-  Activity,
-  ClipboardList,
-  Sparkles,
-  CheckCircle2,
-  Lock,
 } from 'lucide-react';
+import { DoctorAiIllustration } from '@/components/shared/DoctorAiIllustration';
 import { toast } from 'sonner';
 
 export default function LandingPage() {
@@ -72,6 +67,7 @@ export default function LandingPage() {
           : `Signed in as ${roleName}`
       );
       router.push(targetPath);
+      router.refresh();
     } catch {
       toast.error('Could not authenticate demo user');
     } finally {
@@ -240,95 +236,9 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Right Column: High-End Vector Illustration & Clinical Card */}
-            <div className="lg:col-span-5 relative">
-              {/* Decorative Vector Glow Circle */}
-              <div className="absolute -top-10 -right-10 w-72 h-72 bg-primary/15 rounded-full blur-3xl pointer-events-none" />
-
-              <div className="relative rounded-2xl border border-border/80 bg-card shadow-xl overflow-hidden">
-                {/* Visual Header */}
-                <div className="bg-gradient-to-r from-primary/10 via-teal-500/10 to-primary/5 border-b border-border/80 p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center text-primary">
-                      <Activity className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <span className="font-bold text-xs text-foreground block">
-                        {locale === 'bn' ? 'ক্লিনিকাল ডিসিশন রিভিউ' : 'Clinical Decision Review'}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {locale === 'bn' ? 'গাইডলাইন ও ড্রাগ সেফটি সারসংক্ষেপ' : 'Guideline & Safety Summary'}
-                      </span>
-                    </div>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] bg-background/80 font-mono border-primary/30 text-primary">
-                    Verified
-                  </Badge>
-                </div>
-
-                <div className="p-5 space-y-4 text-xs">
-                  {/* Real Clinical Presentation */}
-                  <div className="p-3 rounded-xl bg-muted/40 border border-border/60 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                        <ClipboardList className="w-3.5 h-3.5 text-primary" />
-                        <span>{locale === 'bn' ? 'রোগীর প্রধান লক্ষণ' : 'Patient Symptoms'}</span>
-                      </span>
-                      <span className="text-[10px] font-mono text-muted-foreground">Adult • 54Y</span>
-                    </div>
-                    <p className="text-foreground font-medium text-xs leading-relaxed">
-                      {locale === 'bn'
-                        ? '৪ দিন ধরে তীব্র জ্বর, কফ এবং বুকে অস্বস্তি।'
-                        : 'High fever for 4 days with productive cough and pleuritic discomfort.'}
-                    </p>
-                  </div>
-
-                  {/* Differential & Guideline Match */}
-                  <div className="p-3.5 rounded-xl border border-primary/30 bg-primary/5 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="font-bold text-sm text-foreground">
-                          {locale === 'bn' ? 'কমিউনিটি-অ্যাকওয়ার্ড নিউমোনিয়া (CAP)' : 'Community-Acquired Pneumonia'}
-                        </span>
-                      </div>
-                      <Badge className="bg-emerald-600 text-white text-[10px] hover:bg-emerald-600">
-                        {locale === 'bn' ? 'গাইডলাইন ম্যাচ' : 'Guideline Match'}
-                      </Badge>
-                    </div>
-
-                    {/* Vector Citation Pill */}
-                    <div className="flex items-center gap-2 p-2 rounded-lg bg-background border border-border text-[11px] text-muted-foreground">
-                      <BookOpen className="w-3.5 h-3.5 text-primary shrink-0" />
-                      <span className="truncate">
-                        WHO Essential Medicines & Clinical Guidelines, Sec 6.2
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Formulary Safety Check */}
-                  <div className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 text-emerald-900 dark:text-emerald-300 space-y-1.5">
-                    <div className="flex items-center gap-1.5 font-semibold text-xs text-emerald-800 dark:text-emerald-300">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>{locale === 'bn' ? 'ড্রাগ সেফটি স্ট্যাটাস' : 'Drug Safety Clearance'}</span>
-                    </div>
-                    <p className="text-[11px] leading-relaxed opacity-90 pl-5">
-                      {locale === 'bn'
-                        ? 'পেনিসিলিন অ্যালার্জি নেই • কোনো ক্ষতিকর ড্রাগ মিথস্ক্রিয়া নেই • স্বাভাবিক কিডনি মাত্রা।'
-                        : 'No recorded penicillin allergy • Zero drug interactions • Normal renal dosing.'}
-                    </p>
-                  </div>
-
-                  {/* Live Waveform SVG Graphic */}
-                  <div className="pt-2 flex items-center justify-between text-[11px] text-muted-foreground border-t border-border/60">
-                    <div className="flex items-center gap-1.5">
-                      <HeartPulse className="w-4 h-4 text-rose-500 animate-pulse" />
-                      <span className="font-medium">{locale === 'bn' ? 'স্বয়ংক্রিয় ক্লিনিকাল স্ক্রিনিং' : 'Real-Time Clinical Screening'}</span>
-                    </div>
-                    <span className="font-mono text-[10px] text-emerald-600 font-semibold">Active</span>
-                  </div>
-                </div>
-              </div>
+            {/* Right Column: Doctor AI Assistant Vector Illustration */}
+            <div className="lg:col-span-5 relative flex items-center justify-center">
+              <DoctorAiIllustration locale={locale} />
             </div>
           </div>
         </div>

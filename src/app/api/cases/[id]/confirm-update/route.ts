@@ -55,7 +55,7 @@ export async function POST(
 
       targetUpdate.status = action === 'confirm' ? 'confirmed' : 'dismissed';
 
-      let updatedPatientInput = { ...((caseRecord.structuredInput as object) || {}) } as StructuredPatientInput;
+      const updatedPatientInput = { ...((caseRecord.structuredInput as object) || {}) } as StructuredPatientInput;
 
       if (action === 'confirm') {
         const path = targetUpdate.field_path;

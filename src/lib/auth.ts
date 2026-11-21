@@ -50,9 +50,10 @@ export async function getCurrentUser(): Promise<User | null> {
 export async function setAuthCookie(user: { id: string; email: string; role: UserRole; name: string }) {
   const token = await createSessionToken(user);
   const cookieStore = await cookies();
+  const isHttps = process.env.NEXT_PUBLIC_APP_URL?.startsWith('https://') || false;
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isHttps,
     sameSite: 'lax',
     path: '/',
     maxAge: 7 * 24 * 60 * 60,
