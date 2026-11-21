@@ -46,7 +46,7 @@ export default function LibraryPage() {
     fetch('/api/auth/session')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.user?.role === 'admin') {
+        if (data?.user?.role === 'super_admin') {
           setIsAdmin(true);
         }
       })

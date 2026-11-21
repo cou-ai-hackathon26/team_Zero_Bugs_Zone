@@ -1,10 +1,70 @@
-export type UserRole = 'doctor' | 'student' | 'researcher' | 'admin';
+export type UserRole = 'super_admin' | 'doctor' | 'student' | 'researcher' | 'patient' | 'medicine_controller';
+
+export type FeatureKey =
+  | 'patients.manage'
+  | 'ai.analyze'
+  | 'ai.treatment'
+  | 'prescription.create'
+  | 'library.ask'
+  | 'library.browse'
+  | 'library.manage'
+  | 'medicine.search'
+  | 'medicine.interactions'
+  | 'medicine.manage'
+  | 'medicine.notices'
+  | 'study.tools'
+  | 'research.tools'
+  | 'patient.portal'
+  | 'feedback.send'
+  | 'feedback.review'
+  | 'users.manage'
+  | 'access.manage'
+  | 'plans.billing'
+  | 'ai.settings'
+  | 'audit.read'
+  | 'system.manage';
+
+export type UserStatus = 'active' | 'pending_verification' | 'suspended';
 
 export interface User {
   id: string;
   email: string;
   role: UserRole;
   name: string;
+  status?: UserStatus;
+  phone?: string;
+  bmdc_number?: string;
+  org_id?: string;
+  mfa_enabled?: boolean;
+  created_at: string;
+}
+
+export interface FeatureRecord {
+  key: FeatureKey;
+  description: string;
+  category: 'clinical' | 'library' | 'medicine' | 'study' | 'research' | 'patient' | 'feedback' | 'admin';
+  created_at: string;
+}
+
+export interface RoleFeature {
+  id: string;
+  role: UserRole;
+  feature_key: FeatureKey;
+  enabled: boolean;
+  daily_limit?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserFeatureOverride {
+  id: string;
+  user_id: string;
+  feature_key: FeatureKey;
+  enabled: boolean;
+  daily_limit?: number | null;
+  expires_at?: string | null;
+  reason?: string | null;
+  created_by?: string | null;
   created_at: string;
 }
 

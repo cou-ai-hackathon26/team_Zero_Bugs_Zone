@@ -71,7 +71,7 @@ export function GlobalSearchCommand({ role }: { role?: UserRole }) {
 
   const navigation = [
     { path: '/dashboard', label: t('dashboard') },
-    ...(role === 'doctor' || role === 'admin' ? [
+    ...(role === 'doctor' || role === 'super_admin' ? [
       { path: '/cases', label: t('cases') },
       { path: '/cases/new', label: t('newCase') },
     ] : []),

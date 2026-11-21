@@ -37,7 +37,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const user = await getCurrentUser();
-    if (!user || user.role !== 'admin') {
+    if (!user || user.role !== 'super_admin') {
       return NextResponse.json({ error: 'Unauthorized: Admin role required' }, { status: 403 });
     }
 

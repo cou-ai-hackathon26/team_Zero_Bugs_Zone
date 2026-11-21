@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from '@/i18n/routing';
 import { useTranslations, useLocale } from 'next-intl';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,14 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
-import { Stethoscope, ShieldCheck, UserCheck, GraduationCap, Microscope, ShieldAlert, ArrowRight, Loader2 } from 'lucide-react';
+import { Stethoscope, ShieldCheck, UserCheck, GraduationCap, Microscope, ShieldAlert, ArrowRight, Loader2, Pill, HeartHandshake } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function LoginPage() {
   const t = useTranslations('auth');
   const tCommon = useTranslations('common');
   const locale = useLocale();
-  const router = useRouter();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,6 +29,18 @@ export default function LoginPage() {
       icon: Stethoscope,
     },
     {
+      role: 'patient',
+      title: t('patientAccount'),
+      email: 'patient@docmate.ai',
+      icon: HeartHandshake,
+    },
+    {
+      role: 'controller',
+      title: t('controllerAccount'),
+      email: 'controller@docmate.ai',
+      icon: Pill,
+    },
+    {
       role: 'student',
       title: t('studentAccount'),
       email: 'student@docmate.ai',
@@ -43,10 +53,10 @@ export default function LoginPage() {
       icon: Microscope,
     },
     {
-      role: 'admin',
+      role: 'super_admin',
       title: t('adminAccount'),
       email: 'admin@docmate.ai',
-      icon: UserCheck,
+      icon: ShieldAlert,
     },
   ];
 
@@ -66,6 +76,8 @@ export default function LoginPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
+        cache: 'no-store',
+        credentials: 'same-origin',
       });
 
       const data = await res.json();
@@ -79,14 +91,16 @@ export default function LoginPage() {
       const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
       const callback = params?.get('callbackUrl');
 
-      if (callback && callback.startsWith('/')) {
-        router.push(callback);
-      } else {
-        const role = data.user?.role;
-        const defaultPath = role === 'student' ? '/ask' : role === 'researcher' ? '/library' : '/dashboard';
-        router.push(defaultPath);
-      }
-      router.refresh();
+      const role = data.user?.role;
+      const defaultPath = role === 'student' ? '/ask' : role === 'researcher' ? '/library' : '/dashboard';
+      const targetUrl = callback && callback.startsWith('/') ? callback : `/${locale}${defaultPath}`;
+
+      // In Safari on macOS (WebKit), client-side router.push() makes an asynchronous fetch for the RSC payload.
+      // WebKit's network process often does not attach SameSite=Lax cookies to that immediate second fetch,
+      // which causes Next.js middleware to bounce back to /login.
+      // Top-level document navigation via window.location.replace forces Safari to commit the cookie jar and
+      // attach the session cookie on the document request.
+      window.location.replace(targetUrl);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('errorInvalid');
       setError(message);
@@ -182,6 +196,7 @@ export default function LoginPage() {
                 </Label>
                 <Input
                   id="email"
+                  name="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -197,6 +212,7 @@ export default function LoginPage() {
                 </Label>
                 <Input
                   id="password"
+                  name="password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

@@ -9,15 +9,36 @@ import { UserRole } from '@/types';
 
 export async function POST(request: Request) {
   try {
-    const globalLimit = rateLimit('login', 60);
-    if (globalLimit) return globalLimit;
-    const input = z.object({
-      email: z.string().trim().toLowerCase().pipe(z.email().max(255)),
-      password: z.string().min(1).max(256),
-    }).safeParse(await boundedJson(request, 2048));
-    if (!input.success) return NextResponse.json({ error: 'Invalid credentials' }, { status: 400 });
-    const { email, password } = input.data;
     const isSyntheticTest = process.env.DOCMATE_QA_SYNTHETIC === '1' || process.env.DOCMATE_DEMO_MODE !== 'false';
+    const globalLimit = rateLimit('login', isSyntheticTest ? 500 : 60);
+    if (globalLimit) return globalLimit;
+
+    const contentType = request.headers.get('content-type') || '';
+    const isFormSubmit = contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data');
+
+    let email = '';
+    let password = '';
+    let callbackUrl = '';
+
+    if (isFormSubmit) {
+      const formData = await request.formData();
+      email = String(formData.get('email') || '').trim().toLowerCase();
+      password = String(formData.get('password') || '');
+      callbackUrl = String(formData.get('callbackUrl') || '');
+    } else {
+      const rawBody = await boundedJson(request, 2048);
+      const input = z.object({
+        email: z.string().trim().toLowerCase().pipe(z.email().max(255)),
+        password: z.string().min(1).max(256),
+        callbackUrl: z.string().optional(),
+      }).safeParse(rawBody);
+
+      if (!input.success) return NextResponse.json({ error: 'Invalid credentials' }, { status: 400 });
+      email = input.data.email;
+      password = input.data.password;
+      callbackUrl = input.data.callbackUrl || '';
+    }
+
     const accountLimit = rateLimit(`login:${email}`, isSyntheticTest ? 200 : 10);
     if (accountLimit) return accountLimit;
     if (/^(doctor|student|researcher|admin)@docmate\.ai$/.test(email) && process.env.DOCMATE_DEMO_MODE === 'false') {
@@ -51,9 +72,27 @@ export async function POST(request: Request) {
       name: user.name,
     };
 
-    await setAuthCookie(safeUser);
+    const proto = request.headers.get('x-forwarded-proto') || (request.url.startsWith('https') ? 'https' : 'http');
+    const isHttps = proto === 'https' || (process.env.NEXT_PUBLIC_APP_URL?.startsWith('https://') ?? false);
+    await setAuthCookie(safeUser, isHttps);
 
-    return NextResponse.json({ user: safeUser });
+    if (isFormSubmit) {
+      const defaultTarget = safeUser.role === 'student' ? '/ask' : safeUser.role === 'researcher' ? '/library' : '/dashboard';
+      const target = callbackUrl && callbackUrl.startsWith('/') ? callbackUrl : defaultTarget;
+      const redirectUrl = new URL(target, request.url);
+      return NextResponse.redirect(redirectUrl, 303);
+    }
+
+    return NextResponse.json(
+      { user: safeUser },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0',
+        },
+      }
+    );
   } catch {
     return NextResponse.json({ error: 'Login failed' }, { status: 500 });
   }

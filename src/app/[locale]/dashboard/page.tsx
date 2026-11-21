@@ -31,7 +31,7 @@ export default async function DashboardPage() {
   const user = await getCurrentUser();
   if (!user) redirect(`/${await getLocale()}/login`);
 
-  const canOpenCases = user.role === 'doctor' || user.role === 'admin';
+  const canOpenCases = user.role === 'doctor' || user.role === 'super_admin';
   const owner = eq(cases.doctorId, user.id);
   const format = await getFormatter();
   const [allCases, activeCount, redFlagCount, sourceCount, drugCount] = await Promise.all([

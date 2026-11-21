@@ -60,7 +60,9 @@
     "doctorAccount": "Doctor (Clinical Lead)",
     "studentAccount": "Student (Medical Trainee)",
     "researcherAccount": "Researcher",
-    "adminAccount": "Administrator",
+    "patientAccount": "Patient (Personal Portal)",
+    "controllerAccount": "Medicine Controller (DGDA)",
+    "adminAccount": "Super Admin (Security)",
     "errorInvalid": "Invalid email or password",
     "loggedOut": "Logged out successfully"
   },

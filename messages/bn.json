@@ -60,7 +60,9 @@
     "doctorAccount": "চিকিৎসক (Doctor)",
     "studentAccount": "মেডিকেল শিক্ষার্থী (Student)",
     "researcherAccount": "গবেষক (Researcher)",
-    "adminAccount": "প্রশাসক (Admin)",
+    "patientAccount": "রোগী (Patient Portal)",
+    "controllerAccount": "ওষুধ নিয়ন্ত্রক (DGDA Controller)",
+    "adminAccount": "সুপার অ্যাডমিন (Security)",
     "errorInvalid": "ভুল ইমেইল বা পাসওয়ার্ড",
     "loggedOut": "সফলভাবে লগআউট হয়েছে"
   },

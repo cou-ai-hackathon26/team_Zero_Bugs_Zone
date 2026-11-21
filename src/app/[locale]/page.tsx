@@ -36,7 +36,7 @@ export default function LandingPage() {
   const [loggingInRole, setLoggingInRole] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/api/auth/session')
+    fetch('/api/auth/session', { cache: 'no-store', credentials: 'same-origin' })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.user) {
@@ -53,6 +53,8 @@ export default function LandingPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password: 'demo123' }),
+        cache: 'no-store',
+        credentials: 'same-origin',
       });
 
       if (!res.ok) {
@@ -64,8 +66,8 @@ export default function LandingPage() {
           ? `${roleName} হিসেবে সফলভাবে প্রবেশ করা হয়েছে`
           : `Signed in as ${roleName}`
       );
-      router.push(targetPath);
-      router.refresh();
+      const targetUrl = `/${locale}${targetPath.startsWith('/') ? targetPath : `/${targetPath}`}`;
+      window.location.replace(targetUrl);
     } catch {
       toast.error('Could not authenticate demo user');
     } finally {

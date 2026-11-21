@@ -47,7 +47,7 @@ export default async function proxy(request: NextRequest) {
   if (
     (subPath === 'cases' || subPath.startsWith('cases/')) &&
     session?.role !== 'doctor' &&
-    session?.role !== 'admin'
+    session?.role !== 'super_admin'
   ) {
     return NextResponse.redirect(new URL(`/${locale}/library`, request.url));
   }

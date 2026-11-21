@@ -5,7 +5,7 @@ export const COOKIE_NAME = 'docmate_session';
 const sessionSchema = z.object({
   id: z.uuid(),
   email: z.email(),
-  role: z.enum(['doctor', 'student', 'researcher', 'admin']),
+  role: z.enum(['super_admin', 'doctor', 'student', 'researcher', 'patient', 'medicine_controller', 'admin']).transform(r => r === 'admin' ? 'super_admin' : r),
   name: z.string().min(1),
   exp: z.number().int().positive(),
 });
@@ -45,7 +45,8 @@ export async function verifySessionToken(token: string): Promise<Session | null>
     if (!validSignature) return null;
     const result = sessionSchema.safeParse(JSON.parse(Buffer.from(data, 'base64url').toString('utf8')));
     return result.success && result.data.exp > Date.now() ? result.data : null;
-  } catch {
+  } catch (err) {
+    console.error('[verifySessionToken FAILED]', err);
     return null;
   }
 }

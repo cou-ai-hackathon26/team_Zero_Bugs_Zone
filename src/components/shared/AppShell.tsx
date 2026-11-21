@@ -61,7 +61,7 @@ export function AppShell({ children }: AppShellProps) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
-    fetch('/api/auth/session')
+    fetch('/api/auth/session', { cache: 'no-store', credentials: 'same-origin' })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.user) {
@@ -72,9 +72,8 @@ export function AppShell({ children }: AppShellProps) {
   }, []);
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/login');
-    router.refresh();
+    await fetch('/api/auth/logout', { method: 'POST', cache: 'no-store', credentials: 'same-origin' });
+    window.location.replace(`/${locale}/login`);
   };
 
   const navItems = [
@@ -110,7 +109,7 @@ export function AppShell({ children }: AppShellProps) {
     },
   ];
 
-  const isPhysicianOrAdmin = currentUser ? (currentUser.role === 'doctor' || currentUser.role === 'admin') : true;
+  const isPhysicianOrAdmin = currentUser ? (currentUser.role === 'doctor' || currentUser.role === 'super_admin') : true;
   const filteredNavItems = navItems.filter((item) => {
     if (item.href === '/cases' || item.href === '/cases/new') {
       return isPhysicianOrAdmin;

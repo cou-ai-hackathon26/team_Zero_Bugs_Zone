@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 
     const pattern = `%${input.data.query.replace(/[\\%_]/g, '\\$&')}%`;
     const [caseMatches, sourceMatches] = await Promise.all([
-      user.role === 'doctor' || user.role === 'admin'
+      user.role === 'doctor' || user.role === 'super_admin'
         ? db.query.cases.findMany({
           columns: { id: true, patientCode: true },
           where: and(eq(cases.doctorId, user.id), ilike(cases.patientCode, pattern)),
