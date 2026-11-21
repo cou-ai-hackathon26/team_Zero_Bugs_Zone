@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: docmate-db
+    environment:
+      POSTGRES_USER: docmate
+      POSTGRES_PASSWORD: docmate_dev_password
+      POSTGRES_DB: docmate
+    ports:
+      - "5432:5432"
+    volumes:
+      - docmate_pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docmate -d docmate"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  docmate_pgdata:
