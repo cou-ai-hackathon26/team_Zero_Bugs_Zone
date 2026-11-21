@@ -432,6 +432,9 @@ export default function ControllerPage() {
           }
         />
 
+        {/* Controller Onboarding Tour Block */}
+        <OnboardingTourBlock panel="controller" />
+
       {/* Top Stat Cards */}
       <div data-tour="controller-stats" className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="border border-border">

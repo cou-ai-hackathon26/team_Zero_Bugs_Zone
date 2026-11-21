@@ -46,7 +46,7 @@ interface CaseWorkspacePageProps {
   }>;
 }
 
-export default function CaseWorkspacePage({ params }: CaseWorkspacePageProps) {
+function CaseWorkspaceContent({ params }: CaseWorkspacePageProps) {
   const resolvedParams = use(params);
   const caseId = resolvedParams.id;
 
@@ -537,5 +537,13 @@ export default function CaseWorkspacePage({ params }: CaseWorkspacePageProps) {
         />
       </div>
     </AppShell>
+  );
+}
+
+export default function CaseWorkspacePage(props: CaseWorkspacePageProps) {
+  return (
+    <React.Suspense fallback={<div className="p-8 text-center text-sm text-muted-foreground animate-pulse">লোড হচ্ছে...</div>}>
+      <CaseWorkspaceContent {...props} />
+    </React.Suspense>
   );
 }

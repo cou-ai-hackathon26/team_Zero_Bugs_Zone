@@ -313,14 +313,23 @@ export function ProductTour() {
     const target = document.querySelector(steps[currentStep].selector);
     if (target) {
       target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      setTargetRect(target.getBoundingClientRect());
+      const rafId = requestAnimationFrame(() => {
+        const el = document.querySelector(steps[currentStep].selector);
+        if (el) setTargetRect(el.getBoundingClientRect());
+      });
       const timer = setTimeout(() => {
         const el = document.querySelector(steps[currentStep].selector);
         if (el) setTargetRect(el.getBoundingClientRect());
       }, 350);
-      return () => clearTimeout(timer);
+      return () => {
+        cancelAnimationFrame(rafId);
+        clearTimeout(timer);
+      };
     } else {
-      setTargetRect(null);
+      const rafId = requestAnimationFrame(() => {
+        setTargetRect(null);
+      });
+      return () => cancelAnimationFrame(rafId);
     }
   }, [isOpen, currentStep, steps]);
 

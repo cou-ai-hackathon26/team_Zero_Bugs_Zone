@@ -29,7 +29,7 @@ interface SourceWithCount extends Source {
   chunk_count?: number;
 }
 
-export default function LibraryPage() {
+function LibraryContent() {
   const t = useTranslations('library');
   const tCommon = useTranslations('common');
   const format = useFormatter();
@@ -424,5 +424,13 @@ export default function LibraryPage() {
         </Sheet>
       </div>
     </AppShell>
+  );
+}
+
+export default function LibraryPage() {
+  return (
+    <React.Suspense fallback={<div className="p-8 text-center text-sm text-muted-foreground animate-pulse">লোড হচ্ছে...</div>}>
+      <LibraryContent />
+    </React.Suspense>
   );
 }

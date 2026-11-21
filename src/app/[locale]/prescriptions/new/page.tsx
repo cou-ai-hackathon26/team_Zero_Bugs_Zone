@@ -68,7 +68,7 @@ const COMMON_ADVICE_BN = [
   'অবস্থার অবনতি হলে অবিলম্বে নিকটস্থ জরুরি বিভাগে যোগাযোগ করুন।',
 ];
 
-export default function NewPrescriptionPage() {
+function NewPrescriptionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const locale = useLocale();
@@ -773,5 +773,13 @@ export default function NewPrescriptionPage() {
         </div>
       </div>
     </AppShell>
+  );
+}
+
+export default function NewPrescriptionPage() {
+  return (
+    <React.Suspense fallback={<div className="p-8 text-center text-sm text-muted-foreground animate-pulse">লোড হচ্ছে...</div>}>
+      <NewPrescriptionContent />
+    </React.Suspense>
   );
 }
