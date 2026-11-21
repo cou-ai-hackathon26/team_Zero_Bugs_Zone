@@ -24,6 +24,16 @@ Access is evaluated dynamically via the server-side function `canUse(user, featu
 | Feature Key | `super_admin` | `doctor` | `student` | `researcher` | `patient` | `medicine_controller` | Description |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
 | **`patients.manage`** | **BG** | **Y** | - | - | - | - | Create/edit patient profiles, clinical visits, encounters |
+| **`patient.search`** | **Y** | **Y** | - | - | - | - | Search patient accounts and profiles by phone number with audit logging |
+| **`patient.create`** | **Y** | **Y** | - | - | **Y** | - | Create new patient profile or family dependent with duplicate warning |
+| **`history.request`** | **Y** | **Y** | - | - | - | - | Request in-clinic patient consent via OTP for cross-doctor clinical history |
+| **`history.view`** | **BG** | **grant** | - | - | **own** | - | View full cross-doctor chronological timeline of patient encounters and prescriptions |
+| **`portal.profiles`** | - | - | - | - | **own** | - | Switch between personal and dependent family member profiles |
+| **`portal.prescriptions`** | - | - | - | - | **own** | - | View and download active and historical prescriptions |
+| **`portal.reports`** | - | - | - | - | **own** | - | Upload diagnostic lab reports and toggle sharing with consulting doctors |
+| **`portal.medicine_schedule`**| - | - | - | - | **own** | - | Track daily morning, noon, and night medication doses and log intake status |
+| **`portal.permissions`** | - | - | - | - | **own** | - | Inspect active doctor access grants and revoke consent at any time |
+| **`portal.access_log`** | - | - | - | - | **own** | - | Review tamper-evident audit logs of which doctors and staff accessed clinical records |
 | **`ai.analyze`** | - | **Y** | - | - | - | - | Differential diagnosis analysis & follow-up questions |
 | **`ai.treatment`** | - | **Y** | - | - | - | - | Guideline-recommended treatments & dosing rules |
 | **`prescription.create`** | - | **Y** | - | - | - | - | Generate, sign, print, and share prescriptions |
@@ -61,16 +71,29 @@ Access is evaluated dynamically via the server-side function `canUse(user, featu
 
 These data-scope rules are **hardcoded invariants** enforced on the server. No toggle or database override can bypass them:
 
-1. **Physician Isolation**: A doctor can only read and mutate patients, encounters, and prescriptions that the doctor created.
-2. **Patient Isolation**: A patient can only view their own personal profile and prescriptions explicitly shared by a linked doctor.
-3. **PHI Wall**: `student`, `researcher`, and `medicine_controller` accounts are physically blocked from accessing any patient record or encounter table (`HTTP 403 Forbidden`).
+1. **Patient-Centred Ownership & Doctor Scope**:
+   - Patient accounts (`patient_accounts`) belong to phone numbers. Each account holds multiple profiles (`patient_profiles` with relations: `self`, `child`, `spouse`, `parent`, `other`).
+   - A doctor sees:
+     - (a) **Every clinical record that doctor authored** (cases, prescriptions, notes).
+     - (b) **Other doctors' records of a profile only while an active access grant (`full_history`) from the patient exists.**
+   - If no grant exists or the grant has expired, other doctors' records are masked, and a warning prompts the clinician to request in-clinic patient consent via OTP.
+2. **Patient Isolation & Sovereign Control**:
+   - A patient logs in via mobile phone + SMS OTP.
+   - Patients can switch between their personal and dependent profiles.
+   - Patients view their unified medication intake schedule and mark doses as taken.
+   - Patients view active doctor access grants and can revoke consent at any time.
+   - Patients have access to a live, tamper-evident audit log showing exactly who accessed their records, when, and for what reason.
+3. **PHI Wall**:
+   - `student`, `researcher`, and `medicine_controller` accounts are physically blocked from accessing any patient record or clinical table (`HTTP 403 Forbidden`).
 4. **Super Admin Clinical Exclusion & Break-Glass**:
    - `super_admin` has zero default access to clinical records, patient encounters, or diagnostic notes.
-   - In rare system emergencies or legal audits, a super admin may invoke **Break-Glass**:
+   - Super admins have access to metadata governance only (phone accounts, profile counts, duplicate candidate review queue, and non-destructive merges).
+   - In rare system emergencies or court audits, a super admin may invoke **Break-Glass**:
      - Requires a formal written justification (`reason`).
      - Session is time-bounded (maximum 60 minutes).
      - Every read and action during break-glass is flagged in the audit log with `event: "break_glass.invoked"`.
-5. **Account Organization Scoping**: All clinical tables feature an optional `org_id` column ready for multi-hospital deployments. Currently, accounts default to independent personal clinical scopes.
+5. **Non-Destructive Governance**:
+   - Clinical records are append-only. Merging duplicate patient profiles reassigns references and unions health summaries into a new version while marking the duplicate as merged (`relation = 'merged'`). No clinical history is ever deleted.
 
 ---
 

@@ -36,16 +36,25 @@ pnpm start -p 3000
 
 Open `http://localhost:3000`. In a fresh session the default locale is Bangla. For hot reload, run `pnpm run dev --webpack` in place of the production build and start commands.
 
+> **Production Deployment**: For production Docker containerization, VPS (PM2 + Nginx), cloud setup (Vercel + Supabase), and clinical safety configuration, consult the **[Production Deployment Guide (DEPLOYMENT.md)](DEPLOYMENT.md)**.
+
 ## 3. Seeded Demo Accounts
 
 You can sign in with any of the pre-seeded clinical personas:
 
 | Role | Email | Password | Permissions |
 | :--- | :--- | :--- | :--- |
-| **Doctor (Physician)** | `doctor@docmate.ai` | `demo123` | Owned synthetic case workspace and follow-up entry |
-| **Student** | `student@docmate.ai` | `demo123` | Library research and Ask the Library |
-| **Researcher** | `researcher@docmate.ai` | `demo123` | Library search and source excerpts |
-| **Admin** | `admin@docmate.ai` | `demo123` | Library source metadata entry and settings |
+| **Doctor (Physician)** | `doctor@docmate.ai` | `demo123` | Patient intake, clinical history, case workspace, prescribing |
+| **Student** | `student@docmate.ai` | `demo123` | Study practice, virtual patient cases, cited library Q&A |
+| **Researcher** | `researcher@docmate.ai` | `demo123` | Guideline search, cross-evidence comparison, citation exports |
+| **Medicine Controller** | `controller@docmate.ai`| `demo123` | DGDA medicine formulary, brand pricing, interaction checks |
+| **Admin** | `admin@docmate.ai` | `demo123` | Access matrix, patient governance, duplicate merges, audit ledger |
+| **Patient (Phone + OTP)**| Phone: `01700000001` | OTP: `123456` | Multi-profile portal, daily medicine routine, access control |
+
+For detailed workflow documentation:
+- **[Patient-Centred Architecture & Workflows (PATIENT_FLOW.md)](docs/PATIENT_FLOW.md)**
+- **[Access Control & Dynamic Feature Matrix (ACCESS.md)](docs/ACCESS.md)**
+- **[Upgrade Analysis & Data Migration (ANALYSIS_PATIENT_UPGRADE.md)](ANALYSIS_PATIENT_UPGRADE.md)**
 
 ---
 
