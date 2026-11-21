@@ -30,7 +30,7 @@ export function OnboardingTourBlock({ panel, className = '' }: OnboardingTourBlo
   const getPanelKey = useCallback((): string => {
     if (panel) return panel;
     const clean = pathname.replace(/^\/(?:bn|en)(?:\/|$)/, '').replace(/^\//, '');
-    const firstSegment = clean.split('/')[0] || 'dashboard';
+    const firstSegment = clean.split('/')[0] || 'landing';
     return firstSegment;
   }, [pathname, panel]);
 
@@ -107,11 +107,27 @@ export function OnboardingTourBlock({ panel, className = '' }: OnboardingTourBlo
 
     setActiveHighlightIndex(index);
 
+    // If step targets the sidebar and it is currently collapsed, auto-expand it
+    if (step.selector.includes('nav-sidebar')) {
+      const trigger = document.querySelector('[data-slot="sidebar-trigger"]') as HTMLButtonElement | null;
+      if (trigger && trigger.getAttribute('aria-expanded') === 'false') {
+        trigger.click();
+      }
+    }
+
     const targetEl = document.querySelector(step.selector);
     if (targetEl) {
       targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const rect = targetEl.getBoundingClientRect();
-      setHighlightRect(rect);
+      const recalculate = () => {
+        const el = document.querySelector(step.selector);
+        if (el) {
+          setHighlightRect(el.getBoundingClientRect());
+        }
+      };
+      recalculate();
+      setTimeout(recalculate, 100);
+      setTimeout(recalculate, 250);
+      setTimeout(recalculate, 450);
     } else {
       setHighlightRect(null);
     }

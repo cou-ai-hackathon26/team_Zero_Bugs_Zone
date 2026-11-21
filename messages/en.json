@@ -482,7 +482,17 @@
     "controllerReviewTitle": "Review Queue",
     "controllerReviewDesc": "Verify new medicine submissions.",
     "controllerNoticesTitle": "Safety Notices",
-    "controllerNoticesDesc": "Broadcast recalls and safety alerts."
+    "controllerNoticesDesc": "Broadcast recalls and safety alerts.",
+    "landingHeroTitle": "Clinical AI Assistant",
+    "landingHeroDesc": "Evidence-grounded decision support strictly citing verified textbooks.",
+    "landingHowItWorksTitle": "How It Works",
+    "landingHowItWorksDesc": "Closed-library retrieval with verified citations and dosage safety.",
+    "landingSafetyTitle": "Safety & Recalls",
+    "landingSafetyDesc": "Real-time DGDA recall alerts, drug interactions, and contraindications.",
+    "landingRolesTitle": "Role-based Portals",
+    "landingRolesDesc": "Tailored workspaces for doctors, patients, students, and controllers.",
+    "landingSignInTitle": "Instant Demo Access",
+    "landingSignInDesc": "Sign in with 1-click demo accounts or patient phone OTP."
   },
   "patientFlow": {
     "findPatient": "Find patient",

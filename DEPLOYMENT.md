@@ -13,11 +13,12 @@
 3. [Environment Configuration & Secrets](#3-environment-configuration--secrets)
 4. [Deployment Option A: Docker & Docker Compose (Recommended)](#4-deployment-option-a-docker--docker-compose-recommended)
 5. [Deployment Option B: Bare-Metal / VPS (Ubuntu/Debian with PM2 & Nginx)](#5-deployment-option-b-bare-metal--vps-ubuntudebian-with-pm2--nginx)
-6. [Deployment Option C: Managed Cloud (Vercel + Supabase/Neon PostgreSQL)](#6-deployment-option-c-managed-cloud-vercel--supabaseneon-postgresql)
-7. [Database Setup, Migrations & Clinical Library Ingestion](#7-database-setup-migrations--clinical-library-ingestion)
-8. [Production Clinical Safety & Security Guardrails](#8-production-clinical-safety--security-guardrails)
-9. [Backups, Monitoring & Health Checks](#9-backups-monitoring--health-checks)
-10. [Troubleshooting & FAQ](#10-troubleshooting--faq)
+6. [Deployment Option C: Render (1-Click Blueprint or Docker Web Service)](#6-deployment-option-c-render-1-click-blueprint-or-docker-web-service)
+7. [Deployment Option D: Vercel + Supabase / Neon PostgreSQL](#7-deployment-option-d-vercel--supabase--neon-postgresql)
+8. [Database Setup, Migrations & Clinical Library Ingestion](#8-database-setup-migrations--clinical-library-ingestion)
+9. [Production Clinical Safety & Security Guardrails](#9-production-clinical-safety--security-guardrails)
+10. [Backups, Monitoring & Health Checks](#10-backups-monitoring--health-checks)
+11. [Troubleshooting & FAQ](#11-troubleshooting--faq)
 
 ---
 
@@ -224,40 +225,91 @@ sudo certbot --nginx -d docmate.yourhospital.org
 
 ---
 
-## 6. Deployment Option C: Managed Cloud (Vercel + Supabase/Neon PostgreSQL)
+## 6. Deployment Option C: Render (1-Click Blueprint or Docker Web Service)
 
-### Step 1: Provision Managed Database (Supabase or Neon)
-1. Create a PostgreSQL project on [Supabase](https://supabase.com) or [Neon](https://neon.tech).
-2. In the SQL Editor, execute:
+Render is one of the easiest ways to deploy DocMate AI because it provides both a **Managed PostgreSQL database (with pgvector)** and a **Dockerized Web Service** in the same region with free internal private networking.
+
+### Method 1: 1-Click Blueprint Deployment (`render.yaml`)
+This repository contains a pre-configured `render.yaml` Blueprint specification.
+1. Log in to [Render Dashboard](https://dashboard.render.com).
+2. Click **New +** > **Blueprint**.
+3. Connect your GitHub repository: `https://github.com/irfan0072/DocMate-AI-powered-doctor-assistant-`.
+4. Render will detect `render.yaml` and automatically configure:
+   - **PostgreSQL 16 Service** (`docmate-db`)
+   - **Docker Web Service** (`docmate-ai`) using the production `Dockerfile`
+   - Auto-generated cryptographic keys for `AUTH_SECRET` and `PATIENT_ENCRYPTION_KEY`
+5. Click **Apply**.
+6. Once provisioned, connect to your PostgreSQL database in the Render dashboard and enable the vector extension:
    ```sql
    CREATE EXTENSION IF NOT EXISTS vector;
    ```
-3. Copy the pooled connection string (e.g. `postgresql://postgres.[ref]:[pass]@aws-0-[region].pooler.supabase.com:6543/postgres`).
+7. Open the **Shell** tab of your `docmate-ai` Web Service in Render and run the database initialization commands:
+   ```bash
+   pnpm exec drizzle-kit push
+   pnpm run ingest
+   pnpm run seed
+   ```
 
-### Step 2: Push Schemas & Ingest Guidelines
-Run from your local development environment pointing to the remote database:
-```bash
-DATABASE_URL="your-remote-connection-string" pnpm exec drizzle-kit push
-DATABASE_URL="your-remote-connection-string" pnpm run ingest
-DATABASE_URL="your-remote-connection-string" pnpm run seed
-```
-
-### Step 3: Connect to Vercel
-1. Import the GitHub repository on [Vercel](https://vercel.com).
-2. Configure Environment Variables in Project Settings:
-   - `DATABASE_URL`
-   - `AUTH_SECRET`
-   - `PATIENT_ENCRYPTION_KEY`
-   - `NODE_ENV=production`
-   - `DOCMATE_DEMO_MODE=false`
-   - `DEMO_MODE=false`
-   - `NEXT_PUBLIC_DEMO_MODE=false`
-   - `NEXT_PUBLIC_APP_URL=https://your-domain.vercel.app`
-3. Click **Deploy**.
+### Method 2: Manual Web Service on Render
+If not using Blueprints:
+1. **Create PostgreSQL**: Click **New +** > **PostgreSQL**. Set Database Name to `docmate`, User to `docmate_admin`, and Region (e.g., `Singapore` or `Frankfurt`). Copy the **Internal Database URL**.
+2. **Enable Vector Extension**: Open the database **Connect** menu, open the interactive psql shell, and run:
+   ```sql
+   CREATE EXTENSION IF NOT EXISTS vector;
+   ```
+3. **Create Web Service**: Click **New +** > **Web Service**. Select your GitHub repository.
+   - **Runtime**: Docker (it automatically detects the root `Dockerfile`).
+   - **Health Check Path**: `/bn/login`
+   - **Environment Variables**:
+     - `NODE_ENV`: `production`
+     - `DATABASE_URL`: *(paste the Internal Database URL from Step 1)*
+     - `AUTH_SECRET`: *(32-character random string)*
+     - `PATIENT_ENCRYPTION_KEY`: *(32-character random string)*
+     - `DOCMATE_DEMO_MODE`: `true` (or `false` for live clinic)
+     - `DEMO_MODE`: `true` (or `false` for live clinic)
+     - `NEXT_PUBLIC_DEMO_MODE`: `true`
+4. Click **Deploy Web Service**.
 
 ---
 
-## 7. Database Setup, Migrations & Clinical Library Ingestion
+## 7. Deployment Option D: Vercel + Supabase / Neon PostgreSQL
+
+Vercel is the native serverless platform for Next.js applications. Because Vercel is a stateless serverless compute platform, you pair it with a cloud PostgreSQL database that supports `pgvector` (such as **Supabase** or **Neon**).
+
+### Step 1: Provision Cloud PostgreSQL with pgvector
+1. Sign up on [Supabase](https://supabase.com) (or [Neon](https://neon.tech)).
+2. Create a new PostgreSQL project in your preferred region.
+3. Open the **SQL Editor** in Supabase/Neon and execute:
+   ```sql
+   CREATE EXTENSION IF NOT EXISTS vector;
+   ```
+4. Copy the **Pooled Connection String** (Transaction pooler URL or direct URL).
+
+### Step 2: Push Schemas & Ingest Guidelines (From your machine)
+Run these commands from your local workspace pointing to your Supabase/Neon connection string:
+```bash
+DATABASE_URL="your-supabase-or-neon-connection-string" pnpm exec drizzle-kit push
+DATABASE_URL="your-supabase-or-neon-connection-string" pnpm run ingest
+DATABASE_URL="your-supabase-or-neon-connection-string" pnpm run seed
+```
+
+### Step 3: Deploy to Vercel
+1. Go to [Vercel](https://vercel.com) and click **Add New** > **Project**.
+2. Import your GitHub repository: `https://github.com/irfan0072/DocMate-AI-powered-doctor-assistant-`.
+3. In **Environment Variables**, add:
+   - `DATABASE_URL`: Your Supabase/Neon PostgreSQL connection string.
+   - `AUTH_SECRET`: Generate using `openssl rand -base64 32`.
+   - `PATIENT_ENCRYPTION_KEY`: Generate using `openssl rand -base64 32`.
+   - `NODE_ENV`: `production`
+   - `DOCMATE_DEMO_MODE`: `true` (or `false` for live hospital)
+   - `DEMO_MODE`: `true` (or `false` for live hospital)
+   - `NEXT_PUBLIC_DEMO_MODE`: `true`
+   - `NEXT_PUBLIC_APP_URL`: `https://your-project.vercel.app`
+4. Click **Deploy**. Vercel will build and deploy the Next.js application worldwide.
+
+---
+
+## 8. Database Setup, Migrations & Clinical Library Ingestion
 
 DocMate AI maintains internal schema and clinical guidelines through automated scripts:
 
@@ -284,7 +336,7 @@ Seeds standard Bangladesh DGDA drug formulations, therapeutic classes, interacti
 
 ---
 
-## 8. Production Clinical Safety & Security Guardrails
+## 9. Production Clinical Safety & Security Guardrails
 
 DocMate AI is governed by strict clinical safety and privacy rules specified in `AGENTS.md`:
 
@@ -299,7 +351,7 @@ DocMate AI is governed by strict clinical safety and privacy rules specified in 
 
 ---
 
-## 9. Backups, Monitoring & Health Checks
+## 10. Backups, Monitoring & Health Checks
 
 ### Container & Service Health Checks
 The app provides a built-in healthcheck probe:
@@ -330,7 +382,7 @@ Add to crontab:
 
 ---
 
-## 10. Troubleshooting & FAQ
+## 11. Troubleshooting & FAQ
 
 #### Q: `ERROR: type "vector" does not exist`
 **Cause**: The PostgreSQL `pgvector` extension has not been enabled in the active database.  

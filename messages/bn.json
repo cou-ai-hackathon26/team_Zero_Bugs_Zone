@@ -482,7 +482,17 @@
     "controllerReviewTitle": "রিভিউ কিউ",
     "controllerReviewDesc": "নতুন ওষুধ অনুমোদনের জন্য যাচাই করুন।",
     "controllerNoticesTitle": "নিরাপত্তা ও রিকল",
-    "controllerNoticesDesc": "ড্রাগ রিকল ও সতর্কবার্তা দেখুন।"
+    "controllerNoticesDesc": "ড্রাগ রিকল ও সতর্কবার্তা দেখুন।",
+    "landingHeroTitle": "ক্লিনিকাল এআই সহকারী",
+    "landingHeroDesc": "অনুমোদিত মেডিকেল বইয়ের রেফারেন্স ভিত্তিক ক্লিনিকাল সিদ্ধান্ত সহায়তা।",
+    "landingHowItWorksTitle": "কীভাবে কাজ করে",
+    "landingHowItWorksDesc": "ক্লোজড-লাইব্রেরি অনুসন্ধান ও প্রেসক্রিপশন সেফটি চেক।",
+    "landingSafetyTitle": "নিরাপত্তা ও রিকল",
+    "landingSafetyDesc": "সরাসরি ডিজিডিএ ড্রাগ রিকল ও ওষুধের ক্ষতিকর প্রতিক্রিয়া চেক।",
+    "landingRolesTitle": "ভূমিকা ভিত্তিক পোর্টাল",
+    "landingRolesDesc": "ডাক্তার, রোগী, শিক্ষার্থী ও কর্মকর্তাদের জন্য আলাদা প্যানেল।",
+    "landingSignInTitle": "ডেমো লগইন সুবিধা",
+    "landingSignInDesc": "১ ক্লিকে ডেমো অ্যাকাউন্ট বা ফোন ওটিপি দিয়ে তাৎক্ষণিক প্রবেশ করুন।"
   },
   "patientFlow": {
     "findPatient": "রোগী খুঁজুন",

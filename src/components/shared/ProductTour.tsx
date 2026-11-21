@@ -31,6 +31,35 @@ export function startProductTour(panelKey?: string) {
 // Define steps per panel as a pure exported function
 export function getStepsForPanel(panel: string): TourStep[] {
   switch (panel) {
+    case 'landing':
+    case '':
+      return [
+        {
+          selector: '[data-tour="landing-hero"]',
+          titleKey: 'landingHeroTitle',
+          descKey: 'landingHeroDesc',
+        },
+        {
+          selector: '[data-tour="landing-how-it-works"]',
+          titleKey: 'landingHowItWorksTitle',
+          descKey: 'landingHowItWorksDesc',
+        },
+        {
+          selector: '[data-tour="landing-safety"]',
+          titleKey: 'landingSafetyTitle',
+          descKey: 'landingSafetyDesc',
+        },
+        {
+          selector: '[data-tour="landing-roles"]',
+          titleKey: 'landingRolesTitle',
+          descKey: 'landingRolesDesc',
+        },
+        {
+          selector: '[data-tour="landing-signin"]',
+          titleKey: 'landingSignInTitle',
+          descKey: 'landingSignInDesc',
+        },
+      ];
     case 'dashboard':
       return [
         {
@@ -289,21 +318,44 @@ export function ProductTour() {
   const getPanelKey = useCallback((): string => {
     if (forcedPanel) return forcedPanel;
     const clean = pathname.replace(/^\/(?:bn|en)(?:\/|$)/, '').replace(/^\//, '');
-    const firstSegment = clean.split('/')[0] || 'dashboard';
+    const firstSegment = clean.split('/')[0] || 'landing';
     return firstSegment;
   }, [pathname, forcedPanel]);
 
   const panelKey = getPanelKey();
   const steps = getStepsForPanel(panelKey);
 
-  // Position calculation and scroll into view
+  // Position calculation and scroll into view with staged sync
   const updateTargetPosition = useCallback(() => {
     if (!isOpen || !steps[currentStep]) return;
-    const target = document.querySelector(steps[currentStep].selector);
+    const step = steps[currentStep];
+
+    // If step targets the sidebar and it is currently collapsed, auto-expand it
+    if (step.selector.includes('nav-sidebar')) {
+      const trigger = document.querySelector('[data-slot="sidebar-trigger"]') as HTMLButtonElement | null;
+      if (trigger && trigger.getAttribute('aria-expanded') === 'false') {
+        trigger.click();
+      }
+    }
+
+    const target = document.querySelector(step.selector);
     if (target) {
       target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const rect = target.getBoundingClientRect();
-      setTargetRect(rect);
+      const recalculate = () => {
+        const el = document.querySelector(step.selector);
+        if (el) {
+          setTargetRect(el.getBoundingClientRect());
+        }
+      };
+      recalculate();
+      const t1 = setTimeout(recalculate, 100);
+      const t2 = setTimeout(recalculate, 250);
+      const t3 = setTimeout(recalculate, 450);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+      };
     } else {
       setTargetRect(null);
     }
@@ -313,15 +365,24 @@ export function ProductTour() {
     const timer = setTimeout(() => {
       updateTargetPosition();
     }, 0);
-    const handleResize = () => updateTargetPosition();
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('scroll', handleResize, true);
+
+    // On scroll/resize, ONLY recalculate bounding rect without re-invoking scrollIntoView
+    const handleReposition = () => {
+      if (!isOpen || !steps[currentStep]) return;
+      const target = document.querySelector(steps[currentStep].selector);
+      if (target) {
+        setTargetRect(target.getBoundingClientRect());
+      }
+    };
+
+    window.addEventListener('resize', handleReposition);
+    window.addEventListener('scroll', handleReposition, true);
     return () => {
       clearTimeout(timer);
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('scroll', handleResize, true);
+      window.removeEventListener('resize', handleReposition);
+      window.removeEventListener('scroll', handleReposition, true);
     };
-  }, [updateTargetPosition]);
+  }, [isOpen, steps, currentStep, updateTargetPosition]);
 
   // Listen for custom trigger event
   useEffect(() => {
