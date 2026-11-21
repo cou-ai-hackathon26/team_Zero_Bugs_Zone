@@ -42,6 +42,10 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  if ((subPath === 'cases' || subPath.startsWith('cases/')) && session?.role !== 'doctor') {
+    return NextResponse.redirect(new URL(`/${locale}/library`, request.url));
+  }
+
   // 3. Authenticated user visiting /login redirects to dashboard
   if (subPath === 'login' && session) {
     return NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url));

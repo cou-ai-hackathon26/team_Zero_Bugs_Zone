@@ -1,16 +1,17 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { cases, auditLogs } from '@/db/schema';
-import { eq } from 'drizzle-orm';
-import { getCurrentUser } from '@/lib/auth';
+import { ownedCase, requirePhysician, validCaseId } from '@/lib/case-access';
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requirePhysician();
+    if (user instanceof NextResponse) return user;
     const { id } = await params;
-    const user = await getCurrentUser();
+    if (!validCaseId(id)) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
 
     if (!user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
@@ -44,7 +45,7 @@ export async function POST(
     }
 
     const caseRecord = await db.query.cases.findFirst({
-      where: eq(cases.id, id),
+      where: ownedCase(id, user.id),
     });
 
     if (!caseRecord) {
@@ -71,12 +72,12 @@ export async function POST(
         },
         updatedAt: new Date(),
       })
-      .where(eq(cases.id, id));
+      .where(ownedCase(id, user.id));
 
     // Audit log
     await db.insert(auditLogs).values({
       caseId: id,
-      userId: user?.id || null,
+      userId: user.id,
       event: 'prescription_finalized',
       payload: {
         drugs_count: approved_drugs?.length || 0,

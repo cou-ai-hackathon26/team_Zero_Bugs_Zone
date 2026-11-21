@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { cases, drugs, drugInteractions, chunks, auditLogs } from '@/db/schema';
-import { eq } from 'drizzle-orm';
 import { evaluateDrugSafety } from '@/lib/safety-engine';
 import { hybridRetrieve } from '@/lib/retrieval';
 import { verifyClaims } from '@/lib/verifier';
-import { getCurrentUser } from '@/lib/auth';
+import { ownedCase, requirePhysician, validCaseId } from '@/lib/case-access';
 import {
   Chunk,
   DrugInteractionRecord,
@@ -21,12 +20,14 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requirePhysician();
+    if (user instanceof NextResponse) return user;
     const { id } = await params;
-    const user = await getCurrentUser();
+    if (!validCaseId(id)) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
     const body = await request.json().catch(() => ({}));
 
     const caseRecord = await db.query.cases.findFirst({
-      where: eq(cases.id, id),
+      where: ownedCase(id, user.id),
     });
 
     if (!caseRecord) {
@@ -49,7 +50,7 @@ export async function POST(
         status: 'confirmed',
         updatedAt: new Date(),
       })
-      .where(eq(cases.id, id));
+      .where(ownedCase(id, user.id));
 
     const patientInput = caseRecord.structuredInput as unknown as StructuredPatientInput;
 
@@ -201,7 +202,7 @@ export async function POST(
     // Audit log
     await db.insert(auditLogs).values({
       caseId: id,
-      userId: user?.id || null,
+      userId: user.id,
       event: 'treatment_generated',
       payload: {
         diagnosis,

@@ -1,3 +1,4 @@
+import { ownedCase, requirePhysician, validCaseId } from '@/lib/case-access';
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { cases, analyses, caseTurns } from '@/db/schema';
@@ -8,10 +9,13 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requirePhysician();
+    if (user instanceof NextResponse) return user;
     const { id } = await params;
+    if (!validCaseId(id)) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
 
     const caseRecord = await db.query.cases.findFirst({
-      where: eq(cases.id, id),
+      where: ownedCase(id, user.id),
     });
 
     if (!caseRecord) {
@@ -64,7 +68,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requirePhysician();
+    if (user instanceof NextResponse) return user;
     const { id } = await params;
+    if (!validCaseId(id)) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
     const body = await request.json();
 
     const { status, confirmedDiagnosis } = body;
@@ -76,9 +83,10 @@ export async function PATCH(
         ...(confirmedDiagnosis && { confirmedDiagnosis }),
         updatedAt: new Date(),
       })
-      .where(eq(cases.id, id))
+      .where(ownedCase(id, user.id))
       .returning();
 
+    if (!updated[0]) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
     return NextResponse.json({ case: updated[0] });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to update case';

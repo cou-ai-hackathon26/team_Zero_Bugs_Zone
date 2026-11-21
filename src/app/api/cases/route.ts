@@ -1,16 +1,19 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { cases, auditLogs } from '@/db/schema';
-import { desc, eq, ilike, or } from 'drizzle-orm';
-import { getCurrentUser } from '@/lib/auth';
+import { desc, eq } from 'drizzle-orm';
+import { requirePhysician } from '@/lib/case-access';
 
 export async function GET(request: Request) {
   try {
+    const user = await requirePhysician();
+    if (user instanceof NextResponse) return user;
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const search = searchParams.get('search');
 
     const all = await db.query.cases.findMany({
+      where: eq(cases.doctorId, user.id),
       orderBy: [desc(cases.updatedAt)],
     });
 
@@ -48,17 +51,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
-    if (user.role !== 'doctor' && user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized: Only physicians and administrators are authorized to initiate clinical intake.' },
-        { status: 403 }
-      );
-    }
+    const user = await requirePhysician();
+    if (user instanceof NextResponse) return user;
 
     const body = await request.json();
 
@@ -74,7 +68,7 @@ export async function POST(request: Request) {
     const inserted = await db
       .insert(cases)
       .values({
-        doctorId: user?.id || null,
+        doctorId: user.id,
         patientCode: patient_code,
         status: 'draft',
         structuredInput: structured_input,
@@ -86,7 +80,7 @@ export async function POST(request: Request) {
     // Log audit event
     await db.insert(auditLogs).values({
       caseId: newCase.id,
-      userId: user?.id || null,
+      userId: user.id,
       event: 'case_created',
       payload: {
         patient_code: newCase.patientCode,

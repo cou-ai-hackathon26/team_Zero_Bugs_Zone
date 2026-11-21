@@ -4,7 +4,7 @@ import { cases, analyses, auditLogs, chunks } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { hybridRetrieve } from '@/lib/retrieval';
 import { verifyClaims, verifyQuoteInChunk } from '@/lib/verifier';
-import { getCurrentUser } from '@/lib/auth';
+import { ownedCase, requirePhysician, validCaseId } from '@/lib/case-access';
 import OpenAI from 'openai';
 import { z } from 'zod';
 import {
@@ -123,12 +123,14 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requirePhysician();
+    if (user instanceof NextResponse) return user;
     const { id } = await params;
-    const user = await getCurrentUser();
+    if (!validCaseId(id)) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
     const { locale = 'bn' } = await request.json().catch(() => ({ locale: 'bn' }));
 
     const caseRecord = await db.query.cases.findFirst({
-      where: eq(cases.id, id),
+      where: ownedCase(id, user.id),
     });
 
     if (!caseRecord) {
@@ -568,12 +570,12 @@ Generate structured differential diagnoses, missing information, and red flags.`
         status: finalStatus,
         updatedAt: new Date(),
       })
-      .where(eq(cases.id, id));
+      .where(ownedCase(id, user.id));
 
     // Audit log
     await db.insert(auditLogs).values({
       caseId: id,
-      userId: user?.id || null,
+      userId: user.id,
       event: 'case_analyzed',
       payload: {
         round: currentRound,
