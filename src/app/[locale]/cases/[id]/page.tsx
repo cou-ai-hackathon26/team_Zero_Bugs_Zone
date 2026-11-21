@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { LoadingState } from '@/components/shared/LoadingState';
 import { ErrorState } from '@/components/shared/ErrorState';
 import { PatientSummaryPanel } from './components/PatientSummaryPanel';
+import { CaseConversationTab } from './components/CaseConversationTab';
 import { DifferentialsTab } from './components/DifferentialsTab';
 import { MissingInfoTab } from './components/MissingInfoTab';
 import { TreatmentTab } from './components/TreatmentTab';
@@ -17,6 +18,7 @@ import { SafetyTab } from './components/SafetyTab';
 import { ReportTab } from './components/ReportTab';
 import { ConfirmDiagnosisDialog } from './components/ConfirmDiagnosisDialog';
 import { FinalizePrescriptionDialog } from './components/FinalizePrescriptionDialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   PatientCase,
   CaseTurn,
@@ -30,6 +32,8 @@ import {
   ShieldCheck,
   FileText,
   ArrowLeft,
+  MessagesSquare,
+  User,
 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
@@ -52,9 +56,10 @@ export default function CaseWorkspacePage({ params }: CaseWorkspacePageProps) {
   const searchParams = useSearchParams();
   const t = useTranslations('workspace');
 
-  // Active tab state (synced with ?tab=)
-  const currentTab = searchParams.get('tab') || 'differentials';
+  // Active tab state (synced with ?tab=, defaults to conversation)
+  const currentTab = searchParams.get('tab') || 'conversation';
   const [activeTab, setActiveTab] = useState<string>(currentTab);
+  const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
 
   // Case & Clinical State
   const [caseData, setCaseData] = useState<PatientCase | null>(null);
@@ -345,10 +350,25 @@ export default function CaseWorkspacePage({ params }: CaseWorkspacePageProps) {
           }
         />
 
+        {/* Mobile Patient Summary Sheet */}
+        <Sheet open={mobileSummaryOpen} onOpenChange={setMobileSummaryOpen}>
+          <SheetContent side="left" className="w-full sm:max-w-md p-0 flex flex-col">
+            <SheetHeader className="p-4 border-b border-border/60">
+              <SheetTitle className="text-base font-bold flex items-center gap-2">
+                <User className="w-4 h-4 text-primary" />
+                <span>{t('patientSummary')}</span>
+              </SheetTitle>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto p-4">
+              <PatientSummaryPanel caseData={caseData} turns={turns} />
+            </div>
+          </SheetContent>
+        </Sheet>
+
         {/* Workspace Body: Responsive Two-Panel Layout (Side-by-side on lg+, Stacked on mobile) */}
         <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 items-start">
-          {/* Left Panel: Patient Summary & Turn History (4 cols on lg+) */}
-          <div className="w-full lg:col-span-4 lg:sticky lg:top-4 max-h-[calc(100vh-8rem)]">
+          {/* Left Panel: Patient Summary & Turn History (4 cols on lg+, hidden on mobile) */}
+          <div className="hidden lg:block lg:col-span-4 lg:sticky lg:top-4 max-h-[calc(100vh-8rem)]">
             <PatientSummaryPanel caseData={caseData} turns={turns} />
           </div>
 
@@ -357,6 +377,16 @@ export default function CaseWorkspacePage({ params }: CaseWorkspacePageProps) {
             <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
               <div className="border-b border-border/60 pb-3 mb-4">
                 <TabsList className="flex flex-wrap h-auto gap-1.5 p-1.5 bg-muted/80 rounded-lg w-full">
+                  <TabsTrigger value="conversation" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5">
+                    <MessagesSquare className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span>{t('tabConversation')}</span>
+                    {turns.length > 0 ? (
+                      <Badge variant="secondary" className="text-[10px] px-1 py-0 ml-1">
+                        {turns.length}
+                      </Badge>
+                    ) : null}
+                  </TabsTrigger>
+
                   <TabsTrigger value="differentials" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5">
                     <Stethoscope className="w-3.5 h-3.5 text-primary shrink-0" />
                     <span>{t('tabDifferentials')}</span>
@@ -405,6 +435,17 @@ export default function CaseWorkspacePage({ params }: CaseWorkspacePageProps) {
               </div>
 
               <div>
+                <TabsContent value="conversation" className="mt-0 focus-visible:outline-none">
+                  <CaseConversationTab
+                    caseId={caseId}
+                    caseData={caseData}
+                    turns={turns}
+                    onTurnsUpdate={setTurns}
+                    onCaseUpdate={setCaseData}
+                    onOpenMobileSummary={() => setMobileSummaryOpen(true)}
+                  />
+                </TabsContent>
+
                 <TabsContent value="differentials" className="mt-0 focus-visible:outline-none">
                   <DifferentialsTab
                     analysis={analysis}

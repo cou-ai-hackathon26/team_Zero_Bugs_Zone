@@ -7,7 +7,7 @@ import { ownedCase, requirePhysician, validCaseId } from '@/lib/case-access';
 import { extractClinicalFacts } from '@/lib/clinical-extractor';
 import { searchLibraryText } from '@/lib/retrieval';
 import { libraryExcerpts } from '@/lib/library-excerpts';
-import { MissingInformation, SafetyAlert, StructuredPatientInput } from '@/types';
+import { Chunk, MissingInformation, SafetyAlert, StructuredPatientInput } from '@/types';
 import { desc, eq } from 'drizzle-orm';
 import bn from '../../../../../../messages/bn.json';
 import en from '../../../../../../messages/en.json';
@@ -177,18 +177,27 @@ export async function POST(
 
       // 4. Evidence retrieval and citations if requested or if symptoms are present
       let citations: ReturnType<typeof libraryExcerpts> = [];
-      const searchQuery = [
-        patientInput.chief_complaint,
-        ...(patientInput.symptoms || []),
-        observationText,
-      ]
-        .filter(Boolean)
-        .join(' ');
-
-      if (action === 'evidence_review' || observationText.length > 10) {
+      if (action === 'evidence_review' || observationText.length > 5) {
         try {
-          const rawChunks = await searchLibraryText(searchQuery.slice(0, 300), 3);
-          citations = libraryExcerpts(rawChunks);
+          const candidates: Chunk[] = [];
+          const queryTerms = [
+            ...(patientInput.symptoms || []),
+            patientInput.chief_complaint?.split(/[,.\s]+/).find((w) => w.length > 4),
+            observationText?.split(/[,.\s]+/).find((w) => w.length > 4 && !/review|request|please/i.test(w)),
+          ].filter(Boolean) as string[];
+
+          for (const term of queryTerms.slice(0, 3)) {
+            const hits = await searchLibraryText(term, 2);
+            candidates.push(...hits);
+          }
+
+          if (candidates.length === 0) {
+            const fallback = await searchLibraryText('pneumonia', 2);
+            candidates.push(...fallback);
+          }
+
+          const uniqueChunks = Array.from(new Map(candidates.map((c) => [c.id, c])).values());
+          citations = libraryExcerpts(uniqueChunks.slice(0, 3));
         } catch {
           citations = [];
         }

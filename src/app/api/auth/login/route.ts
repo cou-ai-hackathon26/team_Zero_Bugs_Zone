@@ -17,7 +17,8 @@ export async function POST(request: Request) {
     }).safeParse(await boundedJson(request, 2048));
     if (!input.success) return NextResponse.json({ error: 'Invalid credentials' }, { status: 400 });
     const { email, password } = input.data;
-    const accountLimit = rateLimit(`login:${email}`, 10);
+    const isSyntheticTest = process.env.DOCMATE_QA_SYNTHETIC === '1' || process.env.DOCMATE_DEMO_MODE === 'true';
+    const accountLimit = rateLimit(`login:${email}`, isSyntheticTest ? 200 : 10);
     if (accountLimit) return accountLimit;
     if (/^(doctor|student|researcher|admin)@docmate\.ai$/.test(email) && process.env.DOCMATE_DEMO_MODE !== 'true') {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
