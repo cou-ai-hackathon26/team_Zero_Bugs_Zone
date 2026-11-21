@@ -36,7 +36,9 @@ pnpm start -p 3000
 
 Open `http://localhost:3000`. In a fresh session the default locale is Bangla. For hot reload, run `pnpm run dev --webpack` in place of the production build and start commands.
 
-> **Production Deployment**: For production Docker containerization, VPS (PM2 + Nginx), cloud setup (Vercel + Supabase), and clinical safety configuration, consult the **[Production Deployment Guide (DEPLOYMENT.md)](DEPLOYMENT.md)**.
+> **Cloud & Production Deployment**:
+> - **Render & Vercel Guide**: Step-by-step instructions with 1-click Blueprint and screenshots in **[docs/RENDER_AND_VERCEL_DEPLOYMENT.md](docs/RENDER_AND_VERCEL_DEPLOYMENT.md)**.
+> - **General Production Guide**: Bare-metal VPS (Nginx + PM2), Docker Compose, and operations in **[DEPLOYMENT.md](DEPLOYMENT.md)**.
 
 ## 3. Seeded Demo Accounts
 

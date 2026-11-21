@@ -5,6 +5,10 @@
 > **Clinical decision support only. Not a substitute for professional judgement.**  
 > *(শুধুমাত্র ক্লিনিকাল সিদ্ধান্ত সহায়তা। পেশাদার মূল্যায়নের বিকল্প নয়।)*
 
+> [!TIP]
+> **Looking for Render or Vercel step-by-step guides?**  
+> Check out the dedicated walkthrough with 1-click Blueprints and screenshots: **[docs/RENDER_AND_VERCEL_DEPLOYMENT.md](docs/RENDER_AND_VERCEL_DEPLOYMENT.md)**.
+
 ---
 
 ## Table of Contents
