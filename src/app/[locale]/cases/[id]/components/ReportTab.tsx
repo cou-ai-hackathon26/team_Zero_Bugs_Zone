@@ -43,10 +43,6 @@ export function ReportTab({
   const patientCode = caseData.patient_code || (caseData as unknown as Record<string, unknown>).patientCode as string;
   const vitals = input.vitals || {};
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   const approvedDrugs: TreatmentSuggestion[] = [];
   if (treatmentPlan) {
     treatmentPlan.first_line?.forEach((d) => {
@@ -71,14 +67,14 @@ export function ReportTab({
             Printable Clinical Decision Support &amp; Prescription Summary
           </span>
         </div>
-        <Button onClick={handlePrint} size="sm" className="gap-1.5 text-xs font-semibold">
+        <Button disabled size="sm" className="gap-1.5 text-xs font-semibold">
           <Printer className="w-3.5 h-3.5" />
           {tTreatment('printReport')}
         </Button>
       </div>
 
       {/* Printable Report Document */}
-      <Card className="print-card border border-border shadow-xs bg-white text-black p-6 sm:p-8 space-y-6">
+      <Card className="no-print border border-border shadow-xs bg-white text-black p-6 sm:p-8 space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between border-b pb-4">
           <div className="space-y-1">

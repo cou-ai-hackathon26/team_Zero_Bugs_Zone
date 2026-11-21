@@ -361,7 +361,7 @@ export function TreatmentTab({
 
           <Button
             onClick={onFinalizePrescription}
-            disabled={isFinalized || unacknowledgedCriticalCount > 0 || finalizing}
+            disabled
             className="gap-2 font-semibold text-xs shrink-0 w-full sm:w-auto"
           >
             {isFinalized ? (
