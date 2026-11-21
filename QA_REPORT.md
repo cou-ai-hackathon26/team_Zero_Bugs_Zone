@@ -123,3 +123,96 @@ Pass indicates direct evidence within the stated scope. Partial indicates incomp
 - Test authenticated intake through report, student restrictions, admin sources, search, and both relevant and unrelated Ask requests. Run overlays with keyboard at 390, 768 and 1280 px in bn/en and light/dark. Include focus restoration, horizontal overflow, layout stability, loading/error recovery and axe.
 - Run the README from a clean clone and fresh pgvector schema. Test repeated and concurrent ingest, source metadata, retrieval relevance and source version changes. Test vendor-model behavior and cost only in an approved synthetic-data environment.
 - Run frozen install, lint, typecheck, build, Vitest, Playwright, accessibility and Lighthouse. Record route bundle transfer and actual input/output usage. No live provider token or cost average exists from this offline baseline. The stored constant 450 is not measured usage.
+
+## Remediation and final verdict
+
+**No-go for business or clinical deployment.** The tested revision supports a private, synthetic-data demo. It records physician-owned cases and follow-ups and retrieves verbatim source excerpts. Automated analysis abstains, and the release has no verified treatment, acknowledged prescription finalization, or official prescription printing path. Clinical source provenance, formulary validation, production privacy and operational controls remain open. The initial unsafe output paths were contained in separate commits. Containment does not certify the intended clinical features.
+
+The checkout was initially untracked. The pre-fix checkpoint is `767168a`. Browser and production build results below are from a clean archive of `83c985b` and the isolated PostgreSQL database. Lint and typecheck were also rerun with the equivalent named PostCSS export in `341b6cd`. Concurrent uncommitted changes to the locale landing and library pages, app shell, authorization helpers, middleware and an RBAC test were kept out of the audit commits. A workspace build hit a transient JSX parse error in the concurrently edited library page at line 255. A subsequent workspace typecheck passed. The clean archive provides the repeatable target for the end-to-end results.
+
+| ID | Final status | Evidence and remaining work |
+|---|---|---|
+| Q01 | Fixed in audited revision | `a319430` scopes collection and detail mutations to the physician owner. Student collection returned 403 and redirected away from the case page. A second authenticated physician got an empty collection and 404 on the first physician's case. Administrative exception policy and changes outside the audited revision require separate verification. |
+| Q02 | Contained, release blocker open | `c913e1f` returns 409 for prescription finalization and disables prescription printing. Playwright confirmed both controls. A server-side plan snapshot, safety recalculation, authenticated acknowledgment and successful finalization after acknowledgment are still required. |
+| Q03 | Contained, release blocker open | `dffed62` suppresses old model-produced case analyses and returns a localized abstention. `cd5bc2a` restricts Ask to exact source excerpts and rejects unsupported claim text, unknown chunk IDs and altered quotations. The audited routes make no chat model call. Clinical diagnosis generation, clinical red flags, conflict detection and the required system prompt for any future enabled model remain unverified. |
+| Q04 | Contained, release blocker open | `7033ad5` withholds unsupported treatment and adult-dose defaults. The route returns 409 with `insufficient_evidence`. An approved source-linked and patient-applicable formulary is still needed before showing doses from `drugs.dose_rules`. No dose was available to verify in the final UI. |
+| Q05 | Contained, partial coverage | P-103 returned two concrete prompts, no differentials and `insufficient_evidence`. Unrelated Ask returned no answer and `insufficient_evidence`. A deliberately instruction-bearing synthetic chunk was indexed, matched by its unique term, and suppressed. Ask does not execute documents or send them to a chat model. The directive filter only covers recognizable phrases. Multilingual and semantic relevance coverage remains limited. |
+| Q06 | Fixed for demo, production hardening open | `2764423` removes the fallback, rechecks database identity and role on API authorization, and stores salted scrypt hashes. Existing compatible legacy hashes migrate on login. Seeded demo credentials require explicit demo mode. Operational secret rotation, full session revocation and production account lifecycle are unverified. |
+| Q07 | Partial | `99a1ca6` adds bounded parsing and Zod schemas for input-bearing handlers, scopes library reads, sanitizes handled errors, and inserts audit records transactionally with clinical/source mutations. Login, Ask and analysis have process-local throttles. Distributed enforcement, limits on all applicable routes, complete read/access and auth audit events, retention, audit integrity and abuse testing remain open. |
+| Q08 | Fixed for offline quickstart, partial overall | `b002f97`, `1518da2` package a sanitized template, document schema setup, assign cases to a demo physician and index full text. Two offline rounds preserved counts and all issued chunks had a full-text vector. Original duplicate sources are preserved. Cross-version source retirement, concurrent ingestion proof, external vector relevance and end-to-end Docker setup timing remain open. |
+| Q09 | Partial | `c2020b0` evaluates stored contraindications, minimum/maximum age and duplicate active ingredient. Unit coverage includes allergy, drug interaction, contraindication, pregnancy, paediatric/upper-age limits, renal and duplicate medication. Drug-class equivalence, combination products, structured matching/qualifiers, pregnancy trimester rules, candidate-pair safety and independently reviewed clinical provenance remain open. |
+| Q10 | Partial | `35bbb37` fixes nested document markup that disrupted login and now exposes the correct language after direct navigation in both locales. Locale selection and cookie survived reload. Hardcoded strings, nonlocalized numbers/dates and Bangla truncation review remain. |
+| Q11 | Partial | `12a2056` restores Cmd/Ctrl+K navigation. Desktop collapse, Evidence Sheet Escape and citation focus return passed. Mobile sidebar opened and trapped focus in the retry, but Escape did not close it within the wait. Global search backend, Drawer, case history/drug detail Sheets, full overlay focus and loading/error matrix remain open. |
+| Q12 | Partial | Default webpack build compiles, actual offline token average is 0, and retrieval cache has a size limit. Provider usage/cost, concurrent throughput, production load and reducing client JavaScript and font weight remain open. |
+| Q13 | Open | API enforces a synthetic identifier shape and separates structured patient fields, but free text can still hold identifying information. No PHI was intentionally used. Clinical provenance, consent, operational privacy, security configuration and any regulated-use review remain unverified. |
+| Q14 | Open | Remaining lint/build/Vitest warnings are listed below. |
+| Q15 | P1, fixed | With the initial webpack workaround, production CSS contained raw `@theme`, `@apply` and `@tailwind utilities` and lacked a compiled `.size-4` rule. The physician radio had a zero-size clickable element. `3bf673c` adds the matching Tailwind PostCSS integration. An asset assertion and the full Playwright run passed after the fix. |
+| Q16 | P2, open | With compiled CSS, dashboard overflow at 768px measured 38px in Bangla and 51px in English in both themes. Axe found contrast and landmark defects, skipped heading levels and unnamed controls. One React hydration error occurred in the multi-route browser sweep. Browser results and commands are below. |
+
+### Verification after remediation
+
+| Exact command or invocation | Result |
+|---|---|
+| `pnpm add -D @tailwindcss/postcss@4.3.3 --fetch-retries=0` and `pnpm remove -D @tailwindcss/turbopack` | Succeeded. Package manager warned about deprecated eslint and esbuild-kit dependencies and a Vitest peer range mismatch with @types/node 20. |
+| `git archive HEAD \| tar -x -C /tmp/docmate-qa-reviewed` then `pnpm --dir /tmp/docmate-qa-reviewed install --frozen-lockfile --offline` | Clean audit archive exported. 629 dependencies installed from cache. |
+| `pnpm --dir /tmp/docmate-qa-reviewed run build` | Exit 0. Webpack compiled, checked types and generated 10 pages. Warnings for deprecated middleware naming and webpack cache serialization of a 105 KiB string. The baseline webpack fallback also exited 0, but was later found to produce raw Tailwind CSS without the plugin. |
+| `python3 -c 'from pathlib import Path; css="".join(p.read_text() for p in Path("/tmp/docmate-qa-reviewed/.next/static/css").glob("*.css")); assert ".size-4{" in css and "@tailwind utilities" not in css; print("Compiled size utility found; no raw Tailwind directives")'` | Passed. |
+| `pnpm --dir /tmp/docmate-qa-reviewed run lint` | Exit 0 with two warnings after rerun. Unused `setWeightKg` in case intake and unused `UserCheck` in AppShell. The first run also flagged the anonymous PostCSS config export, resolved in `341b6cd`. |
+| `pnpm --dir /tmp/docmate-qa-reviewed run typecheck` | Exit 0. No diagnostics. |
+| `pnpm --dir /tmp/docmate-qa-reviewed test` | 3 files and 36 tests passed. Vitest native config loader warning remains. Added unsupported citation and instruction-bearing excerpt cases and age, contraindication and duplicate medication assertions. |
+| `createdb -h 127.0.0.1 -p 55439 docmate_final && psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE EXTENSION vector' && pnpm exec drizzle-kit push --force && pnpm run ingest && pnpm run seed && pnpm run ingest && pnpm run seed` | Run with isolated DATABASE_URL, demo mode and explicitly empty provider key. Fresh schema and both rounds succeeded. Second ingestion reused 16 chunks. Count query returned 4 sources, 16 chunks, 16 non-null full-text vectors, 4 users, 3 owned cases, 25 drugs and 11 interactions. This used host PostgreSQL, not Docker or a remote clone. |
+| `set -a; source /tmp/docmate-qa-final.env; set +a; pnpm --dir /tmp/docmate-qa-reviewed start -p 3102` | Production server ready with isolated synthetic database. Earlier offline QA instances used ports 3100 and 3101. |
+| `DOCMATE_QA_BASE_URL=http://localhost:3101 DOCMATE_QA_SYNTHETIC=1 pnpm run test:e2e --output /tmp/docmate-qa-final-smoke` and same command with `--output /tmp/docmate-qa-final-retry` | Each run had 4 passes and 2 failures. Initial locators selected the hidden implementation input and an inaccurate source-button label. The retry also exposed uncompiled CSS, Q15. |
+| `DOCMATE_QA_BASE_URL=http://localhost:3102 DOCMATE_QA_SYNTHETIC=1 pnpm --dir /tmp/docmate-qa-reviewed run test:e2e --output /tmp/docmate-qa-verified-e2e` | All 6 passed in 4.8s. Includes doctor sign-in, case intake, analysis, answering a follow-up, clinician diagnosis, blocked treatment/finalization, report preview, Ask, keyboard command dialog, student restrictions and admin source metadata creation. No actual critical acknowledgment, medication selection or signed print succeeded because those paths are disabled. |
+| `node /tmp/docmate-qa-boundaries.cjs http://localhost:3102` | Two synthetic regression checks passed. A separate physician could not read the first physician's P-103. Ask suppressed a synthetic chunk containing an instruction to ignore rules and prescribe a fictitious drug. The harness removed its two temporary fixtures afterwards. |
+| `node /tmp/docmate-qa-browser.cjs` then `node /tmp/docmate-qa-browser.cjs http://localhost:3102` | Actual baseline P-103 was `ok` with three differentials, and unrelated Ask incorrectly had `found: true`. Final P-103 and P-101 both abstained, the unrelated question returned `found: false`, and all 12 dashboard variants reported the intended page locale and theme. The clean styled build had overflow at 768px only. Axe results below. |
+| `node /tmp/docmate-qa-overlays.cjs http://localhost:3102` | Desktop sidebar and locale persistence passed. After correcting the evidence locator to the citation chip title, the evidence panel opened, Esc closed it and focus returned to the chip. Mobile Sheet focus stayed inside on the second run and its Esc assertion failed. |
+| `node /tmp/docmate-qa-lighthouse.mjs http://localhost:3101` | Chrome for Testing returned NO_FCP and no scores on login. Interrupted the first cases run after successful prerequisite login. |
+| `QA_CHROME_BIN="$HOME/Library/Caches/ms-playwright/chromium_headless_shell-1255/chrome-headless-shell-mac-arm64/chrome-headless-shell" node /tmp/docmate-qa-lighthouse.mjs http://localhost:3102` | Retried using Playwright's headless shell and local provided throttling. Both target URLs completed. Scores below. |
+| `node /tmp/docmate-qa-bundles.cjs http://localhost:3102` | Cold browser encoded/decoded asset bytes by route below. |
+| `psql postgresql://127.0.0.1:55439/docmate_final -Atc "SELECT count(*),avg(tokens),min(tokens),max(tokens) FROM analyses WHERE model='docmate-abstention-v1'"` | 10 offline records, mean/min/max 0. Both active reasoning routes make zero provider calls. Provider spend for these offline runs was zero. Hosted-model cost per analysis was not measured. Auto-review blocked commands that could send internal passages without express authorization. |
+| `curl -sS -o /dev/null -w '%{http_code} %{redirect_url}\\n' http://localhost:3000/en/dashboard` | Follow-up request to user-supplied port received 307 to English login with a dashboard callback. The audited production server was tested separately on 3102. |
+| `git ls-files -- '.env*'` and `git log --all --format='%h %s' -- .env .env.local` | Only sanitized `.env.example` was tracked. No commit history for those two secret files. Repository review did not establish external logging configuration or operational secret handling. |
+| `pnpm exec shadcn docs command dialog` | The CLI registry lookup failed with ENOTFOUND in the restricted environment. The local generated wrappers and running behavior were inspected. |
+
+### Retrieval after indexing
+
+The original ten-query command was rerun with `DATABASE_URL=postgresql://127.0.0.1:55439/docmate_final` and an empty `OPENAI_API_KEY`. The hybrid entry point used lexical ranking only. Every returned row below was text rank 1. The English fixture corpus did not answer the Bangla query. Relatedness was reviewed by section and title. A clinically reviewed relevance benchmark or semantic embedding run was outside this offline check.
+
+| Query | Top section |
+|---|---|
+| pneumonia | Section 2: Severity Triage & CRB-65 Score |
+| amoxicillin | Section 3: First-Line Empirical Antimicrobial Regimens |
+| chest pain | Section 4: Non-Cardiac Differential Diagnoses & Differentiation |
+| troponin | Section 1: Initial Presentation & Red-Flag Escalation Criteria |
+| dengue | Section 3: Antipyretic Safety & Absolute Contraindication of NSAIDs |
+| platelets | Section 1: Clinical Presentation & Diagnostic Phases |
+| hypertension | Section 1: Blood Pressure Classification & Cardiovascular Risk |
+| amlodipine | Section 2: First-Line Antihypertensive Drug Classes |
+| ডেঙ্গু | No result |
+| quantum entanglement | No result |
+
+### Accessibility and performance detail
+
+| Page | Final axe violations in the English light snapshot |
+|---|---|
+| Login | Contrast (5 nodes), missing main landmark (1), content outside landmarks (7) |
+| Dashboard | Contrast (6), heading order (1), nested and duplicate main and non-unique landmarks (1 each), content outside landmarks (9) |
+| Cases | Unnamed button (1), contrast (5), nested and duplicate main and non-unique landmarks (1 each), content outside landmarks (9) |
+| Library | Unnamed button (1), nested and duplicate main and non-unique landmarks (1 each), content outside landmarks (9) |
+| Ask | Nested and duplicate main and non-unique landmarks (1 each), content outside landmarks (9) |
+
+Critical alert components have icon and text by inspection. An active critical-treatment interactive state could not be exercised with treatment contained. Dashboard geometry was checked in all 12 settings. Comprehensive Bangla clipping, all dynamic error/loading states, every overlay's keyboard order, and every page/theme combination remain outside the executed checks.
+
+| Lighthouse route | Performance | Accessibility | Best practices | SEO | LCP | CLS |
+|---|---:|---:|---:|---:|---:|---:|
+| English login | 100 | 94 | 100 | 91 | 0.2 s | 0.001 |
+| Authenticated English cases | 100 | 90 | 96 | 91 | 0.1 s | 0.011 |
+
+Local provided-throttling observations with one browser profile per pair. Cases reused cached shared assets in Lighthouse. A separate cold resource run measured 240,271 encoded JavaScript bytes over 10 files for login and 288,604 over 13 files for cases. Decoded JavaScript was 767,972 and 919,456 bytes respectively. Each loaded 23,568 encoded CSS bytes and 181,968 WOFF2 bytes. Six routed page modules use `use client`. The case table, shared shell and login should be reviewed for smaller client boundaries before performance is assessed on real devices and networks. These measurements are local lab results.
+
+### Before release
+
+- Restore clinical features only after proving claim support beyond quote presence, abstention on conflict, source provenance and appropriate patient-specific rules. Verify a positive safety approval path and a server-authored prescription that remains correct after refresh and at print time.
+- Close the open identity lifecycle, distributed abuse-control, audit and privacy items. Run the clean quickstart from a real clone, with a fresh database and the intended hosting configuration.
+- Close the axe, responsive, locale and focus defects and repeat the full browser matrix. Evaluate retrieval with a reviewed multilingual library and measure provider latency, tokens and cost in an explicitly authorized synthetic environment.
