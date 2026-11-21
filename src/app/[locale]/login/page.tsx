@@ -29,28 +29,24 @@ export default function LoginPage() {
       title: t('doctorAccount'),
       email: 'doctor@docmate.ai',
       icon: Stethoscope,
-      color: 'border-primary/40 bg-primary/5 text-primary',
     },
     {
       role: 'student',
       title: t('studentAccount'),
       email: 'student@docmate.ai',
       icon: GraduationCap,
-      color: 'border-indigo-500/40 bg-indigo-500/5 text-indigo-700 dark:text-indigo-400',
     },
     {
       role: 'researcher',
       title: t('researcherAccount'),
       email: 'researcher@docmate.ai',
       icon: Microscope,
-      color: 'border-teal-500/40 bg-teal-500/5 text-teal-700 dark:text-teal-400',
     },
     {
       role: 'admin',
       title: t('adminAccount'),
       email: 'admin@docmate.ai',
       icon: UserCheck,
-      color: 'border-amber-500/40 bg-amber-500/5 text-amber-800 dark:text-amber-300',
     },
   ];
 
@@ -157,15 +153,15 @@ export default function LoginPage() {
                       onClick={() => handleSelectDemo(acc.email)}
                       className={`flex flex-col items-start p-2.5 rounded-lg border text-left transition-all text-xs font-medium ${
                         isSelected
-                          ? `${acc.color} ring-2 ring-primary/40 shadow-xs font-semibold`
-                          : 'border-border bg-card/60 hover:bg-muted/60 text-muted-foreground'
+                          ? 'border-primary bg-primary/5 text-primary font-semibold ring-1 ring-primary/40 shadow-2xs'
+                          : 'border-border bg-card/60 hover:bg-muted/60 text-muted-foreground hover:text-foreground'
                       }`}
                     >
                       <div className="flex items-start gap-1.5 mb-1">
-                        <acc.icon className="w-4 h-4 shrink-0" />
+                        <acc.icon className="w-3.5 h-3.5 shrink-0" />
                         <span className="wrap-anywhere">{acc.title}</span>
                       </div>
-                      <span className="text-[10px] font-mono wrap-anywhere">{acc.email}</span>
+                      <span className="text-[10px] font-mono text-muted-foreground wrap-anywhere">{acc.email}</span>
                     </button>
                   );
                 })}

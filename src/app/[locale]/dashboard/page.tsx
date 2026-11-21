@@ -142,7 +142,7 @@ export default async function DashboardPage() {
             <CardHeader className="p-4 pb-2">
               <CardDescription className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                 <span>{t('librarySources')}</span>
-                <BookOpen className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                <BookOpen className="w-4 h-4 text-primary" />
               </CardDescription>
               <CardTitle className="text-2xl font-bold text-foreground">
                 {format.number(sourceCount)}
@@ -157,7 +157,7 @@ export default async function DashboardPage() {
             <CardHeader className="p-4 pb-2">
               <CardDescription className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                 <span>{t('formulary')}</span>
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <CheckCircle2 className="w-4 h-4 text-primary" />
               </CardDescription>
               <CardTitle className="text-2xl font-bold text-foreground">
                 {format.number(drugCount)}

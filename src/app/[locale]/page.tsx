@@ -33,7 +33,6 @@ export default function LandingPage() {
   const router = useRouter();
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userName, setUserName] = useState('');
   const [loggingInRole, setLoggingInRole] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,7 +41,6 @@ export default function LandingPage() {
       .then((data) => {
         if (data?.user) {
           setIsLoggedIn(true);
-          setUserName(data.user.name);
         }
       })
       .catch(() => {});
@@ -78,42 +76,41 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/20">
       {/* Top Header Navigation */}
-      <header className="sticky top-0 z-50 w-full border-b border-border/70 bg-background/95 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-teal-500 flex items-center justify-center text-primary-foreground shadow-sm group-hover:scale-105 transition-transform">
-              <Stethoscope className="w-5 h-5" />
+      <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground shadow-2xs">
+              <Stethoscope className="w-4 h-4" />
             </div>
-            <div>
-              <span className="font-bold text-base sm:text-lg leading-tight tracking-tight block">
+            <div className="flex flex-col">
+              <span className="font-semibold text-sm sm:text-base leading-tight tracking-tight text-foreground">
                 DocMate AI
               </span>
-              <span className="text-[10px] sm:text-[11px] text-muted-foreground font-medium hidden sm:block">
+              <span className="text-[10px] text-muted-foreground font-normal hidden sm:block">
                 {locale === 'bn' ? 'ক্লিনিকাল ডিসিশন সাপোর্ট' : 'Clinical Decision Support'}
               </span>
             </div>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-6 text-xs font-semibold text-muted-foreground">
+          <nav className="hidden md:flex items-center gap-6 text-xs font-medium text-muted-foreground">
             <a href="#how-it-works" className="hover:text-foreground transition-colors">
-              {locale === 'bn' ? 'কার্যপদ্ধতি' : 'How It Works'}
+              {t('navHowItWorks')}
             </a>
             <a href="#standards" className="hover:text-foreground transition-colors">
-              {t('pillarsTitle')}
+              {t('navSafety')}
             </a>
             <a href="#scenarios" className="hover:text-foreground transition-colors">
-              {t('demoCases')}
+              {t('navCases')}
             </a>
             <a href="#roles" className="hover:text-foreground transition-colors">
-              {t('personasTitle')}
+              {t('navRoles')}
             </a>
-            <Link href="/library" className="hover:text-foreground transition-colors flex items-center gap-1.5">
-              <BookOpen className="w-3.5 h-3.5 text-primary" />
-              <span>{t('browseLibrary')}</span>
+            <Link href="/library" className="hover:text-foreground transition-colors">
+              {t('navLibrary')}
             </Link>
           </nav>
 
-          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <LanguageSwitcher />
             <ThemeToggle />
 
@@ -121,19 +118,18 @@ export default function LandingPage() {
               <Button
                 size="sm"
                 onClick={() => router.push('/dashboard')}
-                className="gap-1.5 sm:gap-2 text-xs font-semibold h-9 px-2.5 sm:px-4 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
+                className="gap-1.5 text-xs font-medium h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
               >
-                <span className="hidden sm:inline">{userName ? `${t('goToDashboard')} (${userName.split(' ')[0]})` : t('goToDashboard')}</span>
-                <span className="sm:hidden">{t('goToDashboard')}</span>
+                <span>{t('navDashboard')}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Button>
             ) : (
               <Button
                 size="sm"
                 onClick={() => router.push('/login')}
-                className="gap-1.5 sm:gap-2 text-xs font-semibold h-9 px-2.5 sm:px-4 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
+                className="gap-1.5 text-xs font-medium h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
               >
-                <span>{t('signIn')}</span>
+                <span>{t('navSignIn')}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Button>
             )}
@@ -142,9 +138,9 @@ export default function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden py-12 lg:py-20 border-b border-border/40 bg-gradient-to-b from-primary/5 via-background to-background">
+      <section className="relative overflow-hidden py-12 lg:py-16 border-b border-border/50 bg-background">
         {/* Subtle Decorative Vector Grid Background */}
-        <div className="absolute inset-0 -z-10 opacity-30 dark:opacity-15 pointer-events-none">
+        <div className="absolute inset-0 -z-10 opacity-15 dark:opacity-10 pointer-events-none">
           <svg className="w-full h-full" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
@@ -158,46 +154,46 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-12 gap-10 items-center">
             {/* Left Content */}
-            <div className="lg:col-span-7 space-y-6 text-left">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold shadow-2xs">
-                <ShieldCheck className="w-4 h-4 text-primary" />
+            <div className="lg:col-span-7 space-y-5 text-left">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted text-muted-foreground border border-border text-xs font-medium">
+                <ShieldCheck className="w-3.5 h-3.5 text-primary" />
                 <span>{t('heroBadge')}</span>
               </div>
 
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.2] text-foreground">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-[1.2] text-foreground">
                 {t('heroTitle')}
               </h1>
 
-              <p className="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-2xl font-normal">
+              <p className="text-base text-muted-foreground leading-relaxed max-w-2xl font-normal">
                 {t('heroSubtitle')}
               </p>
 
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 <Button
-                  size="lg"
+                  size="default"
                   onClick={() => router.push('/cases/new')}
-                  className="h-12 px-6 font-semibold bg-primary hover:bg-primary/90 text-primary-foreground gap-2 shadow-sm rounded-lg"
+                  className="h-10 px-5 font-medium bg-primary hover:bg-primary/90 text-primary-foreground gap-2 shadow-2xs rounded-md text-xs"
                 >
-                  <Stethoscope className="w-5 h-5" />
+                  <Stethoscope className="w-4 h-4" />
                   <span>{t('startIntake')}</span>
-                  <ChevronRight className="w-4 h-4 ml-1" />
+                  <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
                 </Button>
 
                 <Button
-                  size="lg"
+                  size="default"
                   variant="outline"
                   onClick={() => router.push('/ask')}
-                  className="h-12 px-5 font-semibold border-border gap-2 bg-card hover:bg-muted rounded-lg"
+                  className="h-10 px-4 font-medium border-border gap-2 bg-card hover:bg-muted rounded-md text-xs"
                 >
-                  <HelpCircle className="w-5 h-5 text-primary" />
+                  <HelpCircle className="w-4 h-4 text-primary" />
                   <span>{t('askLibrary')}</span>
                 </Button>
 
                 <Button
-                  size="lg"
+                  size="default"
                   variant="ghost"
                   onClick={() => router.push('/library')}
-                  className="h-12 px-4 font-semibold text-muted-foreground hover:text-foreground rounded-lg"
+                  className="h-10 px-4 font-medium text-muted-foreground hover:text-foreground rounded-md text-xs"
                 >
                   <BookOpen className="w-4 h-4 mr-1.5" />
                   <span>{t('browseLibrary')}</span>
@@ -205,31 +201,31 @@ export default function LandingPage() {
               </div>
 
               {/* Trust Badges */}
-              <div className="grid grid-cols-3 gap-4 pt-6 border-t border-border/60 max-w-lg text-left">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 text-primary font-bold text-sm">
-                    <BookOpen className="w-4 h-4" />
+              <div className="grid grid-cols-3 gap-4 pt-5 border-t border-border/50 max-w-lg text-left">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5 text-foreground font-semibold text-xs">
+                    <BookOpen className="w-3.5 h-3.5 text-primary" />
                     <span>WHO & NICE</span>
                   </div>
-                  <span className="text-xs text-muted-foreground block">
+                  <span className="text-[11px] text-muted-foreground block">
                     {locale === 'bn' ? 'অনুমোদিত গাইডলাইন' : 'Approved Guidelines'}
                   </span>
                 </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 text-emerald-600 font-bold text-sm">
-                    <ShieldCheck className="w-4 h-4" />
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5 text-foreground font-semibold text-xs">
+                    <ShieldCheck className="w-3.5 h-3.5 text-primary" />
                     <span>Safe Rx</span>
                   </div>
-                  <span className="text-xs text-muted-foreground block">
+                  <span className="text-[11px] text-muted-foreground block">
                     {locale === 'bn' ? 'ড্রাগ সেফটি চেক' : 'Allergy & DDI Checks'}
                   </span>
                 </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 text-teal-600 font-bold text-sm">
-                    <UserCheck className="w-4 h-4" />
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5 text-foreground font-semibold text-xs">
+                    <UserCheck className="w-3.5 h-3.5 text-primary" />
                     <span>MD Decides</span>
                   </div>
-                  <span className="text-xs text-muted-foreground block">
+                  <span className="text-[11px] text-muted-foreground block">
                     {locale === 'bn' ? 'চিকিৎসকের সিদ্ধান্ত' : 'Physician in Control'}
                   </span>
                 </div>
@@ -244,11 +240,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* How It Works Section (4 Simple Steps with Vector Artwork) */}
-      <section id="how-it-works" className="py-16 bg-muted/20 border-b border-border/60">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-          <div className="text-center max-w-2xl mx-auto space-y-3">
-            <Badge variant="outline" className="text-xs uppercase tracking-wider font-bold">
+      {/* How It Works Section (4 Simple Steps) */}
+      <section id="how-it-works" className="py-14 bg-muted/20 border-b border-border/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+          <div className="text-center max-w-2xl mx-auto space-y-2.5">
+            <Badge variant="outline" className="text-xs uppercase tracking-wider font-semibold">
               {locale === 'bn' ? 'সহজ চার ধাপের প্রক্রিয়া' : '4 Simple Steps'}
             </Badge>
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
@@ -261,14 +257,14 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {/* Step 1 */}
-            <Card className="border-border bg-card shadow-2xs relative">
+            <Card className="border-border bg-card shadow-2xs">
               <CardHeader className="space-y-2 pb-2">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
+                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center font-bold text-xs">
                   1
                 </div>
-                <CardTitle className="text-base font-bold">
+                <CardTitle className="text-sm font-semibold">
                   {locale === 'bn' ? 'লক্ষণ গ্রহণ' : '1. Patient Intake'}
                 </CardTitle>
               </CardHeader>
@@ -282,12 +278,12 @@ export default function LandingPage() {
             </Card>
 
             {/* Step 2 */}
-            <Card className="border-border bg-card shadow-2xs relative">
+            <Card className="border-border bg-card shadow-2xs">
               <CardHeader className="space-y-2 pb-2">
-                <div className="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-600 flex items-center justify-center font-bold text-sm">
+                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center font-bold text-xs">
                   2
                 </div>
-                <CardTitle className="text-base font-bold">
+                <CardTitle className="text-sm font-semibold">
                   {locale === 'bn' ? 'গাইডলাইন বিশ্লেষণ' : '2. Guideline Match'}
                 </CardTitle>
               </CardHeader>
@@ -301,12 +297,12 @@ export default function LandingPage() {
             </Card>
 
             {/* Step 3 */}
-            <Card className="border-border bg-card shadow-2xs relative">
+            <Card className="border-border bg-card shadow-2xs">
               <CardHeader className="space-y-2 pb-2">
-                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center font-bold text-sm">
+                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center font-bold text-xs">
                   3
                 </div>
-                <CardTitle className="text-base font-bold">
+                <CardTitle className="text-sm font-semibold">
                   {locale === 'bn' ? 'সেফটি স্ক্রিনিং' : '3. Safety Engine'}
                 </CardTitle>
               </CardHeader>
@@ -320,12 +316,12 @@ export default function LandingPage() {
             </Card>
 
             {/* Step 4 */}
-            <Card className="border-border bg-card shadow-2xs relative">
+            <Card className="border-border bg-card shadow-2xs">
               <CardHeader className="space-y-2 pb-2">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-sm">
+                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center font-bold text-xs">
                   4
                 </div>
-                <CardTitle className="text-base font-bold">
+                <CardTitle className="text-sm font-semibold">
                   {locale === 'bn' ? 'চিকিৎসকের সিদ্ধান্ত' : '4. Doctor Signs'}
                 </CardTitle>
               </CardHeader>
@@ -342,10 +338,10 @@ export default function LandingPage() {
       </section>
 
       {/* Core Safety Standards Section */}
-      <section id="standards" className="py-16 border-b border-border/60 bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-          <div className="text-center max-w-2xl mx-auto space-y-3">
-            <Badge variant="outline" className="text-xs uppercase tracking-wider font-bold">
+      <section id="standards" className="py-14 border-b border-border/50 bg-background">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+          <div className="text-center max-w-2xl mx-auto space-y-2.5">
+            <Badge variant="outline" className="text-xs uppercase tracking-wider font-semibold">
               {locale === 'bn' ? 'ক্লিনিকাল গুণমান' : 'Clinical Standards'}
             </Badge>
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
@@ -356,14 +352,14 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {/* Standard 1 */}
-            <Card className="border-border bg-card shadow-2xs hover:shadow-sm transition-shadow">
-              <CardHeader className="pb-3 space-y-2">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                  <BookOpen className="w-5 h-5" />
+            <Card className="border-border bg-card shadow-2xs">
+              <CardHeader className="pb-2.5 space-y-2">
+                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center">
+                  <BookOpen className="w-4 h-4 text-primary" />
                 </div>
-                <CardTitle className="text-base font-bold">{t('pillar1Title')}</CardTitle>
+                <CardTitle className="text-sm font-semibold">{t('pillar1Title')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-xs text-muted-foreground leading-relaxed">
@@ -373,12 +369,12 @@ export default function LandingPage() {
             </Card>
 
             {/* Standard 2 */}
-            <Card className="border-border bg-card shadow-2xs hover:shadow-sm transition-shadow">
-              <CardHeader className="pb-3 space-y-2">
-                <div className="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-600 flex items-center justify-center">
-                  <FileCheck2 className="w-5 h-5" />
+            <Card className="border-border bg-card shadow-2xs">
+              <CardHeader className="pb-2.5 space-y-2">
+                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center">
+                  <FileCheck2 className="w-4 h-4 text-primary" />
                 </div>
-                <CardTitle className="text-base font-bold">{t('pillar2Title')}</CardTitle>
+                <CardTitle className="text-sm font-semibold">{t('pillar2Title')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-xs text-muted-foreground leading-relaxed">
@@ -388,12 +384,12 @@ export default function LandingPage() {
             </Card>
 
             {/* Standard 3 */}
-            <Card className="border-border bg-card shadow-2xs hover:shadow-sm transition-shadow">
-              <CardHeader className="pb-3 space-y-2">
-                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
-                  <Pill className="w-5 h-5" />
+            <Card className="border-border bg-card shadow-2xs">
+              <CardHeader className="pb-2.5 space-y-2">
+                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center">
+                  <Pill className="w-4 h-4 text-primary" />
                 </div>
-                <CardTitle className="text-base font-bold">{t('pillar3Title')}</CardTitle>
+                <CardTitle className="text-sm font-semibold">{t('pillar3Title')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-xs text-muted-foreground leading-relaxed">
@@ -403,12 +399,12 @@ export default function LandingPage() {
             </Card>
 
             {/* Standard 4 */}
-            <Card className="border-border bg-card shadow-2xs hover:shadow-sm transition-shadow">
-              <CardHeader className="pb-3 space-y-2">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
-                  <HelpCircle className="w-5 h-5" />
+            <Card className="border-border bg-card shadow-2xs">
+              <CardHeader className="pb-2.5 space-y-2">
+                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center">
+                  <HelpCircle className="w-4 h-4 text-primary" />
                 </div>
-                <CardTitle className="text-base font-bold">{t('pillar4Title')}</CardTitle>
+                <CardTitle className="text-sm font-semibold">{t('pillar4Title')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-xs text-muted-foreground leading-relaxed">
@@ -418,12 +414,12 @@ export default function LandingPage() {
             </Card>
 
             {/* Standard 5 */}
-            <Card className="border-border bg-card shadow-2xs hover:shadow-sm transition-shadow sm:col-span-2 lg:col-span-2">
-              <CardHeader className="pb-3 space-y-2">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
-                  <UserCheck className="w-5 h-5" />
+            <Card className="border-border bg-card shadow-2xs sm:col-span-2 lg:col-span-2">
+              <CardHeader className="pb-2.5 space-y-2">
+                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center">
+                  <UserCheck className="w-4 h-4 text-primary" />
                 </div>
-                <CardTitle className="text-base font-bold">{t('pillar5Title')}</CardTitle>
+                <CardTitle className="text-sm font-semibold">{t('pillar5Title')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-xs text-muted-foreground leading-relaxed">
@@ -436,10 +432,10 @@ export default function LandingPage() {
       </section>
 
       {/* Clinical Scenarios Section */}
-      <section id="scenarios" className="py-16 bg-muted/20 border-b border-border/60">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-          <div className="text-center max-w-2xl mx-auto space-y-3">
-            <Badge variant="outline" className="text-xs uppercase tracking-wider font-bold">
+      <section id="scenarios" className="py-14 bg-muted/20 border-b border-border/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+          <div className="text-center max-w-2xl mx-auto space-y-2.5">
+            <Badge variant="outline" className="text-xs uppercase tracking-wider font-semibold">
               {locale === 'bn' ? 'ব্যবহারিক উদাহরণ' : 'Clinical Examples'}
             </Badge>
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
@@ -450,17 +446,17 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-3 gap-5">
             {/* Scenario A */}
             <Card className="border-border bg-card shadow-2xs flex flex-col justify-between">
               <CardHeader className="space-y-2 pb-3">
                 <div className="flex items-center justify-between">
-                  <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20">
+                  <Badge variant="outline" className="text-[10px] font-medium">
                     Case P-101
                   </Badge>
                   <span className="text-[10px] text-muted-foreground">Adult • 54Y</span>
                 </div>
-                <CardTitle className="text-base font-bold pt-1">{t('caseA')}</CardTitle>
+                <CardTitle className="text-sm font-semibold pt-1">{t('caseA')}</CardTitle>
                 <CardDescription className="text-xs leading-relaxed">
                   {t('caseADesc')}
                 </CardDescription>
@@ -470,7 +466,7 @@ export default function LandingPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => router.push('/cases')}
-                  className="w-full text-xs font-semibold gap-1.5"
+                  className="w-full text-xs font-medium gap-1.5"
                 >
                   <span>{t('viewCase')}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -479,17 +475,17 @@ export default function LandingPage() {
             </Card>
 
             {/* Scenario B */}
-            <Card className="border-destructive/30 bg-card shadow-2xs flex flex-col justify-between">
+            <Card className="border-border bg-card shadow-2xs flex flex-col justify-between">
               <CardHeader className="space-y-2 pb-3">
                 <div className="flex items-center justify-between">
-                  <Badge variant="outline" className="text-[10px] border-destructive/40 text-destructive bg-destructive/5">
+                  <Badge variant="outline" className="text-[10px] font-medium">
                     Case P-102
                   </Badge>
-                  <Badge className="bg-destructive text-destructive-foreground text-[10px]">
+                  <Badge variant="outline" className="border-destructive/40 text-destructive text-[10px] font-medium">
                     Priority
                   </Badge>
                 </div>
-                <CardTitle className="text-base font-bold pt-1 text-destructive">
+                <CardTitle className="text-sm font-semibold pt-1 text-foreground">
                   {t('caseB')}
                 </CardTitle>
                 <CardDescription className="text-xs leading-relaxed text-muted-foreground">
@@ -501,7 +497,7 @@ export default function LandingPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => router.push('/cases')}
-                  className="w-full text-xs font-semibold gap-1.5 border-destructive/30 text-destructive hover:bg-destructive/5"
+                  className="w-full text-xs font-medium gap-1.5"
                 >
                   <span>{t('viewCase')}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -510,17 +506,17 @@ export default function LandingPage() {
             </Card>
 
             {/* Scenario C */}
-            <Card className="border-amber-500/30 bg-card shadow-2xs flex flex-col justify-between">
+            <Card className="border-border bg-card shadow-2xs flex flex-col justify-between">
               <CardHeader className="space-y-2 pb-3">
                 <div className="flex items-center justify-between">
-                  <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-700 dark:text-amber-400 bg-amber-500/5">
+                  <Badge variant="outline" className="text-[10px] font-medium">
                     Case P-103
                   </Badge>
-                  <Badge className="bg-amber-500 text-white text-[10px]">
+                  <Badge variant="secondary" className="text-[10px] font-medium">
                     Follow-Up
                   </Badge>
                 </div>
-                <CardTitle className="text-base font-bold pt-1 text-amber-800 dark:text-amber-300">
+                <CardTitle className="text-sm font-semibold pt-1 text-foreground">
                   {t('caseC')}
                 </CardTitle>
                 <CardDescription className="text-xs leading-relaxed text-muted-foreground">
@@ -532,7 +528,7 @@ export default function LandingPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => router.push('/cases')}
-                  className="w-full text-xs font-semibold gap-1.5 border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/5"
+                  className="w-full text-xs font-medium gap-1.5"
                 >
                   <span>{t('viewCase')}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -544,10 +540,10 @@ export default function LandingPage() {
       </section>
 
       {/* Roles Section */}
-      <section id="roles" className="py-16 border-b border-border/60 bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-          <div className="text-center max-w-2xl mx-auto space-y-3">
-            <Badge variant="outline" className="text-xs uppercase tracking-wider font-bold">
+      <section id="roles" className="py-14 border-b border-border/50 bg-background">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+          <div className="text-center max-w-2xl mx-auto space-y-2.5">
+            <Badge variant="outline" className="text-xs uppercase tracking-wider font-semibold">
               {locale === 'bn' ? 'ব্যবহারকারী ভূমিকা' : 'User Roles'}
             </Badge>
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
@@ -558,14 +554,14 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {/* Role 1: Doctor */}
-            <Card className="border-primary/40 bg-card shadow-2xs flex flex-col justify-between">
+            <Card className="border-border bg-card hover:border-primary/40 transition-colors shadow-2xs flex flex-col justify-between">
               <CardHeader className="space-y-2 pb-3">
-                <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                  <Stethoscope className="w-5 h-5" />
+                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center">
+                  <Stethoscope className="w-4 h-4 text-primary" />
                 </div>
-                <CardTitle className="text-sm font-bold">{tAuth('doctorAccount')}</CardTitle>
+                <CardTitle className="text-sm font-semibold">{tAuth('doctorAccount')}</CardTitle>
                 <CardDescription className="text-xs">
                   {locale === 'bn' ? 'রোগী গ্রহণ, রোগ নির্ণয় ও প্রেসক্রিপশন' : 'Clinical intake, diagnosis, and prescribing'}
                 </CardDescription>
@@ -575,7 +571,7 @@ export default function LandingPage() {
                   size="sm"
                   disabled={loggingInRole === 'doctor'}
                   onClick={() => handleQuickLogin('doctor@docmate.ai', '/dashboard', 'doctor')}
-                  className="w-full text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
+                  className="w-full text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   {t('tryAsDoctor')}
                 </Button>
@@ -583,12 +579,12 @@ export default function LandingPage() {
             </Card>
 
             {/* Role 2: Student */}
-            <Card className="border-indigo-500/30 bg-card shadow-2xs flex flex-col justify-between">
+            <Card className="border-border bg-card hover:border-primary/40 transition-colors shadow-2xs flex flex-col justify-between">
               <CardHeader className="space-y-2 pb-3">
-                <div className="w-9 h-9 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
-                  <GraduationCap className="w-5 h-5" />
+                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center">
+                  <GraduationCap className="w-4 h-4 text-primary" />
                 </div>
-                <CardTitle className="text-sm font-bold">{tAuth('studentAccount')}</CardTitle>
+                <CardTitle className="text-sm font-semibold">{tAuth('studentAccount')}</CardTitle>
                 <CardDescription className="text-xs">
                   {locale === 'bn' ? 'মেডিকেল কেস স্টাডি ও গাইডলাইন শিক্ষা' : 'Trainee learning and guideline exploration'}
                 </CardDescription>
@@ -599,7 +595,7 @@ export default function LandingPage() {
                   variant="outline"
                   disabled={loggingInRole === 'student'}
                   onClick={() => handleQuickLogin('student@docmate.ai', '/ask', 'student')}
-                  className="w-full text-xs font-semibold border-indigo-500/30 text-indigo-600 hover:bg-indigo-500/5"
+                  className="w-full text-xs font-medium hover:bg-muted"
                 >
                   {t('tryAsStudent')}
                 </Button>
@@ -607,12 +603,12 @@ export default function LandingPage() {
             </Card>
 
             {/* Role 3: Researcher */}
-            <Card className="border-teal-500/30 bg-card shadow-2xs flex flex-col justify-between">
+            <Card className="border-border bg-card hover:border-primary/40 transition-colors shadow-2xs flex flex-col justify-between">
               <CardHeader className="space-y-2 pb-3">
-                <div className="w-9 h-9 rounded-lg bg-teal-500/10 text-teal-600 flex items-center justify-center">
-                  <Microscope className="w-5 h-5" />
+                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center">
+                  <Microscope className="w-4 h-4 text-primary" />
                 </div>
-                <CardTitle className="text-sm font-bold">{tAuth('researcherAccount')}</CardTitle>
+                <CardTitle className="text-sm font-semibold">{tAuth('researcherAccount')}</CardTitle>
                 <CardDescription className="text-xs">
                   {locale === 'bn' ? 'চিকিৎসা গবেষণা ও তথ্যের উৎস অনুসন্ধান' : 'Evidence search and literature evaluation'}
                 </CardDescription>
@@ -623,7 +619,7 @@ export default function LandingPage() {
                   variant="outline"
                   disabled={loggingInRole === 'researcher'}
                   onClick={() => handleQuickLogin('researcher@docmate.ai', '/library', 'researcher')}
-                  className="w-full text-xs font-semibold border-teal-500/30 text-teal-600 hover:bg-teal-500/5"
+                  className="w-full text-xs font-medium hover:bg-muted"
                 >
                   {t('tryAsResearcher')}
                 </Button>
@@ -631,12 +627,12 @@ export default function LandingPage() {
             </Card>
 
             {/* Role 4: Admin */}
-            <Card className="border-amber-500/30 bg-card shadow-2xs flex flex-col justify-between">
+            <Card className="border-border bg-card hover:border-primary/40 transition-colors shadow-2xs flex flex-col justify-between">
               <CardHeader className="space-y-2 pb-3">
-                <div className="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center">
-                  <UserCheck className="w-5 h-5" />
+                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center">
+                  <UserCheck className="w-4 h-4 text-primary" />
                 </div>
-                <CardTitle className="text-sm font-bold">{tAuth('adminAccount')}</CardTitle>
+                <CardTitle className="text-sm font-semibold">{tAuth('adminAccount')}</CardTitle>
                 <CardDescription className="text-xs">
                   {locale === 'bn' ? 'গাইডলাইন নিবন্ধন ও হাসপাতাল পরিচালনা' : 'Formulary management and system oversight'}
                 </CardDescription>
@@ -647,7 +643,7 @@ export default function LandingPage() {
                   variant="outline"
                   disabled={loggingInRole === 'admin'}
                   onClick={() => handleQuickLogin('admin@docmate.ai', '/library', 'admin')}
-                  className="w-full text-xs font-semibold border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/5"
+                  className="w-full text-xs font-medium hover:bg-muted"
                 >
                   {t('tryAsAdmin')}
                 </Button>
@@ -658,14 +654,14 @@ export default function LandingPage() {
       </section>
 
       {/* Persistent Disclaimer Footer */}
-      <footer className="border-t border-border bg-card/80 py-8 px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground mt-auto">
-        <div className="max-w-4xl mx-auto space-y-2">
-          <p className="flex items-center justify-center gap-1.5 font-semibold text-amber-700 dark:text-amber-400">
-            <ShieldAlert className="w-4 h-4 shrink-0" />
+      <footer className="border-t border-border bg-card py-6 px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground mt-auto">
+        <div className="max-w-4xl mx-auto space-y-1.5">
+          <p className="flex items-center justify-center gap-1.5 font-semibold text-foreground">
+            <ShieldAlert className="w-4 h-4 text-muted-foreground shrink-0" />
             <span>{tCommon('disclaimer')}</span>
           </p>
           <p className="text-[11px] opacity-80">{tCommon('doctorDecides')}</p>
-          <p className="text-[10px] text-muted-foreground/60 pt-2">
+          <p className="text-[10px] text-muted-foreground/60 pt-1">
             DocMate AI • Clinical Decision Support System
           </p>
         </div>

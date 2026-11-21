@@ -290,6 +290,13 @@
     "noCriticalAlerts": "All safety checks passed. No critical contraindications detected."
   },
   "landing": {
+    "navHowItWorks": "How It Works",
+    "navSafety": "Safety",
+    "navCases": "Cases",
+    "navRoles": "Roles",
+    "navLibrary": "Library",
+    "navDashboard": "Dashboard",
+    "navSignIn": "Sign In",
     "heroBadge": "Evidence-Based Clinical Decision Support",
     "heroTitle": "Smart Clinical Support for Healthcare Teams",
     "heroSubtitle": "Helping doctors make safe, evidence-based choices with peer-reviewed medical guidelines and real-time safety checks.",

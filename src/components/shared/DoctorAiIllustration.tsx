@@ -1,12 +1,7 @@
 'use client';
 
 import React from 'react';
-import {
-  Sparkles,
-  HeartPulse,
-  ShieldCheck,
-  UserCheck,
-} from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
 interface DoctorAiIllustrationProps {
   locale: string;
@@ -18,18 +13,8 @@ export function DoctorAiIllustration({ locale, className = '' }: DoctorAiIllustr
 
   return (
     <div className={`relative w-full max-w-lg mx-auto flex items-center justify-center select-none ${className}`}>
-      {/* Background Ambient Glows */}
-      <div
-        className="absolute -top-6 -right-6 w-72 h-72 rounded-full bg-primary/20 dark:bg-primary/25 blur-3xl pointer-events-none"
-        aria-hidden="true"
-      />
-      <div
-        className="absolute -bottom-8 -left-6 w-64 h-64 rounded-full bg-teal-500/15 dark:bg-teal-400/20 blur-3xl pointer-events-none"
-        aria-hidden="true"
-      />
-
       {/* Main SVG Vector Artwork */}
-      <div className="relative w-full aspect-[500/520] max-h-[540px]">
+      <div className="relative w-full aspect-[500/520] max-h-[520px]">
         <svg
           viewBox="0 0 500 520"
           fill="none"
@@ -42,7 +27,7 @@ export function DoctorAiIllustration({ locale, className = '' }: DoctorAiIllustr
             {/* Gradients */}
             <linearGradient id="aiHalo" x1="120" y1="60" x2="380" y2="380" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.35" />
-              <stop offset="50%" stopColor="#06b6d4" stopOpacity="0.2" />
+              <stop offset="50%" stopColor="var(--primary)" stopOpacity="0.2" />
               <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.05" />
             </linearGradient>
 
@@ -117,9 +102,15 @@ export function DoctorAiIllustration({ locale, className = '' }: DoctorAiIllustr
             </linearGradient>
 
             <linearGradient id="screenHolo" x1="250" y1="380" x2="250" y2="310" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.45" />
-              <stop offset="60%" stopColor="#06b6d4" stopOpacity="0.2" />
+              <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.45" />
+              <stop offset="60%" stopColor="var(--primary)" stopOpacity="0.2" />
               <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0" />
+            </linearGradient>
+
+            <linearGradient id="radarSweep" x1="250" y1="230" x2="415" y2="170" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="var(--primary)" stopOpacity="0" />
+              <stop offset="70%" stopColor="var(--primary)" stopOpacity="0.1" />
+              <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.32" />
             </linearGradient>
 
             {/* Glowing Holographic Filters */}
@@ -131,62 +122,220 @@ export function DoctorAiIllustration({ locale, className = '' }: DoctorAiIllustr
             <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
               <feDropShadow dx="0" dy="6" stdDeviation="8" floodOpacity="0.15" />
             </filter>
+
+            {/* Hardware-Accelerated Smooth CSS Rotations & Pulses */}
+            <style>{`
+              @keyframes docmateOrbitCW {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+              }
+              @keyframes docmateOrbitCCW {
+                from { transform: rotate(360deg); }
+                to { transform: rotate(0deg); }
+              }
+              @keyframes docmateAuraPulse {
+                0%, 100% { transform: scale(0.97); opacity: 0.72; }
+                50% { transform: scale(1.03); opacity: 0.98; }
+              }
+              @keyframes docmateRadarSweep {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+              .docmate-ring-cw {
+                transform-origin: 250px 230px;
+                animation: docmateOrbitCW 32s linear infinite;
+              }
+              .docmate-ring-ccw {
+                transform-origin: 250px 230px;
+                animation: docmateOrbitCCW 22s linear infinite;
+              }
+              .docmate-ring-matrix {
+                transform-origin: 250px 230px;
+                animation: docmateOrbitCW 50s linear infinite;
+              }
+              .docmate-ring-radar {
+                transform-origin: 250px 230px;
+                animation: docmateRadarSweep 14s linear infinite;
+              }
+              .docmate-pulse-aura {
+                transform-origin: 250px 230px;
+                animation: docmateAuraPulse 5s ease-in-out infinite;
+              }
+              @media (prefers-reduced-motion: reduce) {
+                .docmate-ring-cw, .docmate-ring-ccw, .docmate-ring-matrix, .docmate-ring-radar, .docmate-pulse-aura {
+                  animation: none !important;
+                }
+              }
+            `}</style>
           </defs>
 
-          {/* AI Background Tech Rings & Matrix */}
-          <g opacity="0.85">
-            {/* Radial glow background orb */}
-            <circle cx="250" cy="230" r="190" fill="url(#centralGlow)" />
+          {/* ==================================================== */}
+          {/* AI BACKGROUND TECH RINGS & ORBITAL MATRIX (ROTATING) */}
+          {/* ==================================================== */}
+          <g opacity="0.9">
+            {/* 1. Pulsing Ambient Central Aura */}
+            <g className="docmate-pulse-aura">
+              <circle cx="250" cy="230" r="190" fill="url(#centralGlow)" />
+              <circle cx="250" cy="230" r="130" stroke="var(--primary)" strokeOpacity="0.25" strokeWidth="1" />
+            </g>
 
-            {/* Concentric Tech Rings */}
-            <circle
-              cx="250"
-              cy="230"
-              r="200"
-              stroke="var(--primary)"
-              strokeOpacity="0.2"
-              strokeWidth="1.5"
-              strokeDasharray="4 8"
-            />
-            <circle
-              cx="250"
-              cy="230"
-              r="165"
-              stroke="#06b6d4"
-              strokeOpacity="0.25"
-              strokeWidth="1.5"
-              strokeDasharray="6 6"
-            />
-            <circle
-              cx="250"
-              cy="230"
-              r="130"
-              stroke="var(--primary)"
-              strokeOpacity="0.3"
-              strokeWidth="1"
-            />
+            {/* 2. Geometric Hexagon Data Ring (Rotating Clockwise 50s) */}
+            <g className="docmate-ring-matrix">
+              <animateTransform
+                attributeName="transform"
+                type="rotate"
+                from="0 250 230"
+                to="360 250 230"
+                dur="50s"
+                repeatCount="indefinite"
+              />
+              <polygon
+                points="250,55 390,140 390,300 250,385 110,300 110,140"
+                fill="none"
+                stroke="#0ea5e9"
+                strokeOpacity="0.16"
+                strokeWidth="1.5"
+                strokeDasharray="8 6"
+              />
+              <circle cx="250" cy="55" r="3.5" fill="var(--primary)" />
+              <circle cx="390" cy="140" r="3" fill="#0ea5e9" />
+              <circle cx="390" cy="300" r="3" fill="var(--primary)" />
+              <circle cx="250" cy="385" r="3.5" fill="var(--primary)" />
+              <circle cx="110" cy="300" r="3" fill="#0ea5e9" />
+              <circle cx="110" cy="140" r="3" fill="var(--primary)" />
+            </g>
 
-            {/* Tech Orbital Nodes */}
-            <circle cx="415" cy="230" r="4" fill="#06b6d4" />
-            <circle cx="85" cy="230" r="3" fill="var(--primary)" />
-            <circle cx="250" cy="30" r="3.5" fill="#0ea5e9" />
-            <circle cx="366" cy="114" r="2.5" fill="#14b8a6" />
-            <circle cx="134" cy="114" r="2.5" fill="#06b6d4" />
+            {/* 3. Outer Concentric Tech Ring & Calipers (Rotating Clockwise 32s) */}
+            <g className="docmate-ring-cw">
+              <animateTransform
+                attributeName="transform"
+                type="rotate"
+                from="0 250 230"
+                to="360 250 230"
+                dur="32s"
+                repeatCount="indefinite"
+              />
+              {/* Outer Dashed Ring */}
+              <circle
+                cx="250"
+                cy="230"
+                r="205"
+                stroke="var(--primary)"
+                strokeOpacity="0.25"
+                strokeWidth="1.8"
+                strokeDasharray="6 10"
+              />
+              {/* Secondary Fine Outer Ring */}
+              <circle
+                cx="250"
+                cy="230"
+                r="215"
+                stroke="var(--primary)"
+                strokeOpacity="0.15"
+                strokeWidth="1"
+                strokeDasharray="2 8"
+              />
 
-            {/* Subtle Crosshairs / Digital Accents */}
-            <path d="M 240 30 L 260 30 M 250 20 L 250 40" stroke="var(--primary)" strokeOpacity="0.4" strokeWidth="1.5" />
-            <path d="M 440 230 L 460 230 M 450 220 L 450 240" stroke="#06b6d4" strokeOpacity="0.4" strokeWidth="1.5" />
-            <path d="M 40 230 L 60 230 M 50 220 L 50 240" stroke="var(--primary)" strokeOpacity="0.4" strokeWidth="1.5" />
+              {/* 4 Cardinal Crosshair Calipers */}
+              <path d="M 242 25 L 258 25 M 250 17 L 250 33" stroke="var(--primary)" strokeOpacity="0.6" strokeWidth="1.8" />
+              <path d="M 447 230 L 463 230 M 455 222 L 455 238" stroke="var(--primary)" strokeOpacity="0.6" strokeWidth="1.8" />
+              <path d="M 242 435 L 258 435 M 250 427 L 250 443" stroke="var(--primary)" strokeOpacity="0.6" strokeWidth="1.8" />
+              <path d="M 37 230 L 53 230 M 45 222 L 45 238" stroke="var(--primary)" strokeOpacity="0.6" strokeWidth="1.8" />
 
-            {/* Hexagon AI Data Ring */}
-            <polygon
-              points="250,55 390,140 390,300 250,385 110,300 110,140"
-              fill="none"
-              stroke="#0ea5e9"
-              strokeOpacity="0.12"
-              strokeWidth="1.5"
-              strokeDasharray="8 6"
-            />
+              {/* Orbital Tech Nodes on Outer Ring */}
+              <g transform="translate(455, 230)">
+                <circle cx="0" cy="0" r="5" fill="var(--primary)" opacity="0.3" />
+                <circle cx="0" cy="0" r="3.5" fill="var(--primary)" />
+                <circle cx="0" cy="0" r="1.5" fill="#ffffff" />
+              </g>
+              <circle cx="45" cy="230" r="3.5" fill="var(--primary)" />
+              <circle cx="250" cy="25" r="3.5" fill="#0ea5e9" />
+              <circle cx="250" cy="435" r="3" fill="#14b8a6" />
+
+              {/* 4 Ordinal Tick Marks (45°, 135°, 225°, 315°) */}
+              <line x1="395" y1="85" x2="402" y2="78" stroke="var(--primary)" strokeOpacity="0.5" strokeWidth="1.5" />
+              <line x1="105" y1="85" x2="98" y2="78" stroke="var(--primary)" strokeOpacity="0.5" strokeWidth="1.5" />
+              <line x1="395" y1="375" x2="402" y2="382" stroke="var(--primary)" strokeOpacity="0.5" strokeWidth="1.5" />
+              <line x1="105" y1="375" x2="98" y2="382" stroke="var(--primary)" strokeOpacity="0.5" strokeWidth="1.5" />
+            </g>
+
+            {/* 4. Middle Tech Orbital Ring & Scanner Sweep (Rotating Counter-Clockwise 22s) */}
+            <g className="docmate-ring-ccw">
+              <animateTransform
+                attributeName="transform"
+                type="rotate"
+                from="360 250 230"
+                to="0 250 230"
+                dur="22s"
+                repeatCount="indefinite"
+              />
+              {/* Middle Dashed Ring */}
+              <circle
+                cx="250"
+                cy="230"
+                r="165"
+                stroke="var(--primary)"
+                strokeOpacity="0.32"
+                strokeWidth="2"
+                strokeDasharray="8 8"
+              />
+              {/* Thin Inner Orbital Track */}
+              <circle
+                cx="250"
+                cy="230"
+                r="150"
+                stroke="var(--primary)"
+                strokeOpacity="0.2"
+                strokeWidth="1"
+                strokeDasharray="3 6"
+              />
+
+              {/* Glowing Orbital Nodes & Medical Beacons */}
+              <g transform="translate(415, 230)">
+                <circle cx="0" cy="0" r="6" fill="var(--primary)" opacity="0.3" />
+                <circle cx="0" cy="0" r="4" fill="var(--primary)" />
+                <circle cx="0" cy="0" r="2" fill="#ffffff" />
+              </g>
+              <g transform="translate(85, 230)">
+                <circle cx="0" cy="0" r="5" fill="var(--primary)" opacity="0.3" />
+                <circle cx="0" cy="0" r="3.5" fill="var(--primary)" />
+              </g>
+              <g transform="translate(250, 65)">
+                <circle cx="0" cy="0" r="5" fill="var(--primary)" opacity="0.3" />
+                <circle cx="0" cy="0" r="3.5" fill="var(--primary)" />
+              </g>
+              <g transform="translate(250, 395)">
+                <circle cx="0" cy="0" r="4" fill="#14b8a6" opacity="0.3" />
+                <circle cx="0" cy="0" r="2.5" fill="#14b8a6" />
+              </g>
+
+              {/* Orbital Diamond Markers */}
+              <polygon points="366,114 371,119 366,124 361,119" fill="#14b8a6" />
+              <polygon points="134,114 139,119 134,124 129,119" fill="var(--primary)" />
+              <polygon points="366,346 371,351 366,356 361,351" fill="var(--primary)" />
+              <polygon points="134,346 139,351 134,356 129,351" fill="var(--primary)" />
+
+              {/* Small Medical Cross Markers on Track */}
+              <path d="M 247 78 L 253 78 M 250 75 L 250 81" stroke="var(--primary)" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M 247 382 L 253 382 M 250 379 L 250 385" stroke="var(--primary)" strokeWidth="1.5" strokeLinecap="round" />
+            </g>
+
+            {/* 5. Sleek Radar / Scanner Arc Sweep (Rotating 14s) */}
+            <g className="docmate-ring-radar" opacity="0.7">
+              <animateTransform
+                attributeName="transform"
+                type="rotate"
+                from="0 250 230"
+                to="360 250 230"
+                dur="14s"
+                repeatCount="indefinite"
+              />
+              <path
+                d="M 250 230 L 415 230 A 165 165 0 0 0 366 114 Z"
+                fill="url(#radarSweep)"
+                opacity="0.3"
+              />
+            </g>
           </g>
 
           {/* ==================================================== */}
@@ -227,9 +376,9 @@ export function DoctorAiIllustration({ locale, className = '' }: DoctorAiIllustr
           {/* Doctor Smart AI Earpiece (Right Ear) */}
           <g>
             <rect x="299" y="164" width="7" height="12" rx="3.5" fill="#f8fafc" stroke="#0ea5e9" strokeWidth="1" />
-            <circle cx="302.5" cy="170" r="1.5" fill="#06b6d4" />
-            <path d="M 304 170 Q 312 170 316 178" stroke="#06b6d4" strokeWidth="1.2" strokeDasharray="1.5 1.5" strokeOpacity="0.8" />
-            <circle cx="316" cy="178" r="2" fill="#06b6d4" />
+            <circle cx="302.5" cy="170" r="1.5" fill="var(--primary)" />
+            <path d="M 304 170 Q 312 170 316 178" stroke="var(--primary)" strokeWidth="1.2" strokeDasharray="1.5 1.5" strokeOpacity="0.8" />
+            <circle cx="316" cy="178" r="2" fill="var(--primary)" />
           </g>
 
           {/* Face Structure */}
@@ -314,7 +463,7 @@ export function DoctorAiIllustration({ locale, className = '' }: DoctorAiIllustr
             <rect x="301" y="338" width="12" height="18" rx="2" fill="#0f172a" stroke="#0ea5e9" strokeWidth="0.8" />
             <circle cx="307" cy="344" r="2.5" fill="#0ea5e9" />
             <rect x="304" y="349" width="6" height="1.5" rx="0.5" fill="#ffffff" />
-            <rect x="305" y="352" width="4" height="1.2" rx="0.5" fill="#38bdf8" />
+            <rect x="305" y="352" width="4" height="1.2" rx="0.5" fill="var(--primary)" />
           </g>
 
           {/* Stethoscope around Neck */}
@@ -355,7 +504,7 @@ export function DoctorAiIllustration({ locale, className = '' }: DoctorAiIllustr
             <g transform="translate(230, 320)">
               <circle cx="16" cy="16" r="16" fill="url(#stethoMetal)" filter="url(#softShadow)" />
               <circle cx="16" cy="16" r="12" fill="#0f172a" />
-              <circle cx="16" cy="16" r="8" fill="#06b6d4" opacity="0.8" />
+              <circle cx="16" cy="16" r="8" fill="var(--primary)" opacity="0.8" />
               <circle cx="16" cy="16" r="4" fill="#ffffff" />
             </g>
           </g>
@@ -401,7 +550,7 @@ export function DoctorAiIllustration({ locale, className = '' }: DoctorAiIllustr
               height="105"
               rx="12"
               fill="url(#tabletBody)"
-              stroke="#38bdf8"
+              stroke="var(--primary)"
               strokeWidth="2"
               filter="url(#softShadow)"
             />
@@ -418,14 +567,14 @@ export function DoctorAiIllustration({ locale, className = '' }: DoctorAiIllustr
 
             {/* Screen Header Bar */}
             <rect x="187" y="388" width="55" height="6" rx="3" fill="#0284c7" opacity="0.6" />
-            <circle cx="304" cy="391" r="2.5" fill="#10b981" />
-            <circle cx="310" cy="391" r="2" fill="#38bdf8" />
+            <circle cx="304" cy="391" r="2.5" fill="var(--primary)" />
+            <circle cx="310" cy="391" r="2" fill="var(--primary)" />
 
             {/* Live ECG Waveform on Tablet Screen */}
             <path
               d="M 188 418 L 210 418 L 215 410 L 220 428 L 225 402 L 230 422 L 235 418 L 255 418 L 260 412 L 264 425 L 268 406 L 272 420 L 276 418 L 310 418"
               fill="none"
-              stroke="#38bdf8"
+              stroke="var(--primary)"
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -433,14 +582,14 @@ export function DoctorAiIllustration({ locale, className = '' }: DoctorAiIllustr
             />
 
             {/* Guideline Assessment Bars */}
-            <rect x="188" y="432" width="70" height="5" rx="2.5" fill="#10b981" opacity="0.9" />
-            <rect x="188" y="441" width="50" height="4" rx="2" fill="#38bdf8" opacity="0.75" />
+            <rect x="188" y="432" width="70" height="5" rx="2.5" fill="var(--primary)" opacity="0.9" />
+            <rect x="188" y="441" width="50" height="4" rx="2" fill="var(--primary)" opacity="0.75" />
             <rect x="188" y="449" width="35" height="4" rx="2" fill="#0284c7" opacity="0.6" />
 
             {/* Verified Badge Icon on Tablet Screen */}
             <g transform="translate(285, 432)">
-              <circle cx="12" cy="12" r="10" fill="#10b981" opacity="0.25" />
-              <circle cx="12" cy="12" r="8" fill="#10b981" />
+              <circle cx="12" cy="12" r="10" fill="var(--primary)" opacity="0.25" />
+              <circle cx="12" cy="12" r="8" fill="var(--primary)" />
               <path d="M 8 12 L 11 15 L 16 9" stroke="#ffffff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
             </g>
 
@@ -450,14 +599,14 @@ export function DoctorAiIllustration({ locale, className = '' }: DoctorAiIllustr
               cy="345"
               rx="45"
               ry="12"
-              stroke="#06b6d4"
+              stroke="var(--primary)"
               strokeWidth="1.5"
               strokeDasharray="4 4"
               fill="none"
               opacity="0.8"
             />
             {/* Holographic Crosshair */}
-            <circle cx="250" cy="345" r="3" fill="#38bdf8" />
+            <circle cx="250" cy="345" r="3" fill="var(--primary)" />
           </g>
 
           {/* Floating Medical AI Crosses and Particles */}
@@ -465,86 +614,32 @@ export function DoctorAiIllustration({ locale, className = '' }: DoctorAiIllustr
             {/* Cross 1 */}
             <path d="M 120 180 L 128 180 M 124 176 L 124 184" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" />
             {/* Cross 2 */}
-            <path d="M 370 170 L 378 170 M 374 166 L 374 174" stroke="#06b6d4" strokeWidth="2" strokeLinecap="round" />
+            <path d="M 370 170 L 378 170 M 374 166 L 374 174" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" />
             {/* Diamond Node */}
-            <polygon points="380,310 385,315 380,320 375,315" fill="#38bdf8" />
+            <polygon points="380,310 385,315 380,320 375,315" fill="var(--primary)" />
             <polygon points="115,310 120,315 115,320 110,315" fill="var(--primary)" />
           </g>
         </svg>
 
-        {/* ==================================================== */}
-        {/* FLOATING GLASSMORPHIC AI ASSISTANT OVERLAYS          */}
-        {/* ==================================================== */}
-
-        {/* Badge 1: Top Right - DocMate AI Assistant */}
-        <div className="absolute top-2 -right-2 sm:right-2 z-10">
-          <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-card/90 dark:bg-card/85 backdrop-blur-md border border-primary/30 shadow-lg text-left">
-            <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-primary/15 text-primary">
-              <Sparkles className="w-4 h-4 text-primary" />
-              <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-              </span>
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-foreground">
-                  {isBn ? 'ডকমেট এআই সহকারী' : 'DocMate AI Assistant'}
+        {/* Subtle, Clean Clinical Verification Bar */}
+        <div className="absolute -bottom-2 inset-x-2 sm:inset-x-6 z-10">
+          <div className="flex items-center justify-between gap-3 px-3.5 py-2 rounded-lg bg-card/95 border border-border shadow-xs backdrop-blur-sm text-left">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-6 h-6 rounded-md bg-muted text-foreground flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+              </div>
+              <div className="flex flex-col truncate">
+                <span className="text-xs font-semibold text-foreground truncate">
+                  {isBn ? 'ডকমেট ক্লিনিকাল সিদ্ধান্ত সহায়তা' : 'DocMate Clinical Decision Support'}
+                </span>
+                <span className="text-[10px] text-muted-foreground truncate">
+                  {isBn ? 'যাচাইকৃত গাইডলাইন • ড্রাগ সেফটি চেক • চিকিৎসকের নিয়ন্ত্রণ' : 'Verified Guidelines • Drug Safety Checks • Doctor in Control'}
                 </span>
               </div>
-              <span className="text-[10px] text-muted-foreground block font-medium">
-                {isBn ? 'ক্লিনিকাল ডিসিশন সাপোর্ট' : 'Clinical Decision Support'}
-              </span>
             </div>
-          </div>
-        </div>
-
-        {/* Badge 2: Middle Left - Real-time ECG / Guideline Grounding */}
-        <div className="absolute top-1/3 -left-3 sm:-left-4 z-10">
-          <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-card/90 dark:bg-card/85 backdrop-blur-md border border-border/80 shadow-lg text-left max-w-[200px]">
-            <div className="w-8 h-8 rounded-lg bg-rose-500/15 text-rose-500 flex items-center justify-center shrink-0">
-              <HeartPulse className="w-4 h-4 text-rose-500 animate-pulse" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1">
-                <span className="text-xs font-bold text-foreground truncate">
-                  {isBn ? 'গাইডলাইন বিশ্লেষণ' : 'Guideline Active'}
-                </span>
-              </div>
-              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block">
-                {isBn ? 'WHO ও NICE স্ট্যান্ডার্ড' : 'WHO & NICE Grounded'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Badge 3: Bottom Right - Safe Rx & Safety Clearance */}
-        <div className="absolute bottom-4 -right-2 sm:right-0 z-10">
-          <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-card/90 dark:bg-card/85 backdrop-blur-md border border-emerald-500/30 shadow-xl text-left">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-600 flex items-center justify-center shrink-0">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-foreground">
-                  {isBn ? 'নিরাপদ ড্রাগ চেক' : 'Safe Rx Verification'}
-                </span>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
-                  PASS
-                </span>
-              </div>
-              <span className="text-[10px] text-muted-foreground block">
-                {isBn ? 'অ্যালার্জি ও মিথস্ক্রিয়া মুক্ত' : 'Zero DDI & Allergy Safe'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Badge 4: Top Left - Physician Control */}
-        <div className="absolute top-10 -left-2 sm:left-0 z-10 hidden sm:block">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-xs text-[11px] font-semibold text-primary">
-            <UserCheck className="w-3.5 h-3.5" />
-            <span>{isBn ? 'চিকিৎসক নিয়ন্ত্রিত' : 'Doctor in Control'}</span>
+            <span className="text-[10px] font-medium text-muted-foreground bg-muted border border-border/80 px-2 py-0.5 rounded shrink-0">
+              {isBn ? 'সক্রিয়' : 'Active'}
+            </span>
           </div>
         </div>
       </div>
