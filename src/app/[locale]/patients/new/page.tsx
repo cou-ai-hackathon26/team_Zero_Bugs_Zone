@@ -306,13 +306,18 @@ export default function NewPatientIntakePage() {
     const patientCode = `P-${new Date().getFullYear()}-${seq}`;
     const idempotencyKey = `case-create-${selectedProfile?.id || searchPhone}-${Date.now()}`;
 
+    const resolvedAge = selectedProfile?.age ? Number(selectedProfile.age) : (Number(createAge) || 35);
+    const rawGender = (selectedProfile?.gender || createGender || 'male').toLowerCase();
+    const resolvedGender: 'male' | 'female' | 'other' =
+      rawGender === 'female' ? 'female' : rawGender === 'other' ? 'other' : 'male';
+
     const payload = {
       patient_code: patientCode,
       profile_id: selectedProfile?.id || undefined,
       idempotency_key: idempotencyKey,
       structured_input: {
-        age: Number(createAge) || 35,
-        gender: createGender,
+        age: resolvedAge,
+        gender: resolvedGender,
         weight_kg: Number(weightKg) || 65,
         chief_complaint: chiefComplaint.trim() || selectedSymptoms.join(', ') || 'General Consultation',
         symptoms: selectedSymptoms,
@@ -415,22 +420,42 @@ export default function NewPatientIntakePage() {
                     <button
                       type="button"
                       onClick={() => {
+                        setSearchPhone('01711223344');
+                        handleSearchPatient('01711223344');
+                      }}
+                      className="px-2.5 py-1 rounded border border-border text-xs bg-card hover:bg-muted text-muted-foreground hover:text-foreground font-mono"
+                    >
+                      01711223344 (আয়েশা বেগম)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchPhone('01819554433');
+                        handleSearchPatient('01819554433');
+                      }}
+                      className="px-2.5 py-1 rounded border border-border text-xs bg-card hover:bg-muted text-muted-foreground hover:text-foreground font-mono"
+                    >
+                      01819554433 (রফিকুল ইসলাম)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchPhone('01912445566');
+                        handleSearchPatient('01912445566');
+                      }}
+                      className="px-2.5 py-1 rounded border border-border text-xs bg-card hover:bg-muted text-muted-foreground hover:text-foreground font-mono"
+                    >
+                      01912445566 (তানিয়া সুলতানা)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
                         setSearchPhone('01700000001');
                         handleSearchPatient('01700000001');
                       }}
                       className="px-2.5 py-1 rounded border border-border text-xs bg-card hover:bg-muted text-muted-foreground hover:text-foreground font-mono"
                     >
                       01700000001 (কামাল হোসেন)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearchPhone('01700000002');
-                        handleSearchPatient('01700000002');
-                      }}
-                      className="px-2.5 py-1 rounded border border-border text-xs bg-card hover:bg-muted text-muted-foreground hover:text-foreground font-mono"
-                    >
-                      01700000002 (রফিকুল ও পরিবার)
                     </button>
                   </div>
                 </div>

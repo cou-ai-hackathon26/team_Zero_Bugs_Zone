@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/db';
-import { patients, encounters } from '@/db/schema';
-import { desc, eq } from 'drizzle-orm';
+import { patients, encounters, patientAccounts, patientProfiles, accessGrants } from '@/db/schema';
+import { desc, eq, or } from 'drizzle-orm';
 import { requirePhysician } from '@/lib/case-access';
 import { encryptPatientPii, decryptPatientPii } from '@/lib/encryption';
 import { createAuditLogEntry } from '@/lib/audit';
+import { normalizeBangladeshiPhone } from '@/lib/phone';
 
 const patientCreateSchema = z.object({
   name: z.string().min(2).max(100),
@@ -137,6 +138,64 @@ export async function POST(request: Request) {
         consentObtainedAt: new Date(),
       })
       .returning();
+
+    // Auto-sync into patientAccounts and patientProfiles for instant New Intake lookup
+    if (phone) {
+      try {
+        const norm = normalizeBangladeshiPhone(phone);
+        if (norm.isValid) {
+          let [acc] = await db
+            .select({ id: patientAccounts.id })
+            .from(patientAccounts)
+            .where(
+              or(
+                eq(patientAccounts.phone, norm.e164),
+                eq(patientAccounts.phoneNormalized, norm.e164)
+              )
+            )
+            .limit(1);
+
+          if (!acc) {
+            [acc] = await db
+              .insert(patientAccounts)
+              .values({
+                phone: norm.e164,
+                phoneNormalized: norm.e164,
+              })
+              .returning();
+          }
+
+          const [prof] = await db
+            .insert(patientProfiles)
+            .values({
+              accountId: acc.id,
+              relation: 'self',
+              name,
+              nameEncrypted: encryptPatientPii(name),
+              age,
+              gender,
+              sex: gender,
+              bloodGroup: bloodGroup || null,
+              createdBy: user.id,
+              claimed: false,
+            })
+            .returning();
+
+          await db
+            .insert(accessGrants)
+            .values({
+              profileId: prof.id,
+              doctorId: user.id,
+              scope: 'this_doctor_only',
+              status: 'active',
+              grantedVia: 'created_profile',
+            })
+            .catch(() => {});
+        }
+      } catch (syncErr) {
+        console.error('Failed to auto-sync patient into patientProfiles:', syncErr);
+      }
+    }
 
     let newEncounter = null;
     if (chiefComplaint || symptoms.length > 0 || Object.keys(vitals).length > 0) {

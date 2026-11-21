@@ -294,12 +294,20 @@ export async function GET(req: Request) {
       })
     );
 
+    const seen = new Set<string>();
+    const uniqueProfiles = profilesWithGrants.filter((p) => {
+      const key = `${p.name.trim().toLowerCase()}_${p.relation}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
     return NextResponse.json({
       found: true,
       phone: norm.e164,
       phoneMasked: maskPhoneNumber(norm.e164),
       phoneLocal: norm.formattedLocal,
-      profiles: profilesWithGrants,
+      profiles: uniqueProfiles,
     });
   } catch (error) {
     console.error('Error in /api/patient/search:', error);
