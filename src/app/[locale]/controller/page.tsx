@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocale } from 'next-intl';
 import { AppShell } from '@/components/shared/AppShell';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { OnboardingTourBlock } from '@/components/shared/OnboardingTourBlock';
 import {
   Pill,
   ShieldCheck,
