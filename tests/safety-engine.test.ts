@@ -100,7 +100,7 @@ describe('Deterministic Safety Engine (Hard Rule: Doses and Safety from Code & D
       duration_days: 30,
     },
     contraindications: {
-      conditions: ['Active gastrointestinal bleeding', 'Severe thrombocytopenia'],
+      conditions: ['Active gastrointestinal bleeding', 'Severe thrombocytopenia', 'Dengue Fever'],
       allergies: ['Aspirin', 'Salicylates', 'NSAIDs'],
       age_min: 16,
     },
@@ -170,21 +170,21 @@ describe('Deterministic Safety Engine (Hard Rule: Doses and Safety from Code & D
 
   describe('3. Pregnancy & Teratogenicity Check', () => {
     it('flags Category X drugs as absolute critical contraindication in pregnancy', () => {
-      const alerts = checkPregnancy(methotrexateDrug, true, 1);
+      const alerts = checkPregnancy(methotrexateDrug, true);
       expect(alerts).toHaveLength(1);
       expect(alerts[0].severity).toBe('critical');
       expect(alerts[0].title).toContain('Category X');
     });
 
     it('flags Category D drugs (e.g. ACE inhibitors) as critical risk in pregnancy', () => {
-      const alerts = checkPregnancy(lisinoprilDrug, true, 2);
+      const alerts = checkPregnancy(lisinoprilDrug, true);
       expect(alerts).toHaveLength(1);
       expect(alerts[0].severity).toBe('critical');
       expect(alerts[0].title).toContain('Category D');
     });
 
     it('flags Category C drugs with cautionary warning in pregnancy', () => {
-      const alerts = checkPregnancy(nitroglycerinDrug, true, 1);
+      const alerts = checkPregnancy(nitroglycerinDrug, true);
       expect(alerts).toHaveLength(1);
       expect(alerts[0].severity).toBe('warning');
       expect(alerts[0].title).toContain('Category C');
@@ -250,4 +250,29 @@ describe('Deterministic Safety Engine (Hard Rule: Doses and Safety from Code & D
       expect(types).toContain('drug_interaction');
     });
   });
+
+  it('flags stored contraindications without a hardcoded drug exception', () => {
+    expect(checkContraindications(amoxicillinDrug, ['INFECTIOUS MONONUCLEOSIS'], []))
+      .toEqual([expect.objectContaining({ type: 'contraindication', severity: 'critical' })]);
+  });
+
+  it('checks upper age limits and includes both configured boundaries', () => {
+    const drug = { ...aspirinDrug, contraindications: { ...aspirinDrug.contraindications, age_max: 80 } };
+    expect(checkContraindications(drug, [], [], 81)).toEqual([expect.objectContaining({ type: 'age', severity: 'critical' })]);
+    expect(checkContraindications(drug, [], [], 80)).toEqual([]);
+    expect(checkContraindications(drug, [], [], 16)).toEqual([]);
+  });
+
+  it('flags an already recorded active ingredient and ignores a different medication', () => {
+    const patient: StructuredPatientInput = {
+      age: 40, gender: 'other', chief_complaint: 'Synthetic test',
+      symptoms: [], past_medical_history: [], allergies: [], vitals: {}, lab_values: [],
+      current_medicines: ['Amoxicillin 500 mg'],
+    };
+    expect(evaluateDrugSafety(amoxicillinDrug, patient, [])).toEqual([
+      expect.objectContaining({ type: 'duplicate_therapy', severity: 'critical' }),
+    ]);
+    expect(evaluateDrugSafety(amoxicillinDrug, { ...patient, current_medicines: ['Different agent'] }, [])).toEqual([]);
+  });
+
 });

@@ -210,7 +210,7 @@ export interface SafetyAlert {
   drug_id: string;
   drug_name: string;
   severity: SafetyAlertSeverity;
-  type: 'allergy' | 'drug_interaction' | 'contraindication' | 'pregnancy' | 'renal' | 'age';
+  type: 'allergy' | 'drug_interaction' | 'contraindication' | 'pregnancy' | 'renal' | 'age' | 'duplicate_therapy';
   title: string;
   description: string;
   acknowledged?: boolean;

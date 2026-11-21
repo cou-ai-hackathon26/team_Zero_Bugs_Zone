@@ -28,12 +28,7 @@ export function checkAllergies(
     const isClassMatch =
       drugClassNorm.includes(allergyNorm) || allergyNorm.includes(drugClassNorm);
 
-    // Cross-hypersensitivity check (e.g. Penicillin allergy vs Cephalosporins / Beta-lactams)
-    const isPenicillinCross =
-      (allergyNorm.includes('penicillin') || allergyNorm.includes('amoxicillin')) &&
-      (drugClassNorm.includes('penicillin') || drugNameNorm.includes('amoxicillin') || drugNameNorm.includes('ampicillin'));
-
-    if (isDirectMatch || isClassMatch || isPenicillinCross) {
+    if (isDirectMatch || isClassMatch) {
       alerts.push({
         id: `allergy-${drug.id}-${allergyNorm}`,
         drug_id: drug.id,
@@ -93,8 +88,7 @@ export function checkInteractions(
 // 3. Pregnancy Category & Teratogenicity Check
 export function checkPregnancy(
   drug: DrugRecord,
-  isPregnant?: boolean,
-  trimester?: number
+  isPregnant?: boolean
 ): SafetyAlert[] {
   const alerts: SafetyAlert[] = [];
   if (!isPregnant) return alerts;
@@ -144,57 +138,42 @@ export function checkContraindications(
   age?: number
 ): SafetyAlert[] {
   const alerts: SafetyAlert[] = [];
-  const combinedClinical = [...(pastHistory || []), ...(symptoms || [])]
-    .map((s) => s.toLowerCase())
-    .join(' ');
-
-  // Age bounds check
-  if (age !== undefined) {
-    if (drug.contraindications?.age_min && age < drug.contraindications.age_min) {
-      alerts.push({
-        id: `age-min-${drug.id}`,
-        drug_id: drug.id,
-        drug_name: drug.generic_name,
-        severity: 'critical',
-        type: 'age',
-        title: `Age Limit Violation (Pediatric Safety Stop)`,
-        description: `${drug.generic_name} is contraindicated in patients under ${drug.contraindications.age_min} years of age (e.g. risk of Reye syndrome, cartilage damage, or tooth discoloration).`,
-      });
-    }
-  }
-
-  // Asthmatic bronchospasm check with non-selective beta-blockers
-  if (
-    drug.generic_name.toLowerCase().includes('propranolol') &&
-    (combinedClinical.includes('asthma') || combinedClinical.includes('bronchial asthma') || combinedClinical.includes('wheeze'))
-  ) {
+  const clinical = [...pastHistory, ...symptoms].map(normalizeName);
+  for (const condition of drug.contraindications.conditions) {
+    const normalized = normalizeName(condition);
+    if (!normalized || !clinical.includes(normalized)) continue;
     alerts.push({
-      id: `contra-asthma-${drug.id}`,
+      id: `condition-${drug.id}-${normalized}`,
       drug_id: drug.id,
       drug_name: drug.generic_name,
       severity: 'critical',
       type: 'contraindication',
-      title: `Contraindication: Non-Selective Beta-Blocker in Asthma`,
-      description: `${drug.generic_name} blocks beta-2 pulmonary receptors, precipitating acute, severe, life-threatening bronchospasm.`,
+      title: `Recorded contraindication: ${condition}`,
+      description: `The formulary lists this condition as a contraindication for ${drug.generic_name}.`,
     });
   }
 
-  // Dengue fever check with NSAIDs / Aspirin / Ibuprofen
-  const isNsaid =
-    drug.drug_class.toLowerCase().includes('nsaid') ||
-    drug.generic_name.toLowerCase().includes('ibuprofen') ||
-    drug.generic_name.toLowerCase().includes('aspirin') ||
-    drug.generic_name.toLowerCase().includes('diclofenac');
-
-  if (isNsaid && combinedClinical.includes('dengue')) {
+  const { age_min: minimum, age_max: maximum } = drug.contraindications;
+  if (age !== undefined && minimum !== undefined && age < minimum) {
     alerts.push({
-      id: `contra-dengue-${drug.id}`,
+      id: `age-min-${drug.id}`,
       drug_id: drug.id,
       drug_name: drug.generic_name,
       severity: 'critical',
-      type: 'contraindication',
-      title: `CRITICAL CONTRAINDICATION: NSAID / Aspirin in Dengue Fever`,
-      description: `${drug.generic_name} possesses antiplatelet effects and causes severe gastric erosions, creating a fatal risk of catastrophic hemorrhage and plasma leakage in dengue infection. Only Paracetamol is permitted.`,
+      type: 'age',
+      title: 'Age Limit Violation (Pediatric Safety Stop)',
+      description: `Formulary minimum age: ${minimum} years.`,
+    });
+  }
+  if (age !== undefined && maximum !== undefined && age > maximum) {
+    alerts.push({
+      id: `age-max-${drug.id}`,
+      drug_id: drug.id,
+      drug_name: drug.generic_name,
+      severity: 'critical',
+      type: 'age',
+      title: 'Age Limit Violation (Upper Age Safety Stop)',
+      description: `Formulary maximum age: ${maximum} years.`,
     });
   }
 
@@ -241,9 +220,26 @@ export function evaluateDrugSafety(
 
   alerts.push(...checkAllergies(drug, patient.allergies || []));
   alerts.push(...checkInteractions(drug, patient.current_medicines || [], interactionsDb));
-  alerts.push(...checkPregnancy(drug, patient.is_pregnant, patient.pregnancy_trimester));
+  alerts.push(...checkPregnancy(drug, patient.is_pregnant));
   alerts.push(...checkContraindications(drug, patient.past_medical_history || [], patient.symptoms || [], patient.age));
   alerts.push(...checkRenalAdjustment(drug, patient.egfr));
+
+  const genericName = normalizeName(drug.generic_name);
+  const duplicate = genericName && patient.current_medicines?.some((medicine) => {
+    const ingredient = medicine.split(/\s+(?=\d)/, 1)[0];
+    return normalizeName(ingredient) === genericName;
+  });
+  if (duplicate) {
+    alerts.push({
+      id: `duplicate-${drug.id}`,
+      drug_id: drug.id,
+      drug_name: drug.generic_name,
+      severity: 'critical',
+      type: 'duplicate_therapy',
+      title: 'Duplicate active ingredient',
+      description: `${drug.generic_name} is already recorded in the current medication list.`,
+    });
+  }
 
   return alerts;
 }
