@@ -33,17 +33,25 @@ const DEMO_USERS = [
 ];
 
 export async function seedDemoUsers() {
+  let doctorId: string | undefined;
   for (const demo of DEMO_USERS) {
     const existing = await db.query.users.findFirst({
       where: eq(users.email, demo.email),
     });
+    let id = existing?.id;
     if (!existing) {
-      await db.insert(users).values({
+      const [created] = await db.insert(users).values({
         email: demo.email,
         name: demo.name,
         role: demo.role,
         passwordHash: await hashPassword(demo.password),
-      });
+      }).returning({ id: users.id });
+      id = created.id;
+    } else if (/^[a-f0-9]{64}$/.test(existing.passwordHash) && existing.role === demo.role) {
+      await db.update(users).set({ passwordHash: await hashPassword(demo.password) }).where(eq(users.id, existing.id));
     }
+    if (demo.role === 'doctor' && (!existing || existing.role === 'doctor')) doctorId = id;
   }
+  if (!doctorId) throw new Error('Cannot assign fixtures to a demo physician.');
+  return doctorId;
 }

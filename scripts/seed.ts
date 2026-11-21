@@ -1,3 +1,6 @@
+import { seedDemoUsers } from './demo-users';
+import { pool as authPool } from '../src/db';
+import { requireAuthSecret } from '../src/lib/session';
 import { Pool } from 'pg';
 
 const pool = new Pool({
@@ -804,6 +807,10 @@ export const SYNTHETIC_CASES_SEED = [
 export async function runSeed() {
   console.log('--- Starting DocMate AI Database Seeding ---');
 
+  if (process.env.DOCMATE_DEMO_MODE !== 'true') throw new Error('Enable DOCMATE_DEMO_MODE for synthetic demo seeding.');
+  requireAuthSecret();
+  const doctorId = await seedDemoUsers();
+
   // 1. Seed Drugs
   console.log(`Seeding ${DRUGS_SEED.length} structured drugs...`);
   for (const drug of DRUGS_SEED) {
@@ -836,8 +843,8 @@ export async function runSeed() {
   for (const inter of DRUG_INTERACTIONS_SEED) {
     await pool.query(
       `INSERT INTO drug_interactions (drug_a, drug_b, severity, note)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT DO NOTHING`,
+       SELECT $1, $2, $3, $4
+       WHERE NOT EXISTS (SELECT 1 FROM drug_interactions WHERE drug_a = $1 AND drug_b = $2)`,
       [inter.drug_a, inter.drug_b, inter.severity, inter.note]
     );
   }
@@ -852,9 +859,14 @@ export async function runSeed() {
 
     if (existing.rows.length === 0) {
       await pool.query(
-        `INSERT INTO cases (patient_code, status, structured_input)
-         VALUES ($1, $2, $3)`,
-        [c.patient_code, c.status, JSON.stringify(c.structured_input)]
+        `INSERT INTO cases (patient_code, status, structured_input, doctor_id)
+         VALUES ($1, $2, $3, $4)`,
+        [c.patient_code, c.status, JSON.stringify(c.structured_input), doctorId]
+      );
+    } else {
+      await pool.query(
+        'UPDATE cases SET doctor_id = $1 WHERE id = $2 AND doctor_id IS NULL AND structured_input = $3::jsonb',
+        [doctorId, existing.rows[0].id, JSON.stringify(c.structured_input)],
       );
     }
   }
@@ -864,10 +876,9 @@ export async function runSeed() {
 
 if (require.main === module) {
   runSeed()
-    .then(() => pool.end())
-    .catch((err) => {
-      console.error('Seed error:', err);
-      pool.end();
-      process.exit(1);
-    });
+    .catch(() => {
+      console.error('Seed failed. Check the demo flag, authentication secret and database schema.');
+      process.exitCode = 1;
+    })
+    .finally(() => Promise.all([pool.end(), authPool.end()]));
 }

@@ -4,12 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "ingest": "tsx scripts/ingest.ts",
-    "seed": "tsx scripts/seed.ts",
+    "ingest": "node --env-file-if-exists=.env --import tsx scripts/ingest.ts",
+    "seed": "node --env-file-if-exists=.env --import tsx scripts/seed.ts",
     "test": "vitest run",
     "test:e2e": "playwright test"
   },
