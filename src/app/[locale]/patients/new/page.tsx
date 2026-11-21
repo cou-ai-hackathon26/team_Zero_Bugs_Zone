@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from '@/i18n/routing';
 import { useLocale, useTranslations } from 'next-intl';
 import { AppShell } from '@/components/shared/AppShell';
@@ -126,6 +126,16 @@ export default function NewPatientIntakePage() {
   const [currentMedsText, setCurrentMedsText] = useState('');
   const [selectedHistory, setSelectedHistory] = useState<string[]>([]);
   const [autoSavedTime, setAutoSavedTime] = useState<string | null>(null);
+
+  // Auto-save timestamp when clinical data is entered
+  useEffect(() => {
+    if (selectedSymptoms.length > 0 || chiefComplaint || bpSystolic || tempF) {
+      const timer = setTimeout(() => {
+        setAutoSavedTime(new Date().toLocaleTimeString(isBn ? 'bn-BD' : 'en-US', { hour: '2-digit', minute: '2-digit' }));
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedSymptoms, chiefComplaint, bpSystolic, tempF, isBn]);
 
   // Search Patient Phone
   const handleSearchPatient = async (phoneToSearch?: string) => {

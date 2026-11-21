@@ -17,7 +17,6 @@ import {
   Quote,
   Table,
   Search,
-  Sparkles,
   Compass,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
