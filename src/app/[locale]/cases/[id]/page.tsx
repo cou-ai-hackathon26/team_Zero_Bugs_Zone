@@ -97,6 +97,11 @@ export default function CaseWorkspacePage({ params }: CaseWorkspacePageProps) {
         body: JSON.stringify({ confirmedDiagnosis: diagnosis }),
       });
       const data = await res.json();
+      if (res.status === 409 && data.status === 'insufficient_evidence') {
+        setTreatmentPlan(null);
+        setApprovedDrugIds(new Set());
+        return;
+      }
       if (!res.ok) {
         throw new Error(data.error || 'Failed to generate treatment plan');
       }

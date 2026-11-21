@@ -111,10 +111,10 @@ export function TreatmentTab({
             Confirmed Working Diagnosis: {confirmedDiagnosis}
           </h3>
           <p className="text-xs text-muted-foreground max-w-md">
-            Generate the evidence-guided treatment plan with deterministic dosage rules and comprehensive patient-specific safety validation.
+            {t('unavailable')}
           </p>
         </div>
-        <Button onClick={onGenerateTreatment} className="gap-2 font-semibold text-xs">
+        <Button disabled onClick={onGenerateTreatment} className="gap-2 font-semibold text-xs">
           <FileCheck className="w-4 h-4" />
           Generate Treatment Plan
         </Button>

@@ -159,6 +159,7 @@
     "proceedToTreatment": "Proceed to Treatment Planning"
   },
   "treatment": {
+    "unavailable": "Treatment suggestions are unavailable without verified, patient-specific formulary evidence.",
     "title": "Evidence-Guided Treatment Protocol",
     "subtitle": "Deterministic dosage and safety validated against patient profile",
     "firstLine": "First-Line Therapeutic Regimens",
