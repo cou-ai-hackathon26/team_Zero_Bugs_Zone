@@ -296,32 +296,44 @@ export function ProductTour() {
   const panelKey = getPanelKey();
   const steps = getStepsForPanel(panelKey);
 
-  // Position calculation and scroll into view
-  const updateTargetPosition = useCallback(() => {
+  // Read rect for currently active step without triggering scroll
+  const updateRect = useCallback(() => {
     if (!isOpen || !steps[currentStep]) return;
     const target = document.querySelector(steps[currentStep].selector);
     if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const rect = target.getBoundingClientRect();
-      setTargetRect(rect);
+      setTargetRect(target.getBoundingClientRect());
     } else {
       setTargetRect(null);
     }
   }, [isOpen, steps, currentStep]);
 
+  // Smooth scroll into view ONLY when currentStep or isOpen changes
   useEffect(() => {
-    const timer = setTimeout(() => {
-      updateTargetPosition();
-    }, 0);
-    const handleResize = () => updateTargetPosition();
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('scroll', handleResize, true);
+    if (!isOpen || !steps[currentStep]) return;
+    const target = document.querySelector(steps[currentStep].selector);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTargetRect(target.getBoundingClientRect());
+      const timer = setTimeout(() => {
+        const el = document.querySelector(steps[currentStep].selector);
+        if (el) setTargetRect(el.getBoundingClientRect());
+      }, 350);
+      return () => clearTimeout(timer);
+    } else {
+      setTargetRect(null);
+    }
+  }, [isOpen, currentStep, steps]);
+
+  // Sync rect passively on scroll / resize without calling scrollIntoView
+  useEffect(() => {
+    if (!isOpen) return;
+    window.addEventListener('resize', updateRect);
+    window.addEventListener('scroll', updateRect, true);
     return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('scroll', handleResize, true);
+      window.removeEventListener('resize', updateRect);
+      window.removeEventListener('scroll', updateRect, true);
     };
-  }, [updateTargetPosition]);
+  }, [isOpen, updateRect]);
 
   // Listen for custom trigger event
   useEffect(() => {
@@ -406,25 +418,35 @@ export function ProductTour() {
         zIndex: 60,
       };
     } else {
+      const cardWidth = 380;
+      const cardHeight = 250;
       const spaceBelow = window.innerHeight - targetRect.bottom;
       const spaceAbove = targetRect.top;
       const spaceRight = window.innerWidth - targetRect.right;
 
-      let top = targetRect.bottom + 16;
-      let left = Math.max(16, Math.min(targetRect.left, window.innerWidth - 400));
+      let top: number;
+      let left = Math.max(16, Math.min(targetRect.left, window.innerWidth - cardWidth - 24));
 
-      if (spaceBelow < 240 && spaceAbove > 240) {
-        top = Math.max(16, targetRect.top - 240);
-      } else if (spaceRight > 420 && targetRect.width < 300) {
-        top = Math.max(16, targetRect.top);
+      if (spaceBelow >= cardHeight + 24) {
+        // Place comfortably below target
+        top = targetRect.bottom + 14;
+      } else if (spaceAbove >= cardHeight + 24) {
+        // Place comfortably above target
+        top = targetRect.top - cardHeight - 14;
+      } else if (spaceRight >= cardWidth + 24 && targetRect.width < 320) {
+        // Place to the right of tall, narrow targets (like the sidebar)
+        top = Math.max(20, Math.min(targetRect.top + 20, window.innerHeight - cardHeight - 20));
         left = targetRect.right + 16;
+      } else {
+        // Fallback: pin near bottom of viewport
+        top = Math.max(20, window.innerHeight - cardHeight - 24);
       }
 
       cardPositionStyle = {
         position: 'fixed',
-        top: `${Math.min(top, window.innerHeight - 280)}px`,
+        top: `${top}px`,
         left: `${left}px`,
-        width: '380px',
+        width: `${cardWidth}px`,
         maxWidth: '92vw',
         zIndex: 60,
       };
@@ -444,22 +466,25 @@ export function ProductTour() {
 
   return (
     <>
-      {/* Dark Spotlight Backdrop Overlay */}
+      {/* Click-catcher backdrop: closes on outside click; if no targetRect, provides dark blur */}
       <div
-        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] transition-opacity duration-300"
+        className={`fixed inset-0 z-40 transition-opacity duration-300 ${
+          targetRect ? 'bg-transparent' : 'bg-black/60 backdrop-blur-xs'
+        }`}
         onClick={handleClose}
         aria-hidden="true"
       />
 
-      {/* Target Element Highlight Box */}
+      {/* Target Element Spotlight Cutout (9999px shadow dims everything else, element stays crystal clear) */}
       {targetRect && (
         <div
-          className="fixed z-50 pointer-events-none rounded-lg ring-4 ring-primary ring-offset-2 ring-offset-background shadow-2xl transition-all duration-300 animate-pulse"
+          className="fixed z-50 pointer-events-none rounded-xl ring-2 ring-primary ring-offset-2 ring-offset-background transition-all duration-200"
           style={{
-            top: `${Math.max(0, targetRect.top - 4)}px`,
-            left: `${Math.max(0, targetRect.left - 4)}px`,
-            width: `${targetRect.width + 8}px`,
-            height: `${targetRect.height + 8}px`,
+            top: `${Math.max(0, targetRect.top - 6)}px`,
+            left: `${Math.max(0, targetRect.left - 6)}px`,
+            width: `${targetRect.width + 12}px`,
+            height: `${targetRect.height + 12}px`,
+            boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.60)',
           }}
         />
       )}
