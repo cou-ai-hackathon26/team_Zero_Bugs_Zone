@@ -243,3 +243,117 @@ export function evaluateDrugSafety(
 
   return alerts;
 }
+
+export interface RegimenAcknowledgment {
+  alert_id: string;
+  drug_id: string;
+  case_version: string;
+  regimen_hash: string;
+  acknowledged_at: string;
+  acknowledged_by?: string;
+}
+
+export function computeRegimenHash(drugIds: string[]): string {
+  return [...drugIds].sort().join(',');
+}
+
+export function computeCaseVersion(patient: StructuredPatientInput, updatedAt?: string | Date): string {
+  if (typeof updatedAt === 'string') return updatedAt;
+  if (updatedAt instanceof Date) return updatedAt.toISOString();
+  const relevant = {
+    allergies: patient.allergies || [],
+    current_medicines: patient.current_medicines || [],
+    egfr: patient.egfr,
+    is_pregnant: patient.is_pregnant,
+    age: patient.age,
+    vitals: patient.vitals || {},
+    past_history: patient.past_medical_history || [],
+  };
+  return JSON.stringify(relevant);
+}
+
+export function isHardStop(alert: SafetyAlert): boolean {
+  if (alert.type === 'allergy' && alert.severity === 'critical') return true;
+  if (alert.type === 'pregnancy' && alert.severity === 'critical') return true;
+  return false;
+}
+
+export function isAcknowledgmentValid(
+  ack: RegimenAcknowledgment,
+  currentCaseVersion: string,
+  currentRegimenHash: string,
+): boolean {
+  return ack.case_version === currentCaseVersion && ack.regimen_hash === currentRegimenHash;
+}
+
+export interface RegimenSafetyVerification {
+  isValid: boolean;
+  alerts: SafetyAlert[];
+  unacknowledgedCritical: SafetyAlert[];
+  staleAcknowledgments: RegimenAcknowledgment[];
+  hardStops: SafetyAlert[];
+}
+
+export function recomputeRegimenSafety(
+  drugs: DrugRecord[],
+  patient: StructuredPatientInput,
+  interactionsDb: DrugInteractionRecord[],
+  existingAcks: RegimenAcknowledgment[],
+  currentCaseVersion: string,
+): RegimenSafetyVerification {
+  const currentRegimenHash = computeRegimenHash(drugs.map((d) => d.id));
+  const allAlerts: SafetyAlert[] = [];
+
+  for (const drug of drugs) {
+    const drugAlerts = evaluateDrugSafety(drug, patient, interactionsDb);
+    allAlerts.push(...drugAlerts);
+  }
+
+  for (let i = 0; i < drugs.length; i++) {
+    for (let j = i + 1; j < drugs.length; j++) {
+      const drugA = normalizeName(drugs[i].generic_name);
+      const drugB = normalizeName(drugs[j].generic_name);
+      const match = interactionsDb.find((item) => {
+        const a = normalizeName(item.drug_a);
+        const b = normalizeName(item.drug_b);
+        return (drugA.includes(a) && drugB.includes(b)) || (drugA.includes(b) && drugB.includes(a));
+      });
+      if (match) {
+        allAlerts.push({
+          id: `regimen-interaction-${drugs[i].id}-${drugs[j].id}`,
+          drug_id: drugs[i].id,
+          drug_name: `${drugs[i].generic_name} + ${drugs[j].generic_name}`,
+          severity: match.severity,
+          type: 'drug_interaction',
+          title: `Inter-Regimen Drug Interaction: ${drugs[i].generic_name} + ${drugs[j].generic_name}`,
+          description: match.note,
+        });
+      }
+    }
+  }
+
+  const hardStops = allAlerts.filter(isHardStop);
+  const staleAcknowledgments: RegimenAcknowledgment[] = [];
+  const validAckIds = new Set<string>();
+
+  for (const ack of existingAcks) {
+    if (isAcknowledgmentValid(ack, currentCaseVersion, currentRegimenHash)) {
+      validAckIds.add(ack.alert_id);
+    } else {
+      staleAcknowledgments.push(ack);
+    }
+  }
+
+  const criticalAlerts = allAlerts.filter((a) => a.severity === 'critical');
+  const unacknowledgedCritical = criticalAlerts.filter((a) => !validAckIds.has(a.id));
+
+  const isValid = hardStops.length === 0 && unacknowledgedCritical.length === 0;
+
+  return {
+    isValid,
+    alerts: allAlerts,
+    unacknowledgedCritical,
+    staleAcknowledgments,
+    hardStops,
+  };
+}

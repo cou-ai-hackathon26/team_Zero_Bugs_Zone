@@ -275,4 +275,75 @@ describe('Deterministic Safety Engine (Hard Rule: Doses and Safety from Code & D
     expect(evaluateDrugSafety(amoxicillinDrug, { ...patient, current_medicines: ['Different agent'] }, [])).toEqual([]);
   });
 
+  describe('Prescription Safety Boundary & Stale Acknowledgment Invalidation', () => {
+    it('produces deterministic, sorted regimen hashes', async () => {
+      const { computeRegimenHash } = await import('@/lib/safety-engine');
+      expect(computeRegimenHash(['drug-b', 'drug-a'])).toBe('drug-a,drug-b');
+      expect(computeRegimenHash(['drug-a', 'drug-b'])).toBe('drug-a,drug-b');
+    });
+
+    it('identifies critical allergy and pregnancy X as non-bypassable hard stops', async () => {
+      const { isHardStop } = await import('@/lib/safety-engine');
+      expect(isHardStop({
+        id: 'stop-1', drug_id: 'd1', drug_name: 'Amox', severity: 'critical', type: 'allergy',
+        title: 'Allergy Anaphylaxis', description: 'Direct allergy',
+      })).toBe(true);
+
+      expect(isHardStop({
+        id: 'stop-2', drug_id: 'd2', drug_name: 'Statin', severity: 'critical', type: 'pregnancy',
+        title: 'Pregnancy Category X', description: 'Teratogenic',
+      })).toBe(true);
+
+      expect(isHardStop({
+        id: 'warn-1', drug_id: 'd3', drug_name: 'Nitro', severity: 'warning', type: 'drug_interaction',
+        title: 'Interaction', description: 'Mild interaction',
+      })).toBe(false);
+    });
+
+    it('invalidates acknowledgments when case version or regimen changes', async () => {
+      const { isAcknowledgmentValid, recomputeRegimenSafety, computeCaseVersion } = await import('@/lib/safety-engine');
+
+      const initialPatient: StructuredPatientInput = {
+        age: 45, gender: 'male', chief_complaint: 'Chest pain',
+        symptoms: ['chest pain'], past_medical_history: [], allergies: [],
+        current_medicines: ['Sildenafil 50 mg'], vitals: {}, lab_values: [],
+      };
+
+      const initialVersion = computeCaseVersion(initialPatient, '2026-11-21T10:00:00.000Z');
+      const initialRegimen = [nitroglycerinDrug];
+      const initialRegimenHash = nitroglycerinDrug.id;
+
+      const acknowledgment = {
+        alert_id: `interaction-${nitroglycerinDrug.id}-sildenafil`,
+        drug_id: nitroglycerinDrug.id,
+        case_version: initialVersion,
+        regimen_hash: initialRegimenHash,
+        acknowledged_at: '2026-11-21T10:05:00.000Z',
+      };
+
+      // Valid on initial matching case version and regimen
+      expect(isAcknowledgmentValid(acknowledgment, initialVersion, initialRegimenHash)).toBe(true);
+
+      // Stale if case version changes (e.g. updated patient vitals or newly added allergy)
+      const updatedVersion = computeCaseVersion(initialPatient, '2026-11-21T10:30:00.000Z');
+      expect(isAcknowledgmentValid(acknowledgment, updatedVersion, initialRegimenHash)).toBe(false);
+
+      // Stale if regimen changes (e.g. added another drug)
+      expect(isAcknowledgmentValid(acknowledgment, initialVersion, `${nitroglycerinDrug.id},drug-amox`)).toBe(false);
+
+      // Recompute safety on updated case flags stale acknowledgment
+      const verification = recomputeRegimenSafety(
+        initialRegimen,
+        initialPatient,
+        sampleInteractions,
+        [acknowledgment],
+        updatedVersion,
+      );
+
+      expect(verification.staleAcknowledgments).toHaveLength(1);
+      expect(verification.unacknowledgedCritical).toHaveLength(1);
+      expect(verification.isValid).toBe(false);
+    });
+  });
+
 });
