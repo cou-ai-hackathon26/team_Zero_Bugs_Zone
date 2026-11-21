@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { ProductTour, startProductTour } from '@/components/shared/ProductTour';
+import { OnboardingTourBlock } from '@/components/shared/OnboardingTourBlock';
 
 interface StudentCase {
   id: string;
@@ -313,6 +314,9 @@ export default function StudentWorkspacePage() {
             : 'Medical students and trainees have zero access to real patient health records. All clinical cases are strictly synthetic educational simulations.'}
         </div>
       </div>
+
+      {/* Onboarding Tour Block */}
+      <OnboardingTourBlock panel="study" />
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'cases' | 'quizzes' | 'notes' | 'library_qa')} className="w-full">

@@ -6,20 +6,45 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
-import { Stethoscope, ShieldCheck, GraduationCap, Microscope, ShieldAlert, ArrowRight, Loader2, Pill, HeartHandshake } from 'lucide-react';
+import { DemoBanner } from '@/components/shared/DemoBanner';
+import {
+  Stethoscope,
+  ShieldCheck,
+  GraduationCap,
+  Microscope,
+  ShieldAlert,
+  ArrowRight,
+  Loader2,
+  Pill,
+  HeartHandshake,
+  Smartphone,
+  KeyRound,
+  RotateCcw,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function LoginPage() {
   const t = useTranslations('auth');
   const tCommon = useTranslations('common');
   const locale = useLocale();
+  const isBn = locale === 'bn';
 
+  // Professional Email Login State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Patient Phone + OTP State
+  const [phone, setPhone] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const [otpError, setOtpError] = useState('');
 
   const demoAccounts = [
     {
@@ -60,6 +85,12 @@ export default function LoginPage() {
     },
   ];
 
+  const demoPatientPhones = [
+    { label: isBn ? 'কামাল (০১৭০০০০০০০১)' : 'Kamal (01700000001)', phone: '01700000001' },
+    { label: isBn ? 'রফিকুল ও পরিবার (০১৭০০০০০০০২)' : 'Rafiqul & Family (01700000002)', phone: '01700000002' },
+    { label: isBn ? 'ফাতেমা (০১৭০০০০০০০৩)' : 'Fatema (01700000003)', phone: '01700000003' },
+  ];
+
   const handleSelectDemo = (accEmail: string) => {
     setEmail(accEmail);
     setPassword('demo123');
@@ -91,42 +122,25 @@ export default function LoginPage() {
       let defaultPath = data.redirectUrl;
       if (!defaultPath) {
         if (role === 'super_admin' || role === 'admin') defaultPath = '/admin';
-        else if (role === 'student') defaultPath = '/ask';
-        else if (role === 'researcher' || role === 'medicine_controller') defaultPath = '/library';
-        else if (role === 'patient') defaultPath = '/prescriptions';
+        else if (role === 'student') defaultPath = '/study';
+        else if (role === 'researcher') defaultPath = '/research';
+        else if (role === 'medicine_controller') defaultPath = '/controller';
+        else if (role === 'patient') defaultPath = '/portal';
         else defaultPath = '/dashboard';
       }
 
-      // Check callbackUrl in URL search parameters
       const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
       const callback = params?.get('callbackUrl');
 
       let targetPath = defaultPath;
       if (callback && callback.startsWith('/')) {
-        const cleanSubPath = callback.replace(/^\/(?:bn|en)\/?/, '');
-        const rootSegment = cleanSubPath.split('/')[0];
-        const isAllowed =
-          role === 'super_admin' ||
-          role === 'admin' ||
-          (role === 'doctor' && rootSegment !== 'admin') ||
-          (role === 'student' && ['ask', 'library', 'settings'].includes(rootSegment)) ||
-          ((role === 'researcher' || role === 'medicine_controller') && ['library', 'ask', 'settings'].includes(rootSegment)) ||
-          (role === 'patient' && ['prescriptions', 'settings'].includes(rootSegment));
-
-        if (isAllowed) {
-          targetPath = callback;
-        }
+        targetPath = callback;
       }
 
       const targetUrl = targetPath.startsWith('/en') || targetPath.startsWith('/bn')
         ? targetPath
         : `/${locale}${targetPath.startsWith('/') ? targetPath : `/${targetPath}`}`;
 
-      // In Safari on macOS (WebKit), client-side router.push() makes an asynchronous fetch for the RSC payload.
-      // WebKit's network process often does not attach SameSite=Lax cookies to that immediate second fetch,
-      // which causes Next.js middleware to bounce back to /login.
-      // Top-level document navigation via window.location.replace forces Safari to commit the cookie jar and
-      // attach the session cookie on the document request.
       window.location.replace(targetUrl);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('errorInvalid');
@@ -137,12 +151,96 @@ export default function LoginPage() {
     }
   };
 
+  // Patient Phone OTP Handlers
+  const handleSendOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!phone || phone.trim().length < 8) {
+      setOtpError(isBn ? 'সঠিক ফোন নম্বর লিখুন' : 'Please enter a valid phone number');
+      return;
+    }
+
+    setOtpLoading(true);
+    setOtpError('');
+
+    try {
+      const res = await fetch('/api/auth/otp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phone.trim(), purpose: 'login' }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'ওটিপি পাঠাতে সমস্যা হয়েছে');
+      }
+
+      setOtpSent(true);
+      setOtpCode('123456'); // Pre-filled for demo convenience
+      toast.success(data.message || (isBn ? 'ওটিপি পাঠানো হয়েছে' : 'OTP sent'));
+
+      // 60-second cooldown timer
+      setCooldown(60);
+      const interval = setInterval(() => {
+        setCooldown((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error sending OTP';
+      setOtpError(message);
+      toast.error(message);
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otpCode || otpCode.trim().length !== 6) {
+      setOtpError(isBn ? '৬ সংখ্যার ওটিপি লিখুন' : 'Enter 6-digit OTP');
+      return;
+    }
+
+    setOtpLoading(true);
+    setOtpError('');
+
+    try {
+      const res = await fetch('/api/auth/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: phone.trim(),
+          code: otpCode.trim(),
+          purpose: 'login',
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'ওটিপি যাচাই ব্যর্থ হয়েছে');
+      }
+
+      toast.success(isBn ? 'রোগী পোর্টালে স্বাগতম!' : 'Welcome to Patient Portal!');
+      window.location.replace(`/${locale}/portal`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error verifying OTP';
+      setOtpError(message);
+      toast.error(message);
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col justify-between bg-muted/20 p-4 sm:p-6 lg:p-8">
       {/* Top Header */}
       <header className="flex items-center justify-between max-w-5xl mx-auto w-full pb-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-sm">
+          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-xs">
             <Stethoscope className="w-6 h-6" />
           </div>
           <div>
@@ -162,9 +260,12 @@ export default function LoginPage() {
       </header>
 
       {/* Main Login Card */}
-      <main className="max-w-md mx-auto w-full my-auto py-6">
+      <main className="max-w-md mx-auto w-full my-auto py-4 space-y-4">
+        {/* Prominent Demo Mode Banner */}
+        <DemoBanner variant="prominent" />
+
         <Card className="border-border shadow-md bg-card">
-          <CardHeader className="space-y-1.5 pb-4 text-center">
+          <CardHeader className="space-y-1.5 pb-3 text-center">
             <CardTitle className="text-2xl font-bold tracking-tight text-foreground">
               {t('title')}
             </CardTitle>
@@ -173,103 +274,271 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="space-y-5">
-            {/* Quick Demo Account Selector */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  {t('demoAccounts')}
-                </Label>
-                <span className="text-[11px] font-mono text-muted-foreground bg-muted/80 border border-border/60 px-2 py-0.5 rounded font-medium">
-                  {locale === 'bn' ? 'পাসওয়ার্ড: demo123' : 'Password: demo123'}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {demoAccounts.map((acc) => {
-                  const isSelected = email === acc.email;
-                  return (
-                    <button
-                      key={acc.email}
-                      type="button"
-                      onClick={() => handleSelectDemo(acc.email)}
-                      className={`flex flex-col items-start p-2.5 rounded-lg border text-left transition-all text-xs font-medium ${
-                        isSelected
-                          ? 'border-primary bg-primary/5 text-primary font-semibold ring-1 ring-primary/40 shadow-2xs'
-                          : 'border-border bg-card/60 hover:bg-muted/60 text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      <div className="flex items-start gap-1.5 mb-1">
-                        <acc.icon className="w-3.5 h-3.5 shrink-0" />
-                        <span className="wrap-anywhere">{acc.title}</span>
-                      </div>
-                      <span className="text-[10px] font-mono text-muted-foreground wrap-anywhere">{acc.email}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+          <CardContent className="space-y-4 pt-1">
+            <Tabs defaultValue="staff" className="w-full">
+              <TabsList className="grid grid-cols-2 w-full h-11 p-1 bg-muted/60">
+                <TabsTrigger value="staff" className="text-xs sm:text-sm font-medium py-1.5 gap-1.5">
+                  <Stethoscope className="w-3.5 h-3.5" />
+                  <span>{t('staffLogin')}</span>
+                </TabsTrigger>
+                <TabsTrigger value="patient_otp" className="text-xs sm:text-sm font-medium py-1.5 gap-1.5">
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>{t('patientPhoneLogin')}</span>
+                </TabsTrigger>
+              </TabsList>
 
-            {error && (
-              <div className="p-3 text-xs rounded-md bg-destructive/10 border border-destructive/30 text-destructive flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
+              {/* TAB 1: Doctor & Staff Password Login */}
+              <TabsContent value="staff" className="space-y-4 pt-3">
+                {/* Quick Demo Account Selector */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {t('demoAccounts')}
+                    </Label>
+                    <span className="text-[11px] font-mono text-muted-foreground bg-muted/80 border border-border/60 px-2 py-0.5 rounded font-medium">
+                      {isBn ? 'পাসওয়ার্ড: demo123' : 'Password: demo123'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {demoAccounts.map((acc) => {
+                      const isSelected = email === acc.email;
+                      return (
+                        <button
+                          key={acc.email}
+                          type="button"
+                          onClick={() => handleSelectDemo(acc.email)}
+                          className={`flex flex-col items-start p-2.5 rounded-lg border text-left transition-all text-xs font-medium ${
+                            isSelected
+                              ? 'border-primary bg-primary/5 text-primary font-semibold ring-1 ring-primary/40 shadow-2xs'
+                              : 'border-border bg-card/60 hover:bg-muted/60 text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          <div className="flex items-start gap-1.5 mb-1">
+                            <acc.icon className="w-3.5 h-3.5 shrink-0" />
+                            <span className="wrap-anywhere">{acc.title}</span>
+                          </div>
+                          <span className="text-[10px] font-mono text-muted-foreground wrap-anywhere">{acc.email}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-xs font-medium">
-                  {t('email')}
-                </Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="doctor@docmate.ai"
-                  required
-                  className="h-9 text-sm"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-xs font-medium">
-                  {t('password')}
-                </Label>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="demo123"
-                  required
-                  className="h-9 text-sm"
-                />
-              </div>
-
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full h-10 font-semibold bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>{t('signingIn')}</span>
-                  </>
-                ) : (
-                  <>
-                    <span>{t('signIn')}</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
+                {error && (
+                  <div className="p-3 text-xs rounded-md bg-destructive/10 border border-destructive/30 text-destructive flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 shrink-0" />
+                    <span>{error}</span>
+                  </div>
                 )}
-              </Button>
-            </form>
+
+                <form onSubmit={handleLogin} className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="email" className="text-xs font-medium">
+                      {t('email')}
+                    </Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="doctor@docmate.ai"
+                      required
+                      className="h-10 text-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="password" className="text-xs font-medium">
+                      {t('password')}
+                    </Label>
+                    <Input
+                      id="password"
+                      name="password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="demo123"
+                      required
+                      className="h-10 text-sm"
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full h-11 text-sm font-semibold bg-primary hover:bg-primary/90 text-primary-foreground gap-2 mt-1"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>{t('signingIn')}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{t('signIn')}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </TabsContent>
+
+              {/* TAB 2: Patient Mobile Phone + OTP Login */}
+              <TabsContent value="patient_otp" className="space-y-4 pt-3">
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {isBn ? 'ডেমো রোগী ফোন নম্বর' : 'Demo Patient Phones'}
+                  </Label>
+                  <div className="grid grid-cols-1 gap-1.5">
+                    {demoPatientPhones.map((dp) => (
+                      <button
+                        key={dp.phone}
+                        type="button"
+                        onClick={() => {
+                          setPhone(dp.phone);
+                          setOtpError('');
+                        }}
+                        className={`text-left px-3 py-2 rounded-md border text-xs font-medium transition-colors ${
+                          phone === dp.phone
+                            ? 'border-primary bg-primary/10 text-primary font-semibold'
+                            : 'border-border bg-card/60 hover:bg-muted text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {dp.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {otpError && (
+                  <div className="p-3 text-xs rounded-md bg-destructive/10 border border-destructive/30 text-destructive flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 shrink-0" />
+                    <span>{otpError}</span>
+                  </div>
+                )}
+
+                {!otpSent ? (
+                  <form onSubmit={handleSendOtp} className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="patientPhone" className="text-xs font-medium">
+                        {t('phoneNumber')}
+                      </Label>
+                      <Input
+                        id="patientPhone"
+                        type="tel"
+                        inputMode="numeric"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="017XXXXXXXX"
+                        required
+                        className="h-10 text-sm font-mono tracking-wide"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        {isBn ? 'বাংলা বা ইংরেজি সংখ্যায় ১১ ডিজিটের নম্বর লিখুন' : 'Enter 11-digit mobile number in Bangla or English digits'}
+                      </p>
+                    </div>
+
+                    <Button
+                      type="submit"
+                      disabled={otpLoading || !phone}
+                      className="w-full h-11 text-sm font-semibold bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
+                    >
+                      {otpLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>{t('sendingOtp')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Smartphone className="w-4 h-4" />
+                          <span>{t('sendOtp')}</span>
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleVerifyOtp} className="space-y-3">
+                    <div className="p-2.5 rounded-md bg-primary/5 border border-primary/20 text-xs flex items-center justify-between">
+                      <div>
+                        <span className="text-muted-foreground">{t('otpSentTo')} </span>
+                        <strong className="font-mono text-primary font-semibold">{phone}</strong>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setOtpSent(false);
+                          setOtpCode('');
+                        }}
+                        className="h-7 text-xs px-2 text-primary"
+                      >
+                        {t('changePhone')}
+                      </Button>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="otpCode" className="text-xs font-medium flex items-center justify-between">
+                        <span>{t('enterOtp')}</span>
+                        <span className="text-[11px] text-amber-700 dark:text-amber-400 font-mono font-medium">
+                          {isBn ? 'ডেমো ওটিপি: ১২৩৪৫৬' : 'Demo OTP: 123456'}
+                        </span>
+                      </Label>
+                      <Input
+                        id="otpCode"
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value)}
+                        placeholder="123456"
+                        required
+                        className="h-11 text-center font-mono text-xl tracking-widest"
+                      />
+                    </div>
+
+                    <Button
+                      type="submit"
+                      disabled={otpLoading || otpCode.length !== 6}
+                      className="w-full h-11 text-sm font-semibold bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
+                    >
+                      {otpLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>{t('verifyingOtp')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <KeyRound className="w-4 h-4" />
+                          <span>{t('verifyOtp')}</span>
+                        </>
+                      )}
+                    </Button>
+
+                    <div className="text-center pt-1">
+                      <Button
+                        type="button"
+                        variant="link"
+                        disabled={cooldown > 0 || otpLoading}
+                        onClick={() => handleSendOtp()}
+                        className="text-xs text-muted-foreground hover:text-foreground h-auto p-0 gap-1"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        <span>
+                          {cooldown > 0
+                            ? `${isBn ? 'পুনরায় পাঠান' : 'Resend'} (${cooldown}s)`
+                            : t('resendOtp')}
+                        </span>
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </TabsContent>
+            </Tabs>
           </CardContent>
 
-          <CardFooter className="pt-2 pb-6 border-t border-border/60 text-center flex flex-col gap-1">
+          <CardFooter className="pt-2 pb-5 border-t border-border/60 text-center flex flex-col gap-1">
             <span className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               <span>{t('closedLibrary')}</span>

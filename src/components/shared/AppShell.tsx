@@ -32,10 +32,12 @@ import { LanguageSwitcher } from './LanguageSwitcher';
 import { ThemeToggle } from './ThemeToggle';
 import { TextSizeControl } from './TextSizeControl';
 import { HelpSheet } from './HelpSheet';
+import { DemoBanner } from './DemoBanner';
 import { GlobalSearchCommand } from './GlobalSearchCommand';
 import { EvidenceSheet } from './EvidenceSheet';
 import { Toaster } from '@/components/ui/sonner';
 import { ProductTour, startProductTour } from './ProductTour';
+import { OnboardingTourBlock } from './OnboardingTourBlock';
 import {
   LayoutDashboard,
   Users,
@@ -322,6 +324,9 @@ export function AppShell({ children }: AppShellProps) {
                   <Search className="w-3.5 h-3.5" />
                   <span className="hidden xl:inline">{t('search')}</span>
                 </button>
+                <div className="hidden md:flex ml-2">
+                  <DemoBanner variant="header" />
+                </div>
               </div>
 
               <div className="flex items-center gap-1 sm:gap-2">
@@ -405,6 +410,7 @@ export function AppShell({ children }: AppShellProps) {
 
             {/* Page Body */}
             <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-16">
+              <OnboardingTourBlock />
               {children}
             </main>
 

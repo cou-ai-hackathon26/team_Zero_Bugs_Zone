@@ -50,9 +50,89 @@ export const chunks = pgTable('chunks', {
   index('chunks_tsv_idx').using('gin', table.tsv),
 ]);
 
+export const patientAccounts = pgTable('patient_accounts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  phone: varchar('phone', { length: 30 }).notNull().unique(), // E.164 +8801XXXXXXXXX
+  phoneNormalized: varchar('phone_normalized', { length: 30 }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('patient_accounts_phone_idx').on(table.phoneNormalized),
+]);
+
+export const patientProfiles = pgTable('patient_profiles', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  accountId: uuid('account_id').references(() => patientAccounts.id, { onDelete: 'cascade' }).notNull(),
+  relation: varchar('relation', { length: 30 }).default('self').notNull(), // 'self' | 'child' | 'spouse' | 'parent' | 'other'
+  name: text('name').notNull(),
+  nameEncrypted: text('name_encrypted'),
+  dateOfBirth: timestamp('date_of_birth', { withTimezone: true }),
+  age: integer('age').notNull(),
+  gender: varchar('gender', { length: 20 }).notNull(),
+  bloodGroup: varchar('blood_group', { length: 10 }),
+  addressEncrypted: text('address_encrypted'),
+  nidEncrypted: text('nid_encrypted'),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+  claimed: boolean('claimed').default(false).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const profileHealthSummary = pgTable('profile_health_summary', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  profileId: uuid('profile_id').references(() => patientProfiles.id, { onDelete: 'cascade' }).notNull(),
+  version: integer('version').default(1).notNull(),
+  allergies: jsonb('allergies').default([]).notNull(), // string[]
+  chronicConditions: jsonb('chronic_conditions').default([]).notNull(), // string[]
+  currentMedicines: jsonb('current_medicines').default([]).notNull(), // { brand: string; generic: string; dose?: string }[]
+  bloodGroup: varchar('blood_group', { length: 10 }),
+  updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  changeReason: text('change_reason'),
+});
+
+export const accessGrants = pgTable('access_grants', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  profileId: uuid('profile_id').references(() => patientProfiles.id, { onDelete: 'cascade' }).notNull(),
+  doctorId: uuid('doctor_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  scope: varchar('scope', { length: 30 }).default('this_doctor_only').notNull(), // 'this_doctor_only' | 'full_history'
+  status: varchar('status', { length: 30 }).default('active').notNull(), // 'requested' | 'active' | 'expired' | 'revoked'
+  grantedVia: varchar('granted_via', { length: 30 }).default('created_profile').notNull(), // 'otp' | 'created_profile' | 'patient_portal'
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+});
+
+export const otpRequests = pgTable('otp_requests', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  phone: varchar('phone', { length: 30 }).notNull(),
+  purpose: varchar('purpose', { length: 30 }).default('login').notNull(), // 'login' | 'grant_access'
+  codeHash: varchar('code_hash', { length: 64 }).notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  attempts: integer('attempts').default(0).notNull(),
+  usedAt: timestamp('used_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const accessLogs = pgTable('access_logs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  profileId: uuid('profile_id').references(() => patientProfiles.id, { onDelete: 'cascade' }).notNull(),
+  userRole: varchar('user_role', { length: 50 }),
+  action: varchar('action', { length: 50 }).notNull(),
+  recordType: varchar('record_type', { length: 50 }),
+  recordId: uuid('record_id'),
+  reason: text('reason'),
+  ipAddress: varchar('ip_address', { length: 64 }),
+  userAgent: text('user_agent'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+export const accessLog = accessLogs;
+
 export const cases = pgTable('cases', {
   id: uuid('id').defaultRandom().primaryKey(),
   doctorId: uuid('doctor_id').references(() => users.id, { onDelete: 'set null' }),
+  profileId: uuid('profile_id').references(() => patientProfiles.id, { onDelete: 'set null' }),
   patientCode: varchar('patient_code', { length: 50 }).notNull(),
   status: varchar('status', { length: 50 }).notNull().default('draft'), // 'draft' | 'analyzed' | 'insufficient_evidence' | 'red_flag' | 'confirmed' | 'treated' | 'closed'
   structuredInput: jsonb('structured_input').notNull(),
@@ -219,6 +299,7 @@ export const patients = pgTable('patients', {
 export const encounters = pgTable('encounters', {
   id: uuid('id').defaultRandom().primaryKey(),
   patientId: uuid('patient_id').references(() => patients.id, { onDelete: 'cascade' }).notNull(),
+  profileId: uuid('profile_id').references(() => patientProfiles.id, { onDelete: 'set null' }),
   doctorId: uuid('doctor_id').references(() => users.id, { onDelete: 'set null' }),
   caseId: uuid('case_id').references(() => cases.id, { onDelete: 'set null' }),
   visitDate: timestamp('visit_date', { withTimezone: true }).defaultNow().notNull(),
@@ -237,6 +318,7 @@ export const prescriptions = pgTable('prescriptions', {
   id: uuid('id').defaultRandom().primaryKey(),
   encounterId: uuid('encounter_id').references(() => encounters.id, { onDelete: 'set null' }),
   patientId: uuid('patient_id').references(() => patients.id, { onDelete: 'cascade' }).notNull(),
+  profileId: uuid('profile_id').references(() => patientProfiles.id, { onDelete: 'set null' }),
   doctorId: uuid('doctor_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   rxNumber: varchar('rx_number', { length: 50 }).notNull().unique(),
   diagnosis: text('diagnosis'),
@@ -308,6 +390,7 @@ export const medicineNotices = pgTable('medicine_notices', {
 export const patientSchedules = pgTable('patient_schedules', {
   id: uuid('id').defaultRandom().primaryKey(),
   patientId: uuid('patient_id').references(() => patients.id, { onDelete: 'cascade' }).notNull(),
+  profileId: uuid('profile_id').references(() => patientProfiles.id, { onDelete: 'set null' }),
   prescriptionItemId: uuid('prescription_item_id').references(() => prescriptionItems.id, { onDelete: 'set null' }),
   medicineName: varchar('medicine_name', { length: 150 }).notNull(),
   dosage: varchar('dosage', { length: 50 }).notNull(),
@@ -322,17 +405,20 @@ export const patientSchedules = pgTable('patient_schedules', {
 export const patientReports = pgTable('patient_reports', {
   id: uuid('id').defaultRandom().primaryKey(),
   patientId: uuid('patient_id').references(() => patients.id, { onDelete: 'cascade' }).notNull(),
+  profileId: uuid('profile_id').references(() => patientProfiles.id, { onDelete: 'set null' }),
   title: varchar('title', { length: 150 }).notNull(),
   reportType: varchar('report_type', { length: 50 }).default('lab_test').notNull(),
   fileUrl: text('file_url').notNull(),
   fileName: text('file_name').notNull(),
   notes: text('notes'),
+  isShared: boolean('is_shared').default(true).notNull(),
   uploadedAt: timestamp('uploaded_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const patientPreVisits = pgTable('patient_pre_visits', {
   id: uuid('id').defaultRandom().primaryKey(),
   patientId: uuid('patient_id').references(() => patients.id, { onDelete: 'cascade' }).notNull(),
+  profileId: uuid('profile_id').references(() => patientProfiles.id, { onDelete: 'set null' }),
   chiefComplaint: text('chief_complaint').notNull(),
   symptoms: jsonb('symptoms').default([]).notNull(),
   duration: varchar('duration', { length: 50 }).default('১-২ দিন').notNull(),
@@ -344,9 +430,27 @@ export const patientPreVisits = pgTable('patient_pre_visits', {
 export const patientConsentLogs = pgTable('patient_consent_logs', {
   id: uuid('id').defaultRandom().primaryKey(),
   patientId: uuid('patient_id').references(() => patients.id, { onDelete: 'cascade' }).notNull(),
+  profileId: uuid('profile_id').references(() => patientProfiles.id, { onDelete: 'set null' }),
   action: varchar('action', { length: 30 }).notNull(), // 'granted' | 'revoked'
   reason: text('reason'),
   loggedAt: timestamp('logged_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const medicineIntakeLogs = pgTable('medicine_intake_logs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  prescriptionItemId: uuid('prescription_item_id').references(() => prescriptionItems.id, { onDelete: 'set null' }),
+  profileId: uuid('profile_id').references(() => patientProfiles.id, { onDelete: 'cascade' }).notNull(),
+  slot: varchar('slot', { length: 20 }), // 'morning' | 'noon' | 'night'
+  takenAt: timestamp('taken_at', { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+export const medicineIntakeLog = medicineIntakeLogs;
+
+export const idempotencyKeys = pgTable('idempotency_keys', {
+  key: varchar('key', { length: 100 }).primaryKey(),
+  route: varchar('route', { length: 200 }).notNull(),
+  result: jsonb('result').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const studentCases = pgTable('student_cases', {

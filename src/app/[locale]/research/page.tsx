@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { ProductTour, startProductTour } from '@/components/shared/ProductTour';
+import { OnboardingTourBlock } from '@/components/shared/OnboardingTourBlock';
 
 interface SearchResult {
   id: string;
@@ -272,6 +273,9 @@ export default function ResearcherWorkspacePage() {
             : 'Researcher accounts operate exclusively in closed-library evidence synthesis mode. Zero patient health information (PHI) is accessible.'}
         </div>
       </div>
+
+      {/* Onboarding Tour Block */}
+      <OnboardingTourBlock panel="research" />
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'search' | 'compare' | 'collections' | 'export')} className="w-full">

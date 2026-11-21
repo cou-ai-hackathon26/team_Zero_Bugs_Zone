@@ -114,93 +114,93 @@ export default async function DashboardPage() {
           }
           subtitle={
             locale === 'bn'
-              ? 'ক্লিনিকাল প্র্যাকটিস ও বাংলাদেশি ডিজিটাল প্রেসক্রিপশন সহকারী'
-              : 'Clinical practice and digital prescription support assistant'
+              ? 'ক্লিনিকাল প্র্যাকটিস ও ডিজিটাল প্রেসক্রিপশন সহকারী'
+              : 'Clinical practice and digital prescription assistant'
           }
         />
 
-        {/* 3 Senior-Friendly Giant Doctor Quick Action Cards */}
+        {/* 3 Unified Doctor Quick Action Cards */}
         {isPhysician && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* 1. New Patient Intake */}
             <Link
               href="/patients/new"
               data-tour="dashboard-new-patient"
-              className="group block p-6 rounded-2xl bg-gradient-to-br from-primary/10 via-card to-card border-2 border-primary/30 hover:border-primary shadow-sm hover:shadow-md transition-all text-left"
+              className="group block p-5 rounded-xl bg-card border border-border hover:border-primary/50 shadow-xs transition-all text-left"
             >
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-14 h-14 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-                  <PlusCircle className="w-8 h-8" />
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-lg bg-muted text-foreground flex items-center justify-center group-hover:text-primary transition-colors">
+                  <PlusCircle className="w-5 h-5" />
                 </div>
-                <Badge variant="outline" className="text-xs font-semibold px-2.5 py-1 bg-background">
+                <Badge variant="outline" className="text-[11px] font-mono text-muted-foreground">
                   {locale === 'bn' ? 'ধাপ ১/৪' : 'Step 1/4'}
                 </Badge>
               </div>
-              <h3 className="text-xl font-bold text-foreground mb-2 group-hover:text-primary transition-colors">
-                {locale === 'bn' ? 'নতুন রোগী গ্রহণ' : 'New Patient Intake'}
+              <h3 className="text-base font-semibold text-foreground mb-1 group-hover:text-primary transition-colors">
+                {locale === 'bn' ? 'নতুন রোগী' : 'New Patient'}
               </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+              <p className="text-xs text-muted-foreground leading-normal mb-3">
                 {locale === 'bn'
-                  ? 'রোগীর তথ্য, উপসর্গ, ভাইটাল সাইন ও পূর্বের ইতিহাস সহ দ্রুত নতুন কেস শুরু করুন।'
-                  : 'Start a new patient intake with symptoms, vitals, and medical history.'}
+                  ? 'নতুন রোগী নিবন্ধন ও ভাইটালস গ্রহণ করুন।'
+                  : 'Start patient intake and record vitals.'}
               </p>
-              <div className="flex items-center text-sm font-bold text-primary gap-1">
-                <span>{locale === 'bn' ? 'রোগী গ্রহণ করুন' : 'Start Intake'}</span>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              <div className="flex items-center text-xs font-medium text-primary gap-1">
+                <span>{locale === 'bn' ? 'শুরু করুন' : 'Start Intake'}</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
               </div>
             </Link>
 
             {/* 2. Patient List / Registry */}
             <Link
               href="/patients"
-              className="group block p-6 rounded-2xl bg-gradient-to-br from-teal-500/10 via-card to-card border-2 border-teal-500/30 hover:border-teal-500 shadow-sm hover:shadow-md transition-all text-left"
+              className="group block p-5 rounded-xl bg-card border border-border hover:border-primary/50 shadow-xs transition-all text-left"
             >
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-14 h-14 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-                  <Users className="w-8 h-8" />
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-lg bg-muted text-foreground flex items-center justify-center group-hover:text-primary transition-colors">
+                  <Users className="w-5 h-5" />
                 </div>
-                <span className="text-xs font-semibold text-teal-600 dark:text-teal-400 bg-teal-500/10 px-2.5 py-1 rounded-full">
-                  {patientCount} {locale === 'bn' ? 'জন নিবন্ধিত' : 'Patients'}
-                </span>
+                <Badge variant="outline" className="text-[11px] font-mono text-muted-foreground">
+                  {patientCount} {locale === 'bn' ? 'জন' : 'Patients'}
+                </Badge>
               </div>
-              <h3 className="text-xl font-bold text-foreground mb-2 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
-                {locale === 'bn' ? 'রোগীর তালিকা' : 'Patient Registry'}
+              <h3 className="text-base font-semibold text-foreground mb-1 group-hover:text-primary transition-colors">
+                {locale === 'bn' ? 'রোগীর তালিকা' : 'Patient List'}
               </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+              <p className="text-xs text-muted-foreground leading-normal mb-3">
                 {locale === 'bn'
-                  ? 'আপনার চিকিৎসাধীন সকল রোগীর বিবরণ, পূর্বের ভিজিট এবং প্রেসক্রিপশন হিস্ট্রি দেখুন।'
-                  : 'View all registered patients, consultation history, and prescriptions.'}
+                  ? 'রোগীর প্রোফাইল ও পূর্বের প্রেসক্রিপশন দেখুন।'
+                  : 'View patient records and consultations.'}
               </p>
-              <div className="flex items-center text-sm font-bold text-teal-600 dark:text-teal-400 gap-1">
-                <span>{locale === 'bn' ? 'তালিকা দেখুন' : 'View Registry'}</span>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              <div className="flex items-center text-xs font-medium text-primary gap-1">
+                <span>{locale === 'bn' ? 'তালিকা দেখুন' : 'View Patients'}</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
               </div>
             </Link>
 
             {/* 3. Search Library */}
             <Link
               href="/library"
-              className="group block p-6 rounded-2xl bg-gradient-to-br from-indigo-500/10 via-card to-card border-2 border-indigo-500/30 hover:border-indigo-500 shadow-sm hover:shadow-md transition-all text-left"
+              className="group block p-5 rounded-xl bg-card border border-border hover:border-primary/50 shadow-xs transition-all text-left"
             >
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-14 h-14 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-                  <BookOpen className="w-8 h-8" />
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-lg bg-muted text-foreground flex items-center justify-center group-hover:text-primary transition-colors">
+                  <BookOpen className="w-5 h-5" />
                 </div>
-                <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-full">
-                  {sourceCount} {locale === 'bn' ? 'টি রেফারেন্স' : 'Sources'}
-                </span>
+                <Badge variant="outline" className="text-[11px] font-mono text-muted-foreground">
+                  {sourceCount} {locale === 'bn' ? 'টি' : 'Sources'}
+                </Badge>
               </div>
-              <h3 className="text-xl font-bold text-foreground mb-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                {locale === 'bn' ? 'লাইব্রেরিতে অনুসন্ধান' : 'Search Medical Library'}
+              <h3 className="text-base font-semibold text-foreground mb-1 group-hover:text-primary transition-colors">
+                {locale === 'bn' ? 'মেডিকেল লাইব্রেরি' : 'Medical Library'}
               </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+              <p className="text-xs text-muted-foreground leading-normal mb-3">
                 {locale === 'bn'
-                  ? 'অনুমোদিত ক্লিনিকাল গাইডলাইন, ওষুধের মাত্রা এবং ড্রাগ ইন্টারঅ্যাকশন সরাসরি সার্চ করুন।'
-                  : 'Search internal medical textbooks, guidelines, and drug formulary directly.'}
+                  ? 'ক্লিনিকাল গাইডলাইন ও ড্রাগ রেফারেন্স খুঁজুন।'
+                  : 'Search verified clinical guidelines and drugs.'}
               </p>
-              <div className="flex items-center text-sm font-bold text-indigo-600 dark:text-indigo-400 gap-1">
+              <div className="flex items-center text-xs font-medium text-primary gap-1">
                 <span>{locale === 'bn' ? 'লাইব্রেরি খুলুন' : 'Open Library'}</span>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
               </div>
             </Link>
           </div>
@@ -208,63 +208,63 @@ export default async function DashboardPage() {
 
         {/* Summary Metric Cards */}
         <div data-tour="dashboard-stats" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="border-border shadow-2xs">
+          <Card className="border border-border bg-card shadow-xs">
             <CardHeader className="p-4 pb-2">
-              <CardDescription className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+              <CardDescription className="text-xs font-medium text-muted-foreground flex items-center justify-between">
                 <span>{locale === 'bn' ? 'নিবন্ধিত রোগী' : 'Registered Patients'}</span>
-                <Users className="w-4 h-4 text-primary" />
+                <Users className="w-4 h-4 text-muted-foreground" />
               </CardDescription>
-              <CardTitle className="text-2xl font-bold text-foreground">
+              <CardTitle className="text-2xl font-bold text-foreground mt-1">
                 {format.number(patientCount)}
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 pt-0 text-[12px] text-muted-foreground">
-              {locale === 'bn' ? 'আপনার অধীনে সংরক্ষিত' : 'Under your direct care'}
+            <CardContent className="p-4 pt-0 text-xs text-muted-foreground">
+              {locale === 'bn' ? 'সংরক্ষিত রোগী' : 'Active patients'}
             </CardContent>
           </Card>
 
-          <Card className="border-border shadow-2xs">
+          <Card className="border border-border bg-card shadow-xs">
             <CardHeader className="p-4 pb-2">
-              <CardDescription className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-                <span>{locale === 'bn' ? 'প্রেসক্রিপশন প্রস্তুত' : 'Prescriptions Issued'}</span>
-                <FileText className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <CardDescription className="text-xs font-medium text-muted-foreground flex items-center justify-between">
+                <span>{locale === 'bn' ? 'প্রেসক্রিপশন' : 'Prescriptions'}</span>
+                <FileText className="w-4 h-4 text-muted-foreground" />
               </CardDescription>
-              <CardTitle className="text-2xl font-bold text-foreground">
+              <CardTitle className="text-2xl font-bold text-foreground mt-1">
                 {format.number(prescriptionCount)}
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 pt-0 text-[12px] text-muted-foreground">
-              {locale === 'bn' ? 'ডিজিটাল প্রেসক্রিপশন রেকর্ড' : 'BMDC compliant records'}
+            <CardContent className="p-4 pt-0 text-xs text-muted-foreground">
+              {locale === 'bn' ? 'তৈরি প্রেসক্রিপশন' : 'Issued records'}
             </CardContent>
           </Card>
 
-          <Card className="border-border shadow-2xs">
+          <Card className="border border-border bg-card shadow-xs">
             <CardHeader className="p-4 pb-2">
-              <CardDescription className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-                <span>{locale === 'bn' ? 'মেডিকেল গাইডলাইন' : 'Clinical References'}</span>
-                <BookOpen className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              <CardDescription className="text-xs font-medium text-muted-foreground flex items-center justify-between">
+                <span>{locale === 'bn' ? 'মেডিকেল গাইডলাইন' : 'Clinical Sources'}</span>
+                <BookOpen className="w-4 h-4 text-muted-foreground" />
               </CardDescription>
-              <CardTitle className="text-2xl font-bold text-foreground">
+              <CardTitle className="text-2xl font-bold text-foreground mt-1">
                 {format.number(sourceCount)}
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 pt-0 text-[12px] text-muted-foreground">
-              {locale === 'bn' ? 'অনুমোদিত টেক্সটবুক ও গাইডলাইন' : 'Closed internal library'}
+            <CardContent className="p-4 pt-0 text-xs text-muted-foreground">
+              {locale === 'bn' ? 'অনুমোদিত উৎস' : 'Verified sources'}
             </CardContent>
           </Card>
 
-          <Card className="border-border shadow-2xs">
+          <Card className="border border-border bg-card shadow-xs">
             <CardHeader className="p-4 pb-2">
-              <CardDescription className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-                <span>{locale === 'bn' ? 'ওষুধ ও ফর্মুলারি' : 'Formulary Records'}</span>
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <CardDescription className="text-xs font-medium text-muted-foreground flex items-center justify-between">
+                <span>{locale === 'bn' ? 'ফর্মুলারি ওষুধ' : 'Formulary Drugs'}</span>
+                <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
               </CardDescription>
-              <CardTitle className="text-2xl font-bold text-foreground">
+              <CardTitle className="text-2xl font-bold text-foreground mt-1">
                 {format.number(drugCount)}
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 pt-0 text-[12px] text-muted-foreground">
-              {locale === 'bn' ? 'নিরাপত্তা ও ইন্টারঅ্যাকশন ডেটাবেজ' : 'Deterministic safety rules'}
+            <CardContent className="p-4 pt-0 text-xs text-muted-foreground">
+              {locale === 'bn' ? 'নিবন্ধিত ব্র্যান্ড' : 'Approved medicines'}
             </CardContent>
           </Card>
         </div>

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import {
   canUse,
   assertPatientDataScope,
@@ -10,11 +10,21 @@ import { db } from '../src/db';
 import {
   userFeatureOverrides,
   systemSettings,
+  users,
 } from '../src/db/schema';
 import { eq, like } from 'drizzle-orm';
 import { FeatureKey, UserRole } from '../src/types';
 
 describe('Fine-Grained Feature RBAC & Data-Scope Enforcement', () => {
+  beforeAll(async () => {
+    const dbUsers = await db.select().from(users);
+    for (const u of dbUsers) {
+      if (mockUsers[u.role as UserRole]) {
+        mockUsers[u.role as UserRole].id = u.id;
+      }
+    }
+  });
+
   beforeEach(async () => {
     invalidateFeatureCache();
     await db.delete(systemSettings).where(like(systemSettings.key, 'break_glass:%'));
