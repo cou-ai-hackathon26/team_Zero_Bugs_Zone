@@ -307,9 +307,9 @@ export function AppShell({ children }: AppShellProps) {
           {/* Main Inset Content Area */}
           <SidebarInset className="flex flex-col flex-1 min-w-0">
             {/* Top Navigation Bar */}
-            <header className="sticky top-0 z-30 flex min-h-14 items-center justify-between gap-1 sm:gap-3 border-b border-border bg-background/95 px-2 backdrop-blur-md sm:px-4">
-              <div className="flex items-center gap-1 xl:gap-2">
-                <SidebarTrigger className="size-11 text-muted-foreground hover:text-foreground" aria-label={t('toggleSidebar')} />
+            <header className="sticky top-0 z-30 flex min-h-14 items-center justify-between gap-1 sm:gap-2 border-b border-border bg-background/95 px-2 backdrop-blur-md sm:px-4 w-full max-w-full overflow-hidden">
+              <div className="flex items-center gap-1 sm:gap-2 min-w-0 shrink">
+                <SidebarTrigger className="size-9 sm:size-10 text-muted-foreground hover:text-foreground shrink-0" aria-label={t('toggleSidebar')} />
                 <button
                   type="button"
                   data-tour="nav-search"
@@ -318,39 +318,43 @@ export function AppShell({ children }: AppShellProps) {
                     document.dispatchEvent(event);
                   }}
                   aria-label={t('search')}
-                  className="flex size-11 shrink-0 items-center justify-center gap-2 rounded-md border border-border bg-muted/40 text-xs text-muted-foreground hover:bg-muted/80 xl:w-auto xl:px-3"
+                  className="flex size-9 sm:size-10 shrink-0 items-center justify-center gap-2 rounded-md border border-border bg-muted/40 text-xs text-muted-foreground hover:bg-muted/80 xl:w-auto xl:px-3"
                 >
                   <Search className="w-3.5 h-3.5" />
                   <span className="hidden xl:inline">{t('search')}</span>
                 </button>
-                <div className="hidden md:flex ml-2">
+                <div className="hidden 2xl:flex ml-2 shrink-0">
                   <DemoBanner variant="header" />
                 </div>
               </div>
 
-              <div className="flex items-center gap-1 sm:gap-2">
-                <TextSizeControl />
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                <div className="hidden lg:flex shrink-0">
+                  <TextSizeControl />
+                </div>
 
-                <HelpSheet />
+                <div className="shrink-0">
+                  <HelpSheet />
+                </div>
 
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => startProductTour()}
-                  className="gap-1.5 text-xs h-8 px-2.5 border-border hover:bg-muted text-foreground font-medium"
+                  className="gap-1.5 text-xs h-8 px-2 sm:px-2.5 border-border hover:bg-muted text-foreground font-medium shrink-0"
                   aria-label={tTour('startTour')}
                   title={tTour('startTour')}
                   data-tour="nav-tour-btn"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-primary" />
-                  <span className="hidden sm:inline">{tTour('startTour')}</span>
+                  <span className="hidden xl:inline">{tTour('startTour')}</span>
                 </Button>
 
-                <div data-tour="nav-language">
+                <div data-tour="nav-language" className="shrink-0">
                   <LanguageSwitcher />
                 </div>
-                <div data-tour="nav-theme">
+                <div data-tour="nav-theme" className="shrink-0">
                   <ThemeToggle />
                 </div>
 
@@ -361,15 +365,15 @@ export function AppShell({ children }: AppShellProps) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="gap-2 pl-2 pr-3 text-xs font-semibold rounded-full bg-muted/60"
+                          className="gap-1.5 sm:gap-2 pl-1.5 sm:pl-2 pr-2 sm:pr-3 text-xs font-semibold rounded-full bg-muted/60 shrink-0 max-w-[140px] sm:max-w-[200px]"
                         >
-                          <div className="w-6 h-6 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[11px] font-bold">
+                          <div className="w-6 h-6 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[11px] font-bold shrink-0">
                             {currentUser.name.charAt(0)}
                           </div>
-                          <span className="hidden xl:inline-block max-w-32 wrap-anywhere">
+                          <span className="hidden xl:inline-block max-w-28 truncate">
                             {currentUser.name}
                           </span>
-                          <Badge variant="outline" className="text-[10px] uppercase font-bold py-0 px-1 border-primary/30 text-primary">
+                          <Badge variant="outline" className="text-[10px] uppercase font-bold py-0 px-1 border-primary/30 text-primary shrink-0">
                             {currentUser.role}
                           </Badge>
                         </Button>

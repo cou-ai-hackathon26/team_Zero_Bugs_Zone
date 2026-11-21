@@ -48,40 +48,40 @@ export default async function AdminLayout({
     <div className="min-h-screen flex flex-col bg-muted/20">
       {/* Top Admin Header */}
       <header className="sticky top-0 z-40 bg-card border-b border-border shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3 min-w-0 max-w-full overflow-hidden">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
             <Link
               href={`/${locale}/dashboard`}
-              className="p-2 -ml-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center gap-1.5 text-xs font-medium"
+              className="p-1.5 sm:p-2 -ml-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center gap-1.5 text-xs font-medium shrink-0"
               title={locale === 'bn' ? 'ক্লিনিকাল ড্যাশবোর্ডে ফিরুন' : 'Back to clinical workspace'}
             >
               <ArrowLeft className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">{locale === 'bn' ? 'ক্লিনিকাল স্পেস' : 'Clinical Space'}</span>
             </Link>
 
-            <div className="h-5 w-px bg-border hidden sm:block" />
+            <div className="h-5 w-px bg-border hidden sm:block shrink-0" />
 
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-destructive/10 text-destructive flex items-center justify-center font-bold">
+            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-destructive/10 text-destructive flex items-center justify-center font-bold shrink-0">
                 <ShieldAlert className="w-4 h-4" />
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-sm font-bold text-foreground tracking-tight leading-none">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <h1 className="text-xs sm:text-sm font-bold text-foreground tracking-tight leading-none truncate">
                     {t('title')}
                   </h1>
-                  <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-destructive/15 text-destructive font-bold">
+                  <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-destructive/15 text-destructive font-bold shrink-0">
                     Super Admin
                   </span>
                 </div>
-                <p className="text-[11px] text-muted-foreground hidden md:block leading-none mt-1">
+                <p className="text-[11px] text-muted-foreground hidden md:block leading-none mt-1 truncate">
                   {user.email}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <AdminHeaderTour />
             <LanguageSwitcher />
             <ThemeToggle />
