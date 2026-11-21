@@ -85,9 +85,9 @@ export default function AskLibraryPage() {
           title={t('title')}
           subtitle={t('subtitle')}
           badge={
-            <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Closed Library Guardrail Active</span>
+            <span className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded-md border border-border">
+              <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+              <span>{locale === 'bn' ? 'অভ্যন্তরীণ লাইব্রেরি সক্রিয়' : 'Closed Library Active'}</span>
             </span>
           }
         />
@@ -125,8 +125,8 @@ export default function AskLibraryPage() {
 
             {/* Quick Sample Questions */}
             <div className="mt-4 pt-3 border-t border-border/60">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-2">
-                Sample Clinical Research Inquiries
+              <span className="text-xs font-medium text-muted-foreground block mb-2">
+                {locale === 'bn' ? 'নমুনা প্রশ্নসমূহ' : 'Sample Questions'}
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {sampleQuestions.map((sq, idx) => {

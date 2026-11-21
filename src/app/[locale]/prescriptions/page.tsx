@@ -178,7 +178,7 @@ export default function PrescriptionsListPage() {
               >
                 <div className="p-5 pb-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-mono text-xs font-bold text-teal-600 dark:text-teal-400 bg-teal-500/10 px-2.5 py-1 rounded-md">
+                    <span className="font-mono text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-md">
                       {rx.rx_number}
                     </span>
                     <Badge

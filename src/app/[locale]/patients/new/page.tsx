@@ -125,6 +125,7 @@ export default function NewPatientIntakePage() {
   const [customAllergy, setCustomAllergy] = useState('');
   const [currentMedsText, setCurrentMedsText] = useState('');
   const [selectedHistory, setSelectedHistory] = useState<string[]>([]);
+  const [autoSavedTime, setAutoSavedTime] = useState<string | null>(null);
 
   // Search Patient Phone
   const handleSearchPatient = async (phoneToSearch?: string) => {

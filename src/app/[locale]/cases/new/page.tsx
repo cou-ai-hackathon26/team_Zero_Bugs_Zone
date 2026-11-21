@@ -261,7 +261,7 @@ export default function NewCasePage() {
                     isCurrent
                       ? 'bg-primary text-primary-foreground'
                       : isCompleted
-                      ? 'bg-emerald-600 text-white'
+                      ? 'bg-primary/20 text-primary'
                       : 'bg-muted text-muted-foreground'
                   }`}
                 >

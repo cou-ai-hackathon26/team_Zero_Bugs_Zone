@@ -85,7 +85,7 @@ export default async function SettingsPage() {
           <Card className="border-border md:col-span-2">
             <CardHeader className="p-5 pb-3">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Database className="w-4 h-4 text-emerald-600" />
+                <Database className="w-4 h-4 text-primary" />
                 <span>Clinical Engine & Architecture Status</span>
               </CardTitle>
               <CardDescription className="text-xs">
@@ -95,7 +95,7 @@ export default async function SettingsPage() {
             <CardContent className="p-5 pt-0">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="p-3 rounded-lg border border-border bg-card">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 mb-1">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-1">
                     <ShieldCheck className="w-4 h-4" />
                     <span>PostgreSQL + pgvector</span>
                   </div>
@@ -105,7 +105,7 @@ export default async function SettingsPage() {
                 </div>
 
                 <div className="p-3 rounded-lg border border-border bg-card">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 mb-1">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-1">
                     <ShieldCheck className="w-4 h-4" />
                     <span>Closed Library Isolation</span>
                   </div>
@@ -115,7 +115,7 @@ export default async function SettingsPage() {
                 </div>
 
                 <div className="p-3 rounded-lg border border-border bg-card">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 mb-1">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-1">
                     <ShieldCheck className="w-4 h-4" />
                     <span>Deterministic Drug Engine</span>
                   </div>

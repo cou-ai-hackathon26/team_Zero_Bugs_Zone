@@ -11,6 +11,9 @@ import {
   userFeatureOverrides,
   systemSettings,
   users,
+  accessGrants,
+  patientAccounts,
+  patientProfiles,
 } from '../src/db/schema';
 import { eq, like } from 'drizzle-orm';
 import { FeatureKey, UserRole } from '../src/types';
@@ -307,5 +310,83 @@ describe('Fine-Grained Feature RBAC & Data-Scope Enforcement', () => {
 
     // Clean up break glass setting
     await db.delete(systemSettings).where(eq(systemSettings.key, breakGlass.settingKey));
+  });
+
+  it('8. Supports patient-controlled access grant for cross-doctor record visibility', async () => {
+    const doctorA = mockUsers.doctor;
+    const doctorBId = 'e2222222-2222-4222-8222-222222222222';
+
+    // 1. Create a mock patient account and profile
+    const testPhone = `+880179900${Math.floor(1000 + Math.random() * 9000)}`;
+    const [account] = await db
+      .insert(patientAccounts)
+      .values({
+        phone: testPhone,
+        phoneNormalized: testPhone,
+      })
+      .returning();
+
+    const [profile] = await db
+      .insert(patientProfiles)
+      .values({
+        accountId: account.id,
+        name: 'Grant Test Patient',
+        nameEncrypted: 'enc_name',
+        age: 38,
+        gender: 'female',
+        sex: 'female',
+        relation: 'self',
+      })
+      .returning();
+
+    // 2. Doctor A attempts to view Doctor B's authored record without a grant -> DENIED
+    const deniedNoGrant = await assertPatientDataScope({
+      user: doctorA,
+      caseDoctorId: doctorBId,
+      profileId: profile.id,
+    });
+    expect(deniedNoGrant.allowed).toBe(false);
+    expect(deniedNoGrant.reason).toBe('cross_doctor_access_prohibited');
+
+    // 3. Patient grants full_history access to Doctor A (active for 30 days)
+    const [grant] = await db
+      .insert(accessGrants)
+      .values({
+        profileId: profile.id,
+        doctorId: doctorA.id,
+        scope: 'full_history',
+        status: 'active',
+        grantedVia: 'otp',
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      })
+      .returning();
+
+    // 4. Now Doctor A attempts to view Doctor B's record for this profile -> ALLOWED!
+    const allowedWithGrant = await assertPatientDataScope({
+      user: doctorA,
+      caseDoctorId: doctorBId,
+      profileId: profile.id,
+    });
+    expect(allowedWithGrant.allowed).toBe(true);
+    expect(allowedWithGrant.reason).toBe('active_patient_grant');
+
+    // 5. If grant is revoked by the patient -> DENIED again
+    await db
+      .update(accessGrants)
+      .set({ status: 'revoked', revokedAt: new Date() })
+      .where(eq(accessGrants.id, grant.id));
+
+    const deniedRevoked = await assertPatientDataScope({
+      user: doctorA,
+      caseDoctorId: doctorBId,
+      profileId: profile.id,
+    });
+    expect(deniedRevoked.allowed).toBe(false);
+    expect(deniedRevoked.reason).toBe('cross_doctor_access_prohibited');
+
+    // Clean up test data
+    await db.delete(accessGrants).where(eq(accessGrants.profileId, profile.id));
+    await db.delete(patientProfiles).where(eq(patientProfiles.id, profile.id));
+    await db.delete(patientAccounts).where(eq(patientAccounts.id, account.id));
   });
 });

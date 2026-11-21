@@ -709,7 +709,7 @@ export default function ControllerPage() {
                               </Badge>
                             )}
                             {med.status === 'pending' && (
-                              <Badge className="bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border-purple-300">
+                              <Badge variant="outline" className="bg-muted text-muted-foreground border-border">
                                 {isBn ? 'অপেক্ষমান' : 'Pending'}
                               </Badge>
                             )}
@@ -779,7 +779,7 @@ export default function ControllerPage() {
                               {isBn ? 'স্টেজ ১ অনুমোদিত (স্টেজ ২ বাকি)' : 'Stage 1 Signed (Stage 2 Pending)'}
                             </Badge>
                           ) : (
-                            <Badge className="bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border-purple-300">
+                            <Badge variant="outline" className="bg-muted text-muted-foreground border-border">
                               {isBn ? 'স্টেজ ১ অপেক্ষমান' : 'Stage 1 Pending'}
                             </Badge>
                           )}
@@ -803,7 +803,7 @@ export default function ControllerPage() {
                         </Button>
                         <Button
                           size="sm"
-                          className="bg-emerald-700 hover:bg-emerald-800 text-white"
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground"
                           onClick={() => handleReviewAction(med.id, 'approve')}
                         >
                           <Check className="w-4 h-4 mr-1" />

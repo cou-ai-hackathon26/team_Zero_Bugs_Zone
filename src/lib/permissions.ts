@@ -1,10 +1,11 @@
-import { and, eq, or } from 'drizzle-orm';
+import { and, eq, or, gt, isNull } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   roleFeatures,
   userFeatureOverrides,
   systemSettings,
   cases,
+  accessGrants,
 } from '@/db/schema';
 import { FeatureKey, User } from '@/types';
 import { recordAuditLog } from '@/lib/audit';
@@ -205,8 +206,9 @@ export async function assertPatientDataScope(params: {
   caseDoctorId?: string | null;
   patientId?: string | null;
   caseId?: string;
+  profileId?: string | null;
 }): Promise<{ allowed: boolean; reason: string }> {
-  const { user, caseDoctorId, patientId, caseId } = params;
+  const { user, caseDoctorId, patientId, caseId, profileId } = params;
 
   if (!user || !user.id) {
     return { allowed: false, reason: 'unauthenticated' };
@@ -220,15 +222,39 @@ export async function assertPatientDataScope(params: {
     };
   }
 
-  // 2. Doctor: Must be the owner of the case / patient
+  // 2. Doctor:
+  // - A doctor sees (a) every record that doctor authored (caseDoctorId === user.id)
+  // - (b) other doctors' records of a profile only while an active access grant ('full_history') from the patient exists
   if (user.role === 'doctor') {
-    if (!caseDoctorId || caseDoctorId !== user.id) {
-      return {
-        allowed: false,
-        reason: 'cross_doctor_access_prohibited',
-      };
+    if (caseDoctorId && caseDoctorId === user.id) {
+      return { allowed: true, reason: 'doctor_case_owner' };
     }
-    return { allowed: true, reason: 'doctor_case_owner' };
+
+    if (profileId && isValidUuid(profileId) && isValidUuid(user.id)) {
+      const now = new Date();
+      const activeGrants = await db
+        .select({ id: accessGrants.id })
+        .from(accessGrants)
+        .where(
+          and(
+            eq(accessGrants.profileId, profileId),
+            eq(accessGrants.doctorId, user.id),
+            eq(accessGrants.status, 'active'),
+            eq(accessGrants.scope, 'full_history'),
+            or(isNull(accessGrants.expiresAt), gt(accessGrants.expiresAt, now))
+          )
+        )
+        .limit(1);
+
+      if (activeGrants.length > 0) {
+        return { allowed: true, reason: 'active_patient_grant' };
+      }
+    }
+
+    return {
+      allowed: false,
+      reason: 'cross_doctor_access_prohibited',
+    };
   }
 
   // 3. Patient: Must match own patient record
@@ -255,6 +281,52 @@ export async function assertPatientDataScope(params: {
   }
 
   return { allowed: false, reason: 'unauthorized_role' };
+}
+
+/**
+ * Checks if a doctor has an active access grant from the patient for a specific profile.
+ */
+export async function checkDoctorProfileAccess(
+  doctorId: string,
+  profileId: string
+): Promise<{
+  hasGrant: boolean;
+  scope?: 'this_doctor_only' | 'full_history';
+  status?: string;
+  expiresAt?: Date | null;
+}> {
+  if (!isValidUuid(doctorId) || !isValidUuid(profileId)) {
+    return { hasGrant: false };
+  }
+  const now = new Date();
+  const [grant] = await db
+    .select({
+      id: accessGrants.id,
+      scope: accessGrants.scope,
+      status: accessGrants.status,
+      expiresAt: accessGrants.expiresAt,
+    })
+    .from(accessGrants)
+    .where(
+      and(
+        eq(accessGrants.profileId, profileId),
+        eq(accessGrants.doctorId, doctorId),
+        eq(accessGrants.status, 'active'),
+        or(isNull(accessGrants.expiresAt), gt(accessGrants.expiresAt, now))
+      )
+    )
+    .limit(1);
+
+  if (!grant) {
+    return { hasGrant: false };
+  }
+
+  return {
+    hasGrant: true,
+    scope: grant.scope as 'this_doctor_only' | 'full_history',
+    status: grant.status,
+    expiresAt: grant.expiresAt,
+  };
 }
 
 /**
