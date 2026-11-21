@@ -7,7 +7,7 @@ import {
   cases,
   accessGrants,
 } from '@/db/schema';
-import { FeatureKey, User, UserRole } from '@/types';
+import { FeatureKey, User } from '@/types';
 import { recordAuditLog } from '@/lib/audit';
 import { getCurrentUser } from '@/lib/auth';
 

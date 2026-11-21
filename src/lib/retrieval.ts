@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
 import OpenAI from 'openai';
 import { Chunk } from '@/types';
+import { getRawAiCredentials } from '@/lib/ai-credentials';
 
 const connectionString = process.env.DATABASE_URL || 'postgresql://apple@localhost:5432/docmate';
 const isLocal = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
@@ -9,10 +10,6 @@ const pool = new Pool({
   connectionString,
   ssl: isLocal ? false : { rejectUnauthorized: false },
 });
-
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
 
 // In-memory cache for embeddings and retrieval (cost control & speed)
 const retrievalCache = new Map<string, { timestamp: number; chunks: ScoredChunk[] }>();
@@ -27,9 +24,16 @@ export interface ScoredChunk extends Chunk {
 }
 
 async function getQueryEmbedding(query: string): Promise<number[] | null> {
-  if (!openai) return null;
+  const creds = await getRawAiCredentials();
+  const apiKey = creds?.apiKey || process.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+
   try {
-    const response = await openai.embeddings.create({
+    const client = new OpenAI({
+      apiKey,
+      baseURL: creds?.baseUrl || undefined,
+    });
+    const response = await client.embeddings.create({
       model: process.env.OPENAI_EMBED_MODEL || 'text-embedding-3-small',
       input: query,
       dimensions: 1536,

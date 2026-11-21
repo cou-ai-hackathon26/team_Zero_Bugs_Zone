@@ -263,3 +263,33 @@ export async function testAiConnection(params: {
     };
   }
 }
+
+export async function getRawAiCredentials(): Promise<AiCredentialsConfig | null> {
+  try {
+    const [row] = await db
+      .select()
+      .from(systemSettings)
+      .where(eq(systemSettings.key, SETTINGS_KEY))
+      .limit(1);
+
+    const data = row?.value as AiCredentialsConfig | undefined;
+    if (data && data.apiKey) {
+      return data;
+    }
+  } catch (err) {
+    console.error('[getRawAiCredentials] DB lookup failed:', err);
+  }
+
+  const envKey = process.env.OPENAI_API_KEY;
+  if (envKey) {
+    return {
+      provider: 'openai',
+      apiKey: envKey,
+      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+      baseUrl: process.env.OPENAI_BASE_URL || undefined,
+      testStatus: 'untested',
+    };
+  }
+
+  return null;
+}
