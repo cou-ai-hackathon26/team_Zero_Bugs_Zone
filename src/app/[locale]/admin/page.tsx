@@ -15,6 +15,7 @@ import {
 import { count, eq, sql, gte } from 'drizzle-orm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
+import { PageHeader } from '@/components/shared/PageHeader';
 import {
   Users,
   Activity,
@@ -78,6 +79,11 @@ export default async function AdminDashboardPage() {
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        title={t('title')}
+        subtitle={t('subtitle')}
+      />
+
       {/* Pending Verifications Alert Banner */}
       {totalPending > 0 && (
         <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">

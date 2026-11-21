@@ -1,30 +1,16 @@
 import React from 'react';
-import { getLocale, getTranslations } from 'next-intl/server';
+import { getLocale } from 'next-intl/server';
 import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
-import { ThemeToggle } from '@/components/shared/ThemeToggle';
-import {
-  LayoutDashboard,
-  Users,
-  ShieldCheck,
-  Cpu,
-  CreditCard,
-  History,
-  BookOpen,
-  ShieldAlert,
-  ArrowLeft,
-} from 'lucide-react';
+import { AppShell } from '@/components/shared/AppShell';
 
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [locale, t, user] = await Promise.all([
+  const [locale, user] = await Promise.all([
     getLocale(),
-    getTranslations('admin'),
     getCurrentUser(),
   ]);
 
@@ -32,93 +18,5 @@ export default async function AdminLayout({
     redirect(`/${locale}/dashboard`);
   }
 
-  const navItems = [
-    { href: `/${locale}/admin`, label: t('dashboard'), icon: LayoutDashboard },
-    { href: `/${locale}/admin/users`, label: t('users'), icon: Users },
-    { href: `/${locale}/admin/patients`, label: locale === 'bn' ? 'রোগী গভর্ন্যান্স' : 'Patients', icon: Users },
-    { href: `/${locale}/admin/access`, label: t('access'), icon: ShieldCheck },
-    { href: `/${locale}/admin/ai`, label: t('ai'), icon: Cpu },
-    { href: `/${locale}/admin/plans`, label: t('plans'), icon: CreditCard },
-    { href: `/${locale}/admin/audit`, label: t('audit'), icon: History },
-    { href: `/${locale}/admin/library`, label: t('library'), icon: BookOpen },
-  ];
-
-  return (
-    <div className="min-h-screen flex flex-col bg-muted/20">
-      {/* Top Admin Header */}
-      <header className="sticky top-0 z-40 bg-card border-b border-border shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3 min-w-0 max-w-full overflow-hidden">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
-            <Link
-              href={`/${locale}/dashboard`}
-              className="p-1.5 sm:p-2 -ml-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center gap-1.5 text-xs font-medium shrink-0"
-              title={locale === 'bn' ? 'ক্লিনিকাল ড্যাশবোর্ডে ফিরুন' : 'Back to clinical workspace'}
-            >
-              <ArrowLeft className="w-4 h-4 shrink-0" />
-              <span className="hidden sm:inline">{locale === 'bn' ? 'ক্লিনিকাল স্পেস' : 'Clinical Space'}</span>
-            </Link>
-
-            <div className="h-5 w-px bg-border hidden sm:block shrink-0" />
-
-            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-destructive/10 text-destructive flex items-center justify-center font-bold shrink-0">
-                <ShieldAlert className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 min-w-0">
-                  <h1 className="text-xs sm:text-sm font-bold text-foreground tracking-tight leading-none truncate">
-                    {t('title')}
-                  </h1>
-                  <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-destructive/15 text-destructive font-bold shrink-0">
-                    Super Admin
-                  </span>
-                </div>
-                <p className="text-[11px] text-muted-foreground hidden md:block leading-none mt-1 truncate">
-                  {user.email}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            <LanguageSwitcher />
-            <ThemeToggle />
-          </div>
-        </div>
-
-        {/* Horizontal Navigation Tabs */}
-        <div className="border-t border-border/60 bg-card/60 overflow-x-auto scrollbar-none">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-1 py-1 min-w-max">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="flex items-center gap-2 px-3.5 py-2 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all whitespace-nowrap"
-                >
-                  <Icon className="w-3.5 h-3.5 shrink-0" />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      </header>
-
-      {/* Main Admin Page Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {children}
-      </main>
-
-      {/* Persistent Clinical Decision Disclaimer */}
-      <footer className="border-t border-border bg-card/50 py-3 text-center text-xs text-muted-foreground">
-        <div className="max-w-7xl mx-auto px-4">
-          {locale === 'bn'
-            ? 'শুধুমাত্র ক্লিনিকাল সিদ্ধান্ত সহায়তা। পেশাদার মূল্যায়নের বিকল্প নয়।'
-            : 'Clinical decision support only. Not a substitute for professional judgement.'}
-        </div>
-      </footer>
-    </div>
-  );
+  return <AppShell>{children}</AppShell>;
 }

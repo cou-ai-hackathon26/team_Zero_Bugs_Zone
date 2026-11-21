@@ -52,6 +52,10 @@ import {
   GraduationCap,
   FlaskConical,
   HeartPulse,
+  ShieldCheck,
+  Cpu,
+  CreditCard,
+  History,
 } from 'lucide-react';
 import { User } from '@/types';
 import { cn } from '@/lib/utils';
@@ -66,6 +70,7 @@ export function AppShell({ children }: AppShellProps) {
   const locale = useLocale();
   const t = useTranslations('nav');
   const tCommon = useTranslations('common');
+  const tAdmin = useTranslations('admin');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -85,12 +90,70 @@ export function AppShell({ children }: AppShellProps) {
   };
 
   const role = currentUser?.role;
+  const isAdminRoute = pathname.startsWith('/admin');
+
+  // Dedicated admin navigation when in the admin control plane
+  const adminNavItems = [
+    {
+      title: tAdmin('dashboard'),
+      href: '/admin',
+      icon: LayoutDashboard,
+    },
+    {
+      title: tAdmin('users'),
+      href: '/admin/users',
+      icon: Users,
+    },
+    {
+      title: locale === 'bn' ? 'রোগী গভর্ন্যান্স' : 'Patient Governance',
+      href: '/admin/patients',
+      icon: HeartPulse,
+    },
+    {
+      title: tAdmin('access'),
+      href: '/admin/access',
+      icon: ShieldCheck,
+    },
+    {
+      title: tAdmin('ai'),
+      href: '/admin/ai',
+      icon: Cpu,
+    },
+    {
+      title: tAdmin('plans'),
+      href: '/admin/plans',
+      icon: CreditCard,
+    },
+    {
+      title: tAdmin('audit'),
+      href: '/admin/audit',
+      icon: History,
+    },
+    {
+      title: tAdmin('library'),
+      href: '/admin/library',
+      icon: BookOpen,
+    },
+  ];
+
+  const adminSecondaryItems = [
+    {
+      title: locale === 'bn' ? 'ক্লিনিকাল স্পেস' : 'Clinical Workspace',
+      href: '/dashboard',
+      icon: Stethoscope,
+    },
+    {
+      title: t('settings'),
+      href: '/settings',
+      icon: Settings,
+    },
+  ];
 
   const navItems = [
     ...(role === 'super_admin'
       ? [
           {
-            title: t('admin'),
+            title: locale === 'bn' ? 'অ্যাডমিন প্ল্যাটফর্ম' : 'Admin Control',
             href: '/admin',
             icon: ShieldAlert,
           },
@@ -183,7 +246,9 @@ export function AppShell({ children }: AppShellProps) {
   ];
 
   const logoHref =
-    role === 'super_admin'
+    isAdminRoute
+      ? '/admin'
+      : role === 'super_admin'
       ? '/admin'
       : role === 'student'
       ? '/study'
@@ -202,15 +267,27 @@ export function AppShell({ children }: AppShellProps) {
           <Sidebar collapsible="icon" role="complementary" aria-label={t('workspaceSidebar')} className="border-r border-border" data-tour="nav-sidebar">
             <SidebarHeader className="border-b border-border/60 p-4">
               <Link href={logoHref} className="flex items-center gap-3 group">
-                <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground shadow-xs group-hover:scale-105 transition-transform">
-                  <Stethoscope className="w-5 h-5" />
+                <div className={cn(
+                  "w-9 h-9 rounded-lg flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform",
+                  isAdminRoute
+                    ? "bg-destructive text-destructive-foreground"
+                    : "bg-primary text-primary-foreground"
+                )}>
+                  {isAdminRoute ? <ShieldAlert className="w-5 h-5" /> : <Stethoscope className="w-5 h-5" />}
                 </div>
                 <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-                  <span className="font-bold text-base leading-tight tracking-tight text-foreground">
+                  <span className="font-bold text-base leading-tight tracking-tight text-foreground flex items-center gap-1.5">
                     DocMate AI
+                    {isAdminRoute && (
+                      <Badge variant="outline" className="text-[9px] uppercase font-bold py-0 px-1 border-destructive/40 bg-destructive/10 text-destructive">
+                        Admin
+                      </Badge>
+                    )}
                   </span>
                   <span className="text-[11px] text-muted-foreground font-medium">
-                    {locale === 'bn' ? 'ক্লিনিকাল ডিসিশন সাপোর্ট' : 'Clinical Decision Support'}
+                    {isAdminRoute
+                      ? (locale === 'bn' ? 'সুপার অ্যাডমিন প্ল্যাটফর্ম' : 'Platform Control Plane')
+                      : (locale === 'bn' ? 'ক্লিনিকাল ডিসিশন সাপোর্ট' : 'Clinical Decision Support')}
                   </span>
                 </div>
               </Link>
@@ -218,38 +295,113 @@ export function AppShell({ children }: AppShellProps) {
 
             <SidebarContent className="p-2">
               <nav aria-label={t('navigation')}>
-                <SidebarGroup>
-                  <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold px-2">
-                    {locale === 'bn' ? 'প্রধান মেনু' : 'Clinical Workspace'}
-                  </SidebarGroupLabel>
-                  <SidebarGroupContent>
-                    <SidebarMenu className="space-y-1">
-                      {navItems.map((item) => {
-                        const isActive =
-                          pathname === item.href ||
-                          (item.href !== '/dashboard' && pathname.startsWith(item.href));
-                        return (
-                          <SidebarMenuItem key={item.href}>
-                            <SidebarMenuButton
-                              render={<Link href={item.href} />}
-                              isActive={isActive}
-                              tooltip={item.title}
-                              className={cn(
-                                'text-sm font-medium rounded-md px-3 py-2 transition-colors',
-                                isActive
-                                  ? 'bg-primary text-primary-foreground hover:bg-primary/95 font-semibold shadow-xs'
-                                  : 'hover:bg-muted text-muted-foreground hover:text-foreground'
-                              )}
-                            >
-                              <item.icon className="w-4 h-4 shrink-0" />
-                              <span className="truncate">{item.title}</span>
-                            </SidebarMenuButton>
-                          </SidebarMenuItem>
-                        );
-                      })}
-                    </SidebarMenu>
-                  </SidebarGroupContent>
-                </SidebarGroup>
+                {isAdminRoute ? (
+                  <>
+                    <SidebarGroup>
+                      <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-destructive font-semibold px-2 flex items-center justify-between">
+                        <span>{locale === 'bn' ? 'অ্যাডমিন গভর্ন্যান্স' : 'Platform Governance'}</span>
+                        <Badge variant="outline" className="text-[9px] uppercase font-bold py-0 px-1 border-destructive/40 bg-destructive/10 text-destructive">
+                          Admin
+                        </Badge>
+                      </SidebarGroupLabel>
+                      <SidebarGroupContent>
+                        <SidebarMenu className="space-y-1">
+                          {adminNavItems.map((item) => {
+                            const isActive =
+                              item.href === '/admin'
+                                ? pathname === '/admin'
+                                : pathname === item.href || pathname.startsWith(item.href);
+                            return (
+                              <SidebarMenuItem key={item.href}>
+                                <SidebarMenuButton
+                                  render={<Link href={item.href} />}
+                                  isActive={isActive}
+                                  tooltip={item.title}
+                                  className={cn(
+                                    'text-sm font-medium rounded-md px-3 py-2 transition-colors',
+                                    isActive
+                                      ? 'bg-destructive text-destructive-foreground hover:bg-destructive/95 font-semibold shadow-xs'
+                                      : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                                  )}
+                                >
+                                  <item.icon className="w-4 h-4 shrink-0" />
+                                  <span className="truncate">{item.title}</span>
+                                </SidebarMenuButton>
+                              </SidebarMenuItem>
+                            );
+                          })}
+                        </SidebarMenu>
+                      </SidebarGroupContent>
+                    </SidebarGroup>
+
+                    <SidebarGroup className="mt-2 pt-2 border-t border-border/50">
+                      <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold px-2">
+                        {locale === 'bn' ? 'ওয়ার্কস্পেস ও সেটিংস' : 'Workspaces & Settings'}
+                      </SidebarGroupLabel>
+                      <SidebarGroupContent>
+                        <SidebarMenu className="space-y-1">
+                          {adminSecondaryItems.map((item) => {
+                            const isActive = pathname === item.href;
+                            return (
+                              <SidebarMenuItem key={item.href}>
+                                <SidebarMenuButton
+                                  render={<Link href={item.href} />}
+                                  isActive={isActive}
+                                  tooltip={item.title}
+                                  className={cn(
+                                    'text-sm font-medium rounded-md px-3 py-2 transition-colors',
+                                    isActive
+                                      ? 'bg-primary text-primary-foreground hover:bg-primary/95 font-semibold shadow-xs'
+                                      : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                                  )}
+                                >
+                                  <item.icon className="w-4 h-4 shrink-0" />
+                                  <span className="truncate">{item.title}</span>
+                                </SidebarMenuButton>
+                              </SidebarMenuItem>
+                            );
+                          })}
+                        </SidebarMenu>
+                      </SidebarGroupContent>
+                    </SidebarGroup>
+                  </>
+                ) : (
+                  <SidebarGroup>
+                    <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold px-2">
+                      {locale === 'bn' ? 'প্রধান মেনু' : 'Clinical Workspace'}
+                    </SidebarGroupLabel>
+                    <SidebarGroupContent>
+                      <SidebarMenu className="space-y-1">
+                        {navItems.map((item) => {
+                          const isActive =
+                            item.href === '/admin'
+                              ? pathname === '/admin'
+                              : item.href === '/dashboard'
+                              ? pathname === '/dashboard'
+                              : pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                          return (
+                            <SidebarMenuItem key={item.href}>
+                              <SidebarMenuButton
+                                render={<Link href={item.href} />}
+                                isActive={isActive}
+                                tooltip={item.title}
+                                className={cn(
+                                  'text-sm font-medium rounded-md px-3 py-2 transition-colors',
+                                  isActive
+                                    ? 'bg-primary text-primary-foreground hover:bg-primary/95 font-semibold shadow-xs'
+                                    : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                                )}
+                              >
+                                <item.icon className="w-4 h-4 shrink-0" />
+                                <span className="truncate">{item.title}</span>
+                              </SidebarMenuButton>
+                            </SidebarMenuItem>
+                          );
+                        })}
+                      </SidebarMenu>
+                    </SidebarGroupContent>
+                  </SidebarGroup>
+                )}
               </nav>
             </SidebarContent>
 
