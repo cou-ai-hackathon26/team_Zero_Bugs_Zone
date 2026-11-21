@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import { ErrorState } from '@/components/shared/ErrorState';
+import React, { useEffect, useState } from 'react';
 import { AppShell } from '@/components/shared/AppShell';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,35 +12,50 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Link, useRouter } from '@/i18n/routing';
-import { useTranslations } from 'next-intl';
+import { useFormatter, useTranslations } from 'next-intl';
 import { PlusCircle, Search, Filter, AlertTriangle, ArrowRight, Clock, Users, Loader2 } from 'lucide-react';
 import { PatientCase, StructuredPatientInput } from '@/types';
 
 export default function CasesPage() {
   const t = useTranslations('cases');
+  const format = useFormatter();
   const tCommon = useTranslations('common');
   const router = useRouter();
 
   const [casesList, setCasesList] = useState<PatientCase[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  const fetchCases = useCallback(() => {
-    fetch(`/api/cases?status=${statusFilter}&search=${encodeURIComponent(search)}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.cases) {
-          setCasesList(data.cases);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [statusFilter, search]);
+  const [fetchVersion, setFetchVersion] = useState(0);
 
   useEffect(() => {
-    fetchCases();
-  }, [fetchCases]);
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setLoading(true);
+      setLoadError(false);
+      try {
+        const response = await fetch(`/api/cases?status=${statusFilter}&search=${encodeURIComponent(search)}`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        if (!controller.signal.aborted) setCasesList(data.cases);
+      } catch {
+        if (!controller.signal.aborted) {
+          setLoadError(true);
+          setCasesList([]);
+        }
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }, 150);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [statusFilter, search, fetchVersion]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -52,19 +68,19 @@ export default function CasesPage() {
         );
       case 'insufficient_evidence':
         return (
-          <Badge variant="outline" className="text-[10px] font-semibold text-rose-600 border-rose-300 bg-rose-50 dark:bg-rose-950/40">
+          <Badge variant="outline" className="text-[10px] font-semibold text-foreground bg-muted">
             {t('statusInsufficient')}
           </Badge>
         );
       case 'confirmed':
         return (
-          <Badge variant="outline" className="text-[10px] font-semibold text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40">
+          <Badge variant="outline" className="text-[10px] font-semibold text-foreground bg-muted">
             {t('statusConfirmed')}
           </Badge>
         );
       case 'treated':
         return (
-          <Badge variant="outline" className="text-[10px] font-semibold text-blue-600 border-blue-300 bg-blue-50 dark:bg-blue-950/40">
+          <Badge variant="outline" className="text-[10px] font-semibold text-foreground bg-muted">
             {t('statusTreated')}
           </Badge>
         );
@@ -106,7 +122,8 @@ export default function CasesPage() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by patient code, symptoms, or complaint..."
+              placeholder={t('searchPlaceholder')}
+              aria-label={t('searchPlaceholder')}
               className="pl-9 text-sm h-9 bg-background border-border"
             />
           </div>
@@ -114,8 +131,8 @@ export default function CasesPage() {
           <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
             <Filter className="w-4 h-4 text-muted-foreground" />
             <Select value={statusFilter} onValueChange={(val) => val && setStatusFilter(val)}>
-              <SelectTrigger className="w-48 h-9 text-xs">
-                <SelectValue placeholder="All Statuses" />
+              <SelectTrigger aria-label={t('filterStatus')} className="w-48 min-h-11 text-xs">
+                <SelectValue placeholder={tCommon('all')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{tCommon('all')}</SelectItem>
@@ -138,6 +155,8 @@ export default function CasesPage() {
                 <Loader2 className="w-5 h-5 animate-spin text-primary" />
                 <span>Loading patient cases...</span>
               </div>
+            ) : loadError ? (
+              <ErrorState message={t('loadError')} onRetry={() => setFetchVersion((version) => version + 1)} />
             ) : casesList.length === 0 ? (
               <EmptyState
                 icon={Users}
@@ -183,14 +202,14 @@ export default function CasesPage() {
                           )}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
-                          {String(input.age || '—')}{' '}
+                          {typeof input.age === 'number' ? format.number(input.age) : '—'}{' '}
                           {input.gender ? `(${String(input.gender)})` : ''}
                         </TableCell>
                         <TableCell>{getStatusBadge(c.status)}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Clock className="w-3 h-3 opacity-60" />
-                            {new Date(c.updated_at || c.created_at).toLocaleDateString()}
+                            {format.dateTime(new Date(c.updated_at || c.created_at), { dateStyle: 'medium', timeZone: 'UTC' })}
                           </span>
                         </TableCell>
                         <TableCell className="text-right">

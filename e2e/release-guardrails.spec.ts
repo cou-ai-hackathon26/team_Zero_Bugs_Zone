@@ -4,7 +4,7 @@ async function login(request: APIRequestContext, role: 'doctor' | 'student' | 'a
   const response = await request.post('/api/auth/login', {
     data: { email: `${role}@docmate.ai`, password: 'demo123' },
   });
-  expect(response.ok()).toBe(true);
+  expect(response.status()).toBe(200);
 }
 
 test.describe('Offline synthetic release guardrails', () => {
@@ -24,6 +24,10 @@ test.describe('Offline synthetic release guardrails', () => {
     await page.goto('/en/cases/new');
     const code = `P-${Date.now().toString().slice(-8)}`;
     await page.getByLabel('Patient ID / Code').fill(code);
+    await expect(page.getByLabel('Temperature (°C)')).toHaveValue('');
+    await page.getByLabel('Age (years)').fill('40');
+    await page.getByLabel('Biological Sex').click();
+    await page.getByRole('option', { name: 'Other' }).click();
     await page.getByRole('button', { name: 'Next' }).click();
     await page.getByLabel('Chief Complaint').fill('Synthetic fatigue for workflow testing');
     await page.getByRole('button', { name: 'Next' }).click();
@@ -33,8 +37,12 @@ test.describe('Offline synthetic release guardrails', () => {
     const id = new URL(page.url()).pathname.split('/').at(-1);
     await page.getByRole('tab', { name: 'Missing Info' }).click();
     await expect(page.getByText('What findings did the physician document on examination?')).toBeVisible();
-    await page.getByPlaceholder('Enter clinical finding, test result, or note...').fill('Synthetic observation recorded.');
-    await page.getByRole('button', { name: 'Save Answer' }).click();
+    const questionCard = page.locator('[data-slot="card"]').filter({
+      hasText: 'What findings did the physician document on examination?',
+    });
+    await questionCard.getByRole('textbox', { name: 'What findings did the physician document on examination?' })
+      .fill('Synthetic observation recorded.');
+    await questionCard.getByRole('button', { name: 'Save Answer' }).click();
     await expect.poll(async () => {
       const response = await page.request.get(`/api/cases/${id}`);
       return (await response.json()).turns.length;
@@ -52,7 +60,10 @@ test.describe('Offline synthetic release guardrails', () => {
     await expect(page.getByText('Treatment suggestions are unavailable', { exact: false })).toBeVisible();
     const finalization = await page.request.post(`/api/cases/${id}/finalize`);
     expect(finalization.status()).toBe(409);
+    await page.getByRole('tab', { name: 'Safety Checks' }).click();
+    await expect(page.getByText('Medication safety assessment is unavailable.')).toBeVisible();
     await page.getByRole('tab', { name: 'Printable Report' }).click();
+    await expect(page.getByText('Draft preview. Clinical signature and prescription printing are unavailable.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Print Official Report' })).toBeDisabled();
   });
 
@@ -76,6 +87,11 @@ test.describe('Offline synthetic release guardrails', () => {
   test('student is denied cases and admin can add source metadata', async ({ browser, page }) => {
     await login(page.request, 'student');
     expect((await page.request.get('/api/cases')).status()).toBe(403);
+    const dashboard = await page.goto('/en/dashboard');
+    expect(dashboard?.ok()).toBe(true);
+    await expect(page.getByRole('heading', { name: 'Recent Clinical Cases' })).toHaveCount(0);
+    await expect(page.getByText('P-103', { exact: true })).toHaveCount(0);
+    expect(await dashboard?.text()).not.toContain('P-103');
     await page.goto('/en/cases');
     await expect(page).toHaveURL(/\/en\/library$/);
 
@@ -94,5 +110,60 @@ test.describe('Offline synthetic release guardrails', () => {
     } finally {
       await admin.close();
     }
+  });
+});
+
+test.describe('Responsive navigation and source integrity', () => {
+  test.skip(process.env.DOCMATE_QA_SYNTHETIC !== '1', 'Requires an isolated, seeded synthetic database.');
+
+  test('dashboard fits tablet widths in English and Bangla and the mobile sidebar restores focus', async ({ page }) => {
+    await login(page.request, 'doctor');
+    for (const locale of ['bn', 'en']) {
+      for (const width of [390, 768, 1280]) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(`/${locale}/dashboard`);
+        await expect(page.getByRole('main')).toHaveCount(1);
+        await page.evaluate(() => document.fonts.ready);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      }
+    }
+
+    await page.setViewportSize({ width: 390, height: 900 });
+    await expect(page.locator('[data-slot="sidebar"][data-state]')).toHaveCount(0);
+    const toggle = page.getByRole('button', { name: 'Toggle Sidebar' });
+    await toggle.focus();
+    await page.keyboard.press('Enter');
+    const sidebar = page.getByRole('dialog', { name: 'Sidebar' });
+    await expect(sidebar).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(sidebar).toBeHidden();
+    await expect(toggle).toBeFocused();
+  });
+
+  test('command search finds owned cases and library sources', async ({ page }) => {
+    await login(page.request, 'doctor');
+    await page.goto('/en/dashboard');
+    await page.keyboard.press('Control+k');
+    const query = page.getByRole('dialog', { name: 'Command Palette' }).getByRole('combobox');
+    await query.fill('P-103');
+    await expect(page.getByRole('option', { name: 'P-103' })).toBeVisible();
+    await query.fill('adult acute respiratory');
+    await page.getByRole('option', { name: /National Clinical Guidelines for Adult Acute Respiratory Infections/ }).click();
+    await expect(page).toHaveURL(/\/en\/library\?source=/);
+    await expect(page.getByText('WHO & National Clinical Guidelines for Adult Acute Respiratory Infections', { exact: true })).toBeVisible();
+  });
+
+  test('failed source loading shows a retry state with no invented passage', async ({ page }) => {
+    await login(page.request, 'doctor');
+    await page.goto('/en/library');
+    const chunks = '**/api/library/chunks?source_id=*';
+    await page.route(chunks, (route) => route.fulfill({ status: 503 }));
+    const sourceCard = page.locator('[data-slot="card"]').filter({ hasText: 'WHO & National Clinical Guidelines for Adult Acute Respiratory Infections' });
+    await sourceCard.getByRole('button', { name: 'Browse Passage Chunks' }).click();
+    await expect(page.getByText('Source passages could not be loaded.')).toBeVisible();
+    await expect(page.getByText('Community-acquired pneumonia (CAP) in adults is defined', { exact: false })).toHaveCount(0);
+    await page.unroute(chunks);
+    await page.getByRole('button', { name: 'Retry' }).click();
+    await expect(page.getByText('Section 1: Clinical Presentation & Diagnostic Criteria', { exact: true })).toBeVisible();
   });
 });

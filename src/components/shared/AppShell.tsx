@@ -44,7 +44,6 @@ import {
   LogOut,
   Stethoscope,
   ShieldAlert,
-  UserCheck,
 } from 'lucide-react';
 import { User } from '@/types';
 import { cn } from '@/lib/utils';
@@ -110,11 +109,19 @@ export function AppShell({ children }: AppShellProps) {
     },
   ];
 
+  const isPhysicianOrAdmin = currentUser ? (currentUser.role === 'doctor' || currentUser.role === 'admin') : true;
+  const filteredNavItems = navItems.filter((item) => {
+    if (item.href === '/cases' || item.href === '/cases/new') {
+      return isPhysicianOrAdmin;
+    }
+    return true;
+  });
+
   return (
     <SidebarProvider defaultOpen>
       <div className="flex min-h-screen w-full bg-background text-foreground">
           {/* Main App Sidebar */}
-          <Sidebar collapsible="icon" className="border-r border-border">
+          <Sidebar collapsible="icon" role="complementary" aria-label={t('workspaceSidebar')} className="border-r border-border">
             <SidebarHeader className="border-b border-border/60 p-4">
               <Link href="/dashboard" className="flex items-center gap-3 group">
                 <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground shadow-xs group-hover:scale-105 transition-transform">
@@ -132,38 +139,40 @@ export function AppShell({ children }: AppShellProps) {
             </SidebarHeader>
 
             <SidebarContent className="p-2">
-              <SidebarGroup>
-                <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold px-2">
-                  {locale === 'bn' ? 'প্রধান মেনু' : 'Clinical Workspace'}
-                </SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu className="space-y-1">
-                    {navItems.map((item) => {
-                      const isActive =
-                        pathname === item.href ||
-                        (item.href !== '/dashboard' && pathname.startsWith(item.href));
-                      return (
-                        <SidebarMenuItem key={item.href}>
-                          <SidebarMenuButton
-                            render={<Link href={item.href} />}
-                            isActive={isActive}
-                            tooltip={item.title}
-                            className={cn(
-                              'text-sm font-medium rounded-md px-3 py-2 transition-colors',
-                              isActive
-                                ? 'bg-primary text-primary-foreground hover:bg-primary/95 font-semibold shadow-xs'
-                                : 'hover:bg-muted text-muted-foreground hover:text-foreground'
-                            )}
-                          >
-                            <item.icon className="w-4 h-4 shrink-0" />
-                            <span className="truncate">{item.title}</span>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      );
-                    })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
+              <nav aria-label={t('navigation')}>
+                <SidebarGroup>
+                  <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold px-2">
+                    {locale === 'bn' ? 'প্রধান মেনু' : 'Clinical Workspace'}
+                  </SidebarGroupLabel>
+                  <SidebarGroupContent>
+                    <SidebarMenu className="space-y-1">
+                      {filteredNavItems.map((item) => {
+                        const isActive =
+                          pathname === item.href ||
+                          (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                        return (
+                          <SidebarMenuItem key={item.href}>
+                            <SidebarMenuButton
+                              render={<Link href={item.href} />}
+                              isActive={isActive}
+                              tooltip={item.title}
+                              className={cn(
+                                'text-sm font-medium rounded-md px-3 py-2 transition-colors',
+                                isActive
+                                  ? 'bg-primary text-primary-foreground hover:bg-primary/95 font-semibold shadow-xs'
+                                  : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                              )}
+                            >
+                              <item.icon className="w-4 h-4 shrink-0" />
+                              <span className="truncate">{item.title}</span>
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
+                        );
+                      })}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              </nav>
             </SidebarContent>
 
             <SidebarFooter className="border-t border-border/60 p-3">
@@ -217,23 +226,24 @@ export function AppShell({ children }: AppShellProps) {
           {/* Main Inset Content Area */}
           <SidebarInset className="flex flex-col flex-1 min-w-0">
             {/* Top Navigation Bar */}
-            <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b border-border bg-background/95 px-4 backdrop-blur-md sm:px-6">
-              <div className="flex items-center gap-3">
-                <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+            <header className="sticky top-0 z-30 flex min-h-14 items-center justify-between gap-1 sm:gap-3 border-b border-border bg-background/95 px-2 backdrop-blur-md sm:px-4">
+              <div className="flex items-center gap-1 xl:gap-2">
+                <SidebarTrigger className="size-11 text-muted-foreground hover:text-foreground" aria-label={t('toggleSidebar')} />
                 <button
                   type="button"
                   onClick={() => {
                     const event = new KeyboardEvent('keydown', { key: 'k', metaKey: true });
                     document.dispatchEvent(event);
                   }}
-                  className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-md border border-border bg-muted/40 text-xs text-muted-foreground hover:bg-muted/80 transition-colors w-64"
+                  aria-label={t('search')}
+                  className="flex size-11 shrink-0 items-center justify-center gap-2 rounded-md border border-border bg-muted/40 text-xs text-muted-foreground hover:bg-muted/80 xl:w-auto xl:px-3"
                 >
                   <Search className="w-3.5 h-3.5" />
-                  <span>Search cases, library (Cmd+K)</span>
+                  <span className="hidden xl:inline">{t('search')}</span>
                 </button>
               </div>
 
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <LanguageSwitcher />
                 <ThemeToggle />
 
@@ -249,7 +259,7 @@ export function AppShell({ children }: AppShellProps) {
                           <div className="w-6 h-6 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[11px] font-bold">
                             {currentUser.name.charAt(0)}
                           </div>
-                          <span className="hidden sm:inline-block max-w-[120px] truncate">
+                          <span className="hidden xl:inline-block max-w-32 wrap-anywhere">
                             {currentUser.name}
                           </span>
                           <Badge variant="outline" className="text-[10px] uppercase font-bold py-0 px-1 border-primary/30 text-primary">
@@ -303,7 +313,7 @@ export function AppShell({ children }: AppShellProps) {
                   {tCommon('disclaimer')}
                 </span>
                 <span className="hidden sm:inline text-muted-foreground/40">•</span>
-                <span className="text-[11px] text-muted-foreground/80">
+                <span className="text-[11px] text-muted-foreground">
                   {tCommon('doctorDecides')}
                 </span>
               </div>
@@ -312,7 +322,7 @@ export function AppShell({ children }: AppShellProps) {
         </div>
 
         {/* Global Overlays */}
-        <GlobalSearchCommand />
+        <GlobalSearchCommand role={currentUser?.role} />
         <EvidenceSheet />
         <Toaster position="top-right" richColors />
       </SidebarProvider>

@@ -26,9 +26,10 @@ export function LanguageSwitcher() {
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button variant="outline" size="sm" className="gap-2 text-xs font-medium border-border/80">
-            <Languages className="w-4 h-4 text-primary" />
-            <span>{locale === 'bn' ? 'বাংলা (BN)' : 'English (EN)'}</span>
+          <Button variant="outline" size="sm" className="gap-1 min-h-11 px-2.5 sm:px-3 text-xs font-medium border-border/80">
+            <Languages className="w-4 h-4 text-primary shrink-0" />
+            <span className="hidden sm:inline">{locale === 'bn' ? 'বাংলা (BN)' : 'English (EN)'}</span>
+            <span className="sm:hidden uppercase">{locale}</span>
           </Button>
         }
       />

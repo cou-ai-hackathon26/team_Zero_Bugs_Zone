@@ -216,3 +216,28 @@ Local provided-throttling observations with one browser profile per pair. Cases 
 - Restore clinical features only after proving claim support beyond quote presence, abstention on conflict, source provenance and appropriate patient-specific rules. Verify a positive safety approval path and a server-authored prescription that remains correct after refresh and at print time.
 - Close the open identity lifecycle, distributed abuse-control, audit and privacy items. Run the clean quickstart from a real clone, with a fresh database and the intended hosting configuration.
 - Close the axe, responsive, locale and focus defects and repeat the full browser matrix. Evaluate retrieval with a reviewed multilingual library and measure provider latency, tokens and cost in an explicitly authorized synthetic environment.
+
+## Follow-up remediation
+
+The follow-up addressed the reproducible UI findings and found additional authorization and evidence-display defects. The production release verdict remains **No-go**. The case workspace still abstains from automated assessment and keeps treatment, prescription finalization and printing disabled.
+
+| Area | Result |
+|---|---|
+| Dashboard access | Dashboard queries now scope case details and counts to the authenticated owner. Student and researcher dashboards exclude the case workspace. Command search uses the same ownership rule and returns only case codes and source metadata. A second physician's dashboard HTML and search omitted P-103 and the detail API returned 404. |
+| Clinical display integrity | Library load failures previously substituted a hardcoded passage. Failures now show retry and an empty source reports zero indexed passages. Intake starts without assumed vitals, age, weight or renal values. The landing page no longer advertises an unverified diagnosis, dose, safety conclusion or zero hallucinations. Report and Safety views say the assessment is unavailable and the preview is unsigned. |
+| Responsive UI and accessibility | The dashboard fit 390, 768 and 1280 px in both languages and themes. Fixed nested landmarks, inaccessible filter names, heading order and the measured red alert contrast. The mobile sidebar has a close button and restores focus to the trigger. |
+| Search and feedback | Cmd/Ctrl+K finds owned case codes and active library titles. Search protects authenticated identity, validates bounded text, and throttles requests. Case and library lists show retry states after failed requests. |
+| Local auth and tooling | Restored the rate-limiter boundary for demo accounts. The workspace's existing AUTH_SECRET matches a recognizable published demo default. The server rejects that default and requires rotation for local login. The offline QA environment used a separate secret. The proxy and Vitest config use their supported file conventions. |
+
+| Command | Result |
+|---|---|
+| `pnpm run lint`, `pnpm run typecheck`, `pnpm test` | Passed. Vitest reported 47 tests across six files after adding rate-limit and signing-secret regressions. An intermediate lint attempt flagged synchronous state updates from the library mount effect. The final code fetches asynchronously with cancellation and lint passed. |
+| `pnpm run build` | Exit 0 using the workspace's current Turbopack script. Compiled, checked TypeScript and generated 11 pages. A webpack build before the last updates also passed; runtime rechecks below used Turbopack. |
+| `node /tmp/docmate-qa-axe-followup.cjs http://localhost:3104` | axe-core 4.14.1 returned zero violations in English light and dark for login, dashboard, cases, library and Ask. Across the 12 dashboard combinations, the reported locale matched and horizontal overflow was 0 px. This was a targeted scan of those rendered states. |
+| `node /tmp/docmate-qa-dashboard-scope.cjs http://localhost:3104` | A second signed-in physician could access their own dashboard and search but did not receive another physician's P-103 in either response. The detail request returned 404. Synthetic fixture removed after the test. |
+| `DOCMATE_QA_BASE_URL=http://localhost:3103 DOCMATE_QA_SYNTHETIC=1 pnpm run test:e2e --output /tmp/docmate-qa-followup-e2e` | 8 passed, 1 failed because the newly blank vital fields produced two follow-ups with the same placeholder. The test now targets the labeled question. |
+| `DOCMATE_QA_BASE_URL=http://localhost:3104 DOCMATE_QA_SYNTHETIC=1 pnpm run test:e2e --output /tmp/docmate-qa-followup-final` | 8 passed, 1 failed on a desktop-to-mobile resize before the sidebar switched modes. The test now waits for the desktop sidebar to detach. A repeat on the same process hit the account throttle after two overlapping suites. The final suite uses a fresh process. |
+| `DOCMATE_QA_BASE_URL=http://localhost:3105 DOCMATE_QA_SYNTHETIC=1 pnpm run test:e2e --output /tmp/docmate-qa-followup-fresh` | All 9 tests passed in 6.8 s on the fresh process. The mobile sidebar closed with Escape and restored keyboard focus. |
+| `DOCMATE_QA_BASE_URL=http://localhost:3106 DOCMATE_QA_SYNTHETIC=1 pnpm run test:e2e --output /tmp/docmate-qa-followup-hardened` | After rejecting the recognizable signing-secret default, the rebuilt app passed all 9 tests in 6.7 s with a separate QA secret. |
+
+Still open include independently reviewed source and formulary evidence, a verified model-assisted assessment, server-authorized treatment and acknowledgment, signed prescription output, production identity and distributed controls, and accessibility and localization outside the verified pages and states.

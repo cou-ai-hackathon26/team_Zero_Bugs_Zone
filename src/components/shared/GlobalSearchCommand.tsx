@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
 import {
   CommandDialog,
@@ -9,74 +10,114 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
 } from '@/components/ui/command';
-import { LayoutDashboard, Users, PlusCircle, BookOpen, HelpCircle, Settings } from 'lucide-react';
+import type { UserRole } from '@/types';
 
-export function GlobalSearchCommand() {
+interface SearchResults {
+  cases: { id: string; patientCode: string }[];
+  sources: { id: string; title: string }[];
+}
+
+export function GlobalSearchCommand({ role }: { role?: UserRole }) {
   const [open, setOpen] = useState(false);
+  const [value, setValue] = useState('');
+  const [search, setSearch] = useState<{ query: string; results: SearchResults | null } | null>(null);
   const router = useRouter();
+  const t = useTranslations('nav');
+  const tCommon = useTranslations('common');
+  const query = value.trim();
 
   useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setOpen((prev) => !prev);
+    const down = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() === 'k' && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        setOpen((previous) => !previous);
+        setValue('');
+        setSearch(null);
       }
     };
-
     document.addEventListener('keydown', down);
     return () => document.removeEventListener('keydown', down);
   }, []);
 
-  const runCommand = (command: () => void) => {
+  useEffect(() => {
+    if (!open || query.length < 2 || !role) return;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      try {
+        const response = await fetch('/api/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query }),
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error();
+        const results = await response.json() as SearchResults;
+        if (!controller.signal.aborted) setSearch({ query, results });
+      } catch {
+        if (!controller.signal.aborted) setSearch({ query, results: null });
+      }
+    }, 200);
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [open, query, role]);
+
+  const navigate = (destination: string) => {
     setOpen(false);
-    command();
+    router.push(destination);
   };
 
+  const navigation = [
+    { path: '/dashboard', label: t('dashboard') },
+    ...(role === 'doctor' || role === 'admin' ? [
+      { path: '/cases', label: t('cases') },
+      { path: '/cases/new', label: t('newCase') },
+    ] : []),
+    { path: '/library', label: t('library') },
+    { path: '/ask', label: t('ask') },
+    { path: '/settings', label: t('settings') },
+  ];
+  const searching = Boolean(role) && query.length >= 2;
+  const current = searching && search?.query === query ? search : null;
+
   return (
-    <CommandDialog open={open} onOpenChange={setOpen}>
-      <CommandInput placeholder="Type a command or search cases, library..." />
+    <CommandDialog title={t('commandTitle')} description={t('search')} open={open} onOpenChange={setOpen}>
+      <CommandInput placeholder={t('search')} aria-label={t('search')} value={value} maxLength={100}
+        onValueChange={(next) => {
+          setValue(next);
+          setSearch(null);
+        }} />
       <CommandList>
-        <CommandEmpty>No results found.</CommandEmpty>
-        <CommandGroup heading="Navigation">
-          <CommandItem onSelect={() => runCommand(() => router.push('/dashboard'))}>
-            <LayoutDashboard className="mr-2 h-4 w-4" />
-            <span>Dashboard</span>
-          </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => router.push('/cases'))}>
-            <Users className="mr-2 h-4 w-4" />
-            <span>Patient Cases</span>
-          </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => router.push('/cases/new'))}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            <span>New Patient Intake</span>
-          </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => router.push('/library'))}>
-            <BookOpen className="mr-2 h-4 w-4" />
-            <span>Medical Library</span>
-          </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => router.push('/ask'))}>
-            <HelpCircle className="mr-2 h-4 w-4" />
-            <span>Ask Library</span>
-          </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => router.push('/settings'))}>
-            <Settings className="mr-2 h-4 w-4" />
-            <span>Settings</span>
-          </CommandItem>
+        {searching && !current ? (
+          <p role="status" className="px-3 py-2 text-sm text-muted-foreground">{tCommon('loading')}</p>
+        ) : current && !current.results ? (
+          <p role="status" className="px-3 py-2 text-sm text-muted-foreground">{t('searchError')}</p>
+        ) : <CommandEmpty>{t('noSearchResults')}</CommandEmpty>}
+        <CommandGroup heading={t('navigation')}>
+          {navigation.map(({ path, label }) => (
+            <CommandItem key={path} value={label} onSelect={() => navigate(path)}>{label}</CommandItem>
+          ))}
         </CommandGroup>
-        <CommandSeparator />
-        <CommandGroup heading="Demo Cases">
-          <CommandItem onSelect={() => runCommand(() => router.push('/cases'))}>
-            <span>Case P-101 (Fever & Cough)</span>
-          </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => router.push('/cases'))}>
-            <span>Case P-102 (Acute Chest Pain - Red Flag)</span>
-          </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => router.push('/cases'))}>
-            <span>Case P-103 (Insufficient Info Case)</span>
-          </CommandItem>
-        </CommandGroup>
+        {current?.results && current.results.cases.length > 0 && (
+          <CommandGroup heading={t('cases')}>
+            {current.results.cases.map(({ id, patientCode }) => (
+              <CommandItem key={id} value={`${patientCode} ${id}`} onSelect={() => navigate(`/cases/${id}`)}>
+                {patientCode}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+        {current?.results && current.results.sources.length > 0 && (
+          <CommandGroup heading={t('library')}>
+            {current.results.sources.map(({ id, title }) => (
+              <CommandItem key={id} value={`${title} ${id}`} onSelect={() => navigate(`/library?source=${id}`)}>
+                {title}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
       </CommandList>
     </CommandDialog>
   );

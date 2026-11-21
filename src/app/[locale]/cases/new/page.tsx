@@ -42,20 +42,17 @@ export default function NewCasePage() {
   const [loading, setLoading] = useState(false);
 
   // Form State
-  const [patientCode, setPatientCode] = useState(
-    () => `P-${Math.floor(104 + Math.random() * 800)}`
-  );
-  const [age, setAge] = useState<number>(45);
-  const [gender, setGender] = useState<'male' | 'female' | 'other'>('male');
-  const [weightKg, setWeightKg] = useState<number>(70);
+  const [patientCode, setPatientCode] = useState('');
+  const [age, setAge] = useState<number | ''>('');
+  const [gender, setGender] = useState<StructuredPatientInput['gender'] | ''>('');
+  const [weightKg, setWeightKg] = useState('');
 
-  // Vitals
-  const [bpSystolic, setBpSystolic] = useState<string>('120');
-  const [bpDiastolic, setBpDiastolic] = useState<string>('80');
-  const [heartRate, setHeartRate] = useState<string>('78');
-  const [respiratoryRate, setRespiratoryRate] = useState<string>('18');
-  const [temperatureCelsius, setTemperatureCelsius] = useState<string>('37.0');
-  const [spo2Percent, setSpo2Percent] = useState<string>('98');
+  const [bpSystolic, setBpSystolic] = useState('');
+  const [bpDiastolic, setBpDiastolic] = useState('');
+  const [heartRate, setHeartRate] = useState('');
+  const [respiratoryRate, setRespiratoryRate] = useState('');
+  const [temperatureCelsius, setTemperatureCelsius] = useState('');
+  const [spo2Percent, setSpo2Percent] = useState('');
 
   // Symptoms
   const [chiefComplaint, setChiefComplaint] = useState('');
@@ -70,7 +67,7 @@ export default function NewCasePage() {
   const [pregnancyTrimester, setPregnancyTrimester] = useState<'1' | '2' | '3'>('1');
 
   // Labs & Notes
-  const [egfr, setEgfr] = useState<string>('90');
+  const [egfr, setEgfr] = useState('');
   const [labValues, setLabValues] = useState<LabValue[]>([
     { name: 'WBC', value: '', unit: '/μL', reference_range: '4000-11000' },
   ]);
@@ -84,7 +81,7 @@ export default function NewCasePage() {
         const parsed = JSON.parse(draft);
         setTimeout(() => {
           if (parsed.patientCode) setPatientCode(parsed.patientCode);
-          if (parsed.age) setAge(parsed.age);
+          if (typeof parsed.age === 'number') setAge(parsed.age);
           if (parsed.gender) setGender(parsed.gender);
           if (parsed.chiefComplaint) setChiefComplaint(parsed.chiefComplaint);
           if (parsed.symptomsInput) setSymptomsInput(parsed.symptomsInput);
@@ -125,7 +122,16 @@ export default function NewCasePage() {
     setLabValues(updated);
   };
 
+  const hasDemographics = /^P-[0-9]{3,8}$/.test(patientCode.trim()) &&
+    age !== '' && Number.isInteger(age) && age >= 0 && age <= 130 && gender !== '';
+
   const handleSubmit = async () => {
+    if (!hasDemographics) {
+      toast.error(t('invalidDemographics'));
+      setCurrentStep(1);
+      return;
+    }
+
     if (!chiefComplaint.trim()) {
       toast.error('Chief complaint is required');
       setCurrentStep(2);
@@ -135,9 +141,9 @@ export default function NewCasePage() {
     setLoading(true);
 
     const structuredPayload: StructuredPatientInput = {
-      age: Number(age) || 45,
+      age,
       gender,
-      weight_kg: Number(weightKg) || undefined,
+      weight_kg: weightKg ? Number(weightKg) : undefined,
       chief_complaint: chiefComplaint.trim(),
       symptoms: symptomsInput
         .split(',')
@@ -285,7 +291,8 @@ export default function NewCasePage() {
                   <Input
                     id="patient-code"
                     value={patientCode}
-                    onChange={(e) => setPatientCode(e.target.value)}
+                    onChange={(e) => setPatientCode(e.target.value.toUpperCase())}
+                    placeholder="P-104"
                     required
                     className="font-mono text-xs uppercase"
                   />
@@ -300,9 +307,9 @@ export default function NewCasePage() {
                     id="age"
                     type="number"
                     value={age}
-                    onChange={(e) => setAge(Number(e.target.value))}
+                    onChange={(e) => setAge(e.target.value === '' ? '' : e.target.valueAsNumber)}
                     min="0"
-                    max="125"
+                    max="130"
                     required
                   />
                 </div>
@@ -313,7 +320,7 @@ export default function NewCasePage() {
                   </Label>
                   <Select value={gender} onValueChange={(val) => val && setGender(val as 'male' | 'female' | 'other')}>
                     <SelectTrigger id="gender">
-                      <SelectValue placeholder="Sex" />
+                      <SelectValue placeholder={t('gender')} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="male">{t('genderMale')}</SelectItem>
@@ -321,6 +328,11 @@ export default function NewCasePage() {
                       <SelectItem value="other">{t('genderOther')}</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="case-weight" className="text-xs font-semibold">{t('weight')}</Label>
+                  <Input id="case-weight" type="number" min="0.01" max="1000" step="any"
+                    value={weightKg} onChange={(event) => setWeightKg(event.target.value)} />
                 </div>
               </div>
 
@@ -414,7 +426,10 @@ export default function NewCasePage() {
             </CardContent>
             <CardFooter className="flex justify-between border-t border-border/60 pt-4">
               <span className="text-xs text-muted-foreground">Step 1 of 4</span>
-              <Button onClick={() => setCurrentStep(2)} className="gap-2 bg-primary text-primary-foreground font-semibold">
+              <Button onClick={() => {
+                if (hasDemographics) setCurrentStep(2);
+                else toast.error(t('invalidDemographics'));
+              }} className="gap-2 bg-primary text-primary-foreground font-semibold">
                 <span>{tCommon('next')}</span>
                 <ArrowRight className="w-4 h-4" />
               </Button>

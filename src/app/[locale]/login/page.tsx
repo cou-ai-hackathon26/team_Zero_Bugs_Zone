@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from '@/i18n/routing';
-import { useTranslations, useLocale } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,11 +15,10 @@ import { toast } from 'sonner';
 export default function LoginPage() {
   const t = useTranslations('auth');
   const tCommon = useTranslations('common');
-  const locale = useLocale();
   const router = useRouter();
 
-  const [email, setEmail] = useState('doctor@docmate.ai');
-  const [password, setPassword] = useState('demo123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -77,7 +76,7 @@ export default function LoginPage() {
         throw new Error(data.error || t('errorInvalid'));
       }
 
-      toast.success(locale === 'bn' ? 'সফলভাবে প্রবেশ করা হয়েছে' : 'Signed in successfully');
+      toast.success(t('signedIn'));
       router.push('/dashboard');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('errorInvalid');
@@ -91,7 +90,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex flex-col justify-between bg-muted/20 p-4 sm:p-6 lg:p-8">
       {/* Top Header */}
-      <div className="flex items-center justify-between max-w-5xl mx-auto w-full pb-4">
+      <header className="flex items-center justify-between max-w-5xl mx-auto w-full pb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-sm">
             <Stethoscope className="w-6 h-6" />
@@ -101,7 +100,7 @@ export default function LoginPage() {
               DocMate AI
             </h1>
             <p className="text-xs text-muted-foreground font-medium">
-              {locale === 'bn' ? 'ক্লিনিকাল ডিসিশন সাপোর্ট অ্যাসিস্ট্যান্ট' : 'Clinical Decision Support Assistant'}
+              {tCommon('appTagline')}
             </p>
           </div>
         </div>
@@ -110,10 +109,10 @@ export default function LoginPage() {
           <LanguageSwitcher />
           <ThemeToggle />
         </div>
-      </div>
+      </header>
 
       {/* Main Login Card */}
-      <div className="max-w-md mx-auto w-full my-auto py-6">
+      <main className="max-w-md mx-auto w-full my-auto py-6">
         <Card className="border-border shadow-md bg-card">
           <CardHeader className="space-y-1.5 pb-4 text-center">
             <CardTitle className="text-2xl font-bold tracking-tight text-foreground">
@@ -144,11 +143,11 @@ export default function LoginPage() {
                           : 'border-border bg-card/60 hover:bg-muted/60 text-muted-foreground'
                       }`}
                     >
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <acc.icon className="w-4 h-4" />
-                        <span className="truncate">{acc.title}</span>
+                      <div className="flex items-start gap-1.5 mb-1">
+                        <acc.icon className="w-4 h-4 shrink-0" />
+                        <span className="wrap-anywhere">{acc.title}</span>
                       </div>
-                      <span className="text-[10px] opacity-75 font-mono truncate">{acc.email}</span>
+                      <span className="text-[10px] font-mono wrap-anywhere">{acc.email}</span>
                     </button>
                   );
                 })}
@@ -216,19 +215,19 @@ export default function LoginPage() {
           <CardFooter className="pt-2 pb-6 border-t border-border/60 text-center flex flex-col gap-1">
             <span className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Closed internal medical evidence base only.</span>
+              <span>{t('closedLibrary')}</span>
             </span>
           </CardFooter>
         </Card>
-      </div>
+      </main>
 
       {/* Mandatory Disclaimer Footer */}
-      <div className="max-w-2xl mx-auto text-center text-xs text-muted-foreground pt-4">
+      <footer className="max-w-2xl mx-auto text-center text-xs text-muted-foreground pt-4">
         <p className="font-medium text-amber-700 dark:text-amber-400">
           {tCommon('disclaimer')}
         </p>
-        <p className="text-[11px] opacity-75 mt-0.5">{tCommon('doctorDecides')}</p>
-      </div>
+        <p className="text-[11px] mt-0.5">{tCommon('doctorDecides')}</p>
+      </footer>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { AppShell } from '@/components/shared/AppShell';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,11 +17,13 @@ import {
 } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useTranslations } from 'next-intl';
-import { BookOpen, Search, PlusCircle, ShieldCheck, ExternalLink, Filter, Loader2 } from 'lucide-react';
+import { useFormatter, useTranslations } from 'next-intl';
+import { useSearchParams } from 'next/navigation';
+import { Link } from '@/i18n/routing';
+import { BookOpen, Search, PlusCircle, ShieldCheck, Filter, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Source } from '@/types';
-import { useEvidenceSheet } from '@/context/EvidenceSheetContext';
+import { ErrorState } from '@/components/shared/ErrorState';
 
 interface SourceWithCount extends Source {
   chunk_count?: number;
@@ -30,12 +32,26 @@ interface SourceWithCount extends Source {
 export default function LibraryPage() {
   const t = useTranslations('library');
   const tCommon = useTranslations('common');
-  const { openEvidence } = useEvidenceSheet();
+  const format = useFormatter();
+  const sourceId = useSearchParams().get('source');
 
   const [sourcesList, setSourcesList] = useState<SourceWithCount[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sourceError, setSourceError] = useState(false);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/auth/session')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.user?.role === 'admin') {
+          setIsAdmin(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Add source sheet state
   const [addSheetOpen, setAddSheetOpen] = useState(false);
@@ -48,24 +64,43 @@ export default function LibraryPage() {
   // View chunks sheet state
   const [viewChunksOpen, setViewChunksOpen] = useState(false);
   const [selectedSource, setSelectedSource] = useState<SourceWithCount | null>(null);
-  const [sourceChunks, setSourceChunks] = useState<Array<{ id: string; section: string; text: string; page: number; evidence_level: string }>>([]);
+  const [sourceChunks, setSourceChunks] = useState<Array<{ id: string; section: string; text: string; page: number | null; evidenceLevel: string }>>([]);
   const [loadingChunks, setLoadingChunks] = useState(false);
+  const [chunkError, setChunkError] = useState(false);
+  const chunkTrigger = useRef<HTMLButtonElement>(null);
+  const chunkRequest = useRef<AbortController | null>(null);
 
-  const fetchSources = useCallback(() => {
-    fetch('/api/library/sources')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.sources) {
-          setSourcesList(data.sources);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+  useEffect(() => () => chunkRequest.current?.abort(), []);
+
+  const [sourceVersion, setSourceVersion] = useState(0);
 
   useEffect(() => {
-    fetchSources();
-  }, [fetchSources]);
+    const controller = new AbortController();
+    fetch('/api/library/sources', { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error();
+        return response.json();
+      })
+      .then((data) => {
+        if (!controller.signal.aborted) setSourcesList(data.sources);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setSourcesList([]);
+          setSourceError(true);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [sourceVersion]);
+
+  const reloadSources = () => {
+    setLoading(true);
+    setSourceError(false);
+    setSourceVersion((version) => version + 1);
+  };
 
   const handleCreateSource = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,7 +127,7 @@ export default function LibraryPage() {
       toast.success('Source added to library successfully');
       setAddSheetOpen(false);
       setNewTitle('');
-      fetchSources();
+      reloadSources();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Error adding source');
     } finally {
@@ -100,33 +135,34 @@ export default function LibraryPage() {
     }
   };
 
-  const handleOpenSourceChunks = (source: SourceWithCount) => {
+  const fetchChunks = async (source: SourceWithCount) => {
+    chunkRequest.current?.abort();
+    const controller = new AbortController();
+    chunkRequest.current = controller;
+    setLoadingChunks(true);
+    setChunkError(false);
+    setSourceChunks([]);
+    try {
+      const response = await fetch(`/api/library/chunks?source_id=${source.id}`, { signal: controller.signal });
+      if (!response.ok) throw new Error();
+      const data = await response.json();
+      if (!controller.signal.aborted) setSourceChunks(data.chunks);
+    } catch {
+      if (!controller.signal.aborted) setChunkError(true);
+    } finally {
+      if (!controller.signal.aborted) setLoadingChunks(false);
+    }
+  };
+
+  const handleOpenSourceChunks = (source: SourceWithCount, trigger: HTMLButtonElement) => {
+    chunkTrigger.current = trigger;
     setSelectedSource(source);
     setViewChunksOpen(true);
-    setLoadingChunks(true);
-
-    fetch(`/api/library/chunks?source_id=${source.id}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.chunks) {
-          setSourceChunks(data.chunks);
-        } else {
-          setSourceChunks([
-            {
-              id: 'sample-chunk-1',
-              section: 'Clinical Presentation & Diagnostic Criteria',
-              text: 'Community-acquired pneumonia (CAP) in adults is defined as an acute infection of the pulmonary parenchyma acquired outside a hospital setting. Classical symptoms include cough, fever, pleuritic chest pain, dyspnea, and production of purulent or rust-colored sputum.',
-              page: 1,
-              evidence_level: 'Ia',
-            },
-          ]);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoadingChunks(false));
+    void fetchChunks(source);
   };
 
   const filteredSources = sourcesList.filter((s) => {
+    if (sourceId && !search && s.id !== sourceId) return false;
     const matchesSearch =
       s.title.toLowerCase().includes(search.toLowerCase()) ||
       s.type.toLowerCase().includes(search.toLowerCase());
@@ -141,7 +177,8 @@ export default function LibraryPage() {
           title={t('title')}
           subtitle={t('subtitle')}
           action={
-            <Sheet open={addSheetOpen} onOpenChange={setAddSheetOpen}>
+            isAdmin ? (
+              <Sheet open={addSheetOpen} onOpenChange={setAddSheetOpen}>
               <SheetTrigger
                 render={
                   <Button className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs">
@@ -239,8 +276,12 @@ export default function LibraryPage() {
                 </form>
               </SheetContent>
             </Sheet>
-          }
+          ) : null}
         />
+
+        {sourceId && <Link href="/library" className="inline-flex min-h-11 items-center text-primary hover:underline">
+          {t('filterAll')}
+        </Link>}
 
         {/* Filter and Search Bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-card p-3 rounded-xl border border-border shadow-2xs">
@@ -250,6 +291,7 @@ export default function LibraryPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('searchPlaceholder')}
+              aria-label={t('searchPlaceholder')}
               className="pl-9 text-sm h-9 bg-background border-border"
             />
           </div>
@@ -257,8 +299,8 @@ export default function LibraryPage() {
           <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
             <Filter className="w-4 h-4 text-muted-foreground" />
             <Select value={typeFilter} onValueChange={(val) => val && setTypeFilter(val)}>
-              <SelectTrigger className="w-44 h-9 text-xs">
-                <SelectValue placeholder="All Sources" />
+              <SelectTrigger aria-label={tCommon('filter')} className="w-44 min-h-11 text-xs">
+                <SelectValue placeholder={t('filterAll')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t('filterAll')}</SelectItem>
@@ -276,6 +318,8 @@ export default function LibraryPage() {
             <Loader2 className="w-5 h-5 animate-spin text-primary" />
             <span>Loading medical library sources...</span>
           </div>
+        ) : sourceError ? (
+          <ErrorState title={tCommon('errorTitle')} message={t('sourceLoadError')} onRetry={reloadSources} />
         ) : filteredSources.length === 0 ? (
           <Card className="p-10 text-center border-dashed">
             <BookOpen className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
@@ -295,13 +339,13 @@ export default function LibraryPage() {
                       {source.type}
                     </Badge>
                     <span className="text-xs font-semibold text-muted-foreground">
-                      {t('year')}: {source.year}
+                      {t('year')}: {format.number(source.year, { useGrouping: false })}
                     </span>
                   </div>
                   <CardTitle className="text-base font-bold text-foreground leading-snug pt-1">
                     {source.title}
                   </CardTitle>
-                  <CardDescription className="text-xs text-muted-foreground truncate">
+                  <CardDescription className="text-xs text-muted-foreground wrap-anywhere">
                     {source.license}
                   </CardDescription>
                 </CardHeader>
@@ -309,13 +353,13 @@ export default function LibraryPage() {
                 <CardContent className="p-5 pt-0 flex items-center justify-between border-t border-border/60 mt-3 pt-3">
                   <span className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium">
                     <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    <span>{source.chunk_count || 4} chunks indexed</span>
+                    <span>{t('chunkCount', { count: source.chunk_count ?? 0 })}</span>
                   </span>
 
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleOpenSourceChunks(source)}
+                    onClick={(event) => handleOpenSourceChunks(source, event.currentTarget)}
                     className="text-xs gap-1.5 border-border hover:bg-muted font-medium"
                   >
                     <BookOpen className="w-3.5 h-3.5 text-primary" />
@@ -328,18 +372,21 @@ export default function LibraryPage() {
         )}
 
         {/* View Chunks Sheet (Detail & reading panel per Front-End Rules) */}
-        <Sheet open={viewChunksOpen} onOpenChange={setViewChunksOpen}>
-          <SheetContent side="right" className="w-full sm:max-w-xl md:max-w-2xl p-0 flex flex-col">
+        <Sheet open={viewChunksOpen} onOpenChange={(open) => {
+          if (!open) chunkRequest.current?.abort();
+          setViewChunksOpen(open);
+        }}>
+          <SheetContent side="right" finalFocus={chunkTrigger} className="w-full data-[side=right]:w-full data-[side=right]:sm:max-w-lg p-0 flex flex-col">
             <SheetHeader className="p-6 border-b border-border bg-muted/20">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase text-primary">
                 <BookOpen className="w-4 h-4" />
-                <span>Source Passage Chunks</span>
+                <span>{t('viewChunks')}</span>
               </div>
               <SheetTitle className="text-lg font-bold leading-snug">
                 {selectedSource?.title}
               </SheetTitle>
               <SheetDescription className="text-xs text-muted-foreground">
-                Indexed in closed library with vector embeddings and full-text tsvector search.
+                {t('passagesDescription')}
               </SheetDescription>
             </SheetHeader>
 
@@ -347,45 +394,28 @@ export default function LibraryPage() {
               {loadingChunks ? (
                 <div className="py-12 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  <span>Loading passages...</span>
+                  <span>{tCommon('loading')}</span>
                 </div>
+              ) : chunkError ? (
+                <ErrorState title={tCommon('errorTitle')} message={t('chunkLoadError')}
+                  onRetry={selectedSource ? () => fetchChunks(selectedSource) : undefined} />
+              ) : sourceChunks.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t('noPassages')}</p>
               ) : (
-                sourceChunks.map((chunk, idx) => (
+                sourceChunks.map((chunk) => (
                   <div
-                    key={chunk.id || idx}
+                    key={chunk.id}
                     className="p-4 rounded-lg border border-border bg-card space-y-2 hover:border-primary/40 transition-colors"
                   >
-                    <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-muted-foreground">
                       <span className="text-foreground">{chunk.section}</span>
                       <Badge variant="outline" className="text-[10px] font-semibold bg-primary/5 text-primary">
-                        Page {chunk.page} • Level {chunk.evidence_level}
+                        {t('passageMetadata', { page: chunk.page ?? '—', level: chunk.evidenceLevel })}
                       </Badge>
                     </div>
-                    <p className="text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap">
+                    <p className="text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap wrap-anywhere">
                       {chunk.text}
                     </p>
-                    <div className="pt-1 flex justify-end">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() =>
-                          openEvidence({
-                            chunk_id: chunk.id,
-                            text: chunk.text,
-                            quote: chunk.text.slice(0, 100),
-                            source_title: selectedSource?.title,
-                            source_year: selectedSource?.year,
-                            page: chunk.page,
-                            section: chunk.section,
-                            evidence_level: chunk.evidence_level,
-                          })
-                        }
-                        className="text-[11px] h-7 gap-1 text-primary hover:text-primary"
-                      >
-                        <span>Inspect in Evidence Viewer</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </Button>
-                    </div>
                   </div>
                 ))
               )}

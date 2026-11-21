@@ -96,6 +96,7 @@ export function FollowUpQuestionCard({
           <form onSubmit={handleSubmit} className="flex gap-2">
             <Input
               value={answer}
+              aria-label={item.text}
               onChange={(e) => setAnswer(e.target.value)}
               placeholder="Enter clinical finding, test result, or note..."
               className="text-xs h-9 bg-background"

@@ -468,7 +468,6 @@ export default function CaseWorkspacePage({ params }: CaseWorkspacePageProps) {
                     approvedDrugIds={approvedDrugIds}
                     acknowledgedAlerts={acknowledgedAlerts}
                     doctorNotes={doctorNotes}
-                    signature={signature}
                   />
                 </TabsContent>
               </div>

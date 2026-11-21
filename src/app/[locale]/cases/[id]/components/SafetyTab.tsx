@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -27,6 +28,11 @@ export function SafetyTab({
   acknowledgedAlerts,
   onAcknowledgeAlert,
 }: SafetyTabProps) {
+  const t = useTranslations('report');
+  if (!treatmentPlan) {
+    return <Alert><AlertDescription>{t('safetyUnavailable')}</AlertDescription></Alert>;
+  }
+
   const input = ((caseData.structured_input || (caseData as unknown as Record<string, unknown>).structuredInput) || {}) as unknown as StructuredPatientInput;
 
   const alerts = treatmentPlan?.safety_alerts || [];
@@ -80,7 +86,7 @@ export function SafetyTab({
               <ShieldAlert className="w-3 h-3 text-rose-500" /> Allergies
             </span>
             <p className="font-semibold text-foreground">
-              {input.allergies?.length ? input.allergies.join(', ') : 'None Reported (NKDA)'}
+              {input.allergies?.length ? input.allergies.join(', ') : t('noAllergiesRecorded')}
             </p>
           </div>
 

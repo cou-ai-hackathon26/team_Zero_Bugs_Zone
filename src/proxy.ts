@@ -5,7 +5,7 @@ import { verifySessionToken, COOKIE_NAME } from './lib/session';
 
 const intlMiddleware = createMiddleware(routing);
 
-export default async function middleware(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   // 1. Run next-intl middleware first to resolve locale redirects (e.g. / -> /bn)
   const intlResponse = intlMiddleware(request);
 
@@ -44,13 +44,12 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if ((subPath === 'cases' || subPath.startsWith('cases/')) && session?.role !== 'doctor') {
+  if (
+    (subPath === 'cases' || subPath.startsWith('cases/')) &&
+    session?.role !== 'doctor' &&
+    session?.role !== 'admin'
+  ) {
     return NextResponse.redirect(new URL(`/${locale}/library`, request.url));
-  }
-
-  // 3. Authenticated user visiting /login redirects to dashboard
-  if (subPath === 'login' && session) {
-    return NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url));
   }
 
   return intlResponse;

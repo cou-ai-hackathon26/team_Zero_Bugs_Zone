@@ -1,4 +1,7 @@
+'use client';
+
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -11,11 +14,12 @@ interface ErrorStateProps {
 }
 
 export function ErrorState({
-  title = 'Something went wrong',
+  title,
   message,
   onRetry,
   className,
 }: ErrorStateProps) {
+  const t = useTranslations('common');
   return (
     <div
       className={cn(
@@ -26,12 +30,12 @@ export function ErrorState({
       <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center text-destructive mb-3">
         <AlertCircle className="w-6 h-6" />
       </div>
-      <h3 className="text-lg font-semibold text-foreground mb-1">{title}</h3>
+      <h3 className="text-lg font-semibold text-foreground mb-1">{title || t('errorTitle')}</h3>
       <p className="text-sm text-muted-foreground max-w-md mb-6 leading-relaxed">{message}</p>
       {onRetry && (
         <Button onClick={onRetry} variant="outline" className="gap-2 border-destructive/30 hover:bg-destructive/10">
           <RefreshCw className="w-4 h-4" />
-          <span>Retry</span>
+          <span>{t('retry')}</span>
         </Button>
       )}
     </div>

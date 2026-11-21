@@ -16,9 +16,8 @@ import {
   FileText,
   CheckCircle2,
   ShieldAlert,
-  ShieldCheck,
 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useFormatter, useTranslations } from 'next-intl';
 
 interface ReportTabProps {
   caseData: PatientCase;
@@ -26,7 +25,6 @@ interface ReportTabProps {
   approvedDrugIds: Set<string>;
   acknowledgedAlerts: Set<string>;
   doctorNotes: string;
-  signature: string;
 }
 
 export function ReportTab({
@@ -35,9 +33,9 @@ export function ReportTab({
   approvedDrugIds,
   acknowledgedAlerts,
   doctorNotes,
-  signature,
 }: ReportTabProps) {
   const t = useTranslations('report');
+  const format = useFormatter();
   const tTreatment = useTranslations('treatment');
   const input = ((caseData.structured_input || (caseData as unknown as Record<string, unknown>).structuredInput) || {}) as unknown as StructuredPatientInput;
   const patientCode = caseData.patient_code || (caseData as unknown as Record<string, unknown>).patientCode as string;
@@ -64,7 +62,7 @@ export function ReportTab({
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-primary" />
           <span className="text-xs font-semibold text-foreground">
-            Printable Clinical Decision Support &amp; Prescription Summary
+            {t('draftPreview')}
           </span>
         </div>
         <Button disabled size="sm" className="gap-1.5 text-xs font-semibold">
@@ -90,7 +88,7 @@ export function ReportTab({
           </div>
 
           <div className="text-right text-xs space-y-0.5">
-            <p className="font-semibold text-foreground">Case Date: {new Date().toLocaleDateString()}</p>
+            <p className="font-semibold text-foreground">{t('caseDate')}: {caseData.created_at ? format.dateTime(new Date(caseData.created_at), { dateStyle: 'medium', timeZone: 'UTC' }) : '—'}</p>
             <p className="text-muted-foreground">Patient Code: <strong className="text-foreground">{patientCode}</strong></p>
             <Badge variant="outline" className="text-[10px] uppercase font-bold mt-1">
               {caseData.status}
@@ -147,7 +145,7 @@ export function ReportTab({
             <p>
               <strong className="text-muted-foreground font-semibold">Known Allergies: </strong>
               <span className={input.allergies?.length ? 'font-bold text-rose-600' : 'italic text-muted-foreground'}>
-                {input.allergies?.length ? input.allergies.join(', ') : 'No known drug allergies (NKDA)'}
+                {input.allergies?.length ? input.allergies.join(', ') : t('noAllergiesRecorded')}
               </span>
             </p>
           </div>
@@ -251,9 +249,8 @@ export function ReportTab({
               </ul>
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-xs text-emerald-600 font-medium">
-              <ShieldCheck className="w-4 h-4" />
-              <span>{t('noCriticalAlerts')}</span>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
+              <span>{t('safetyUnavailable')}</span>
             </div>
           )}
         </div>
@@ -272,25 +269,7 @@ export function ReportTab({
 
         <Separator />
 
-        {/* Physician Signature Line */}
-        <div className="pt-6 grid grid-cols-2 gap-8 items-end">
-          <div className="text-xs space-y-1">
-            <p className="text-muted-foreground">{t('dateSigned')}:</p>
-            <p className="font-bold text-foreground">{new Date().toLocaleString()}</p>
-          </div>
-
-          <div className="text-right text-xs space-y-3">
-            <div className="border-b-2 border-foreground/80 w-56 ml-auto" />
-            <div>
-              <p className="font-bold text-foreground text-sm">
-                {signature || 'Authorized Attending Physician'}
-              </p>
-              <p className="text-muted-foreground text-[11px]">
-                {t('doctorSignature')} (MBBS, Registered Practitioner)
-              </p>
-            </div>
-          </div>
-        </div>
+        <p className="text-xs text-muted-foreground">{t('unsignedDraft')}</p>
       </Card>
     </div>
   );

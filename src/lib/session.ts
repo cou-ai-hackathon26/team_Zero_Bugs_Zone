@@ -14,7 +14,8 @@ type Session = z.infer<typeof sessionSchema>;
 
 export function requireAuthSecret(): string {
   const secret = process.env.AUTH_SECRET;
-  if (!secret || secret.length < 32 || /demo|hackathon|change.?me|replace/i.test(secret)) {
+  const isDemoDefault = secret && /demo|hackathon|change.?me|replace|^docmate_production_secure_signing_key/i.test(secret);
+  if (!secret || secret.length < 32 || isDemoDefault) {
     throw new Error('Set a deployment-specific AUTH_SECRET of at least 32 characters.');
   }
   return secret;

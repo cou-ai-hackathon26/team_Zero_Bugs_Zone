@@ -7,7 +7,7 @@ import { EvidenceSheetProvider } from '@/context/EvidenceSheetContext';
 
 export const metadata: Metadata = {
   title: 'DocMate AI - Clinical Decision Support Assistant',
-  description: 'Closed-library AI assistant for doctors with verified citations and deterministic safety checks.',
+  description: 'Synthetic clinical workspace and internal medical library demo.',
 };
 
 export default async function LocaleLayout({
