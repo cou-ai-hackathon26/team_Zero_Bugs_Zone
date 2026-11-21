@@ -305,3 +305,94 @@ export const medicineNotices = pgTable('medicine_notices', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const patientSchedules = pgTable('patient_schedules', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  patientId: uuid('patient_id').references(() => patients.id, { onDelete: 'cascade' }).notNull(),
+  prescriptionItemId: uuid('prescription_item_id').references(() => prescriptionItems.id, { onDelete: 'set null' }),
+  medicineName: varchar('medicine_name', { length: 150 }).notNull(),
+  dosage: varchar('dosage', { length: 50 }).notNull(),
+  slot: varchar('slot', { length: 20 }).notNull(), // 'morning' | 'noon' | 'night'
+  mealRelation: varchar('meal_relation', { length: 50 }).default('খাবারের পর').notNull(),
+  takenToday: boolean('taken_today').default(false).notNull(),
+  lastTakenAt: timestamp('last_taken_at', { withTimezone: true }),
+  instructions: text('instructions'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const patientReports = pgTable('patient_reports', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  patientId: uuid('patient_id').references(() => patients.id, { onDelete: 'cascade' }).notNull(),
+  title: varchar('title', { length: 150 }).notNull(),
+  reportType: varchar('report_type', { length: 50 }).default('lab_test').notNull(),
+  fileUrl: text('file_url').notNull(),
+  fileName: text('file_name').notNull(),
+  notes: text('notes'),
+  uploadedAt: timestamp('uploaded_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const patientPreVisits = pgTable('patient_pre_visits', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  patientId: uuid('patient_id').references(() => patients.id, { onDelete: 'cascade' }).notNull(),
+  chiefComplaint: text('chief_complaint').notNull(),
+  symptoms: jsonb('symptoms').default([]).notNull(),
+  duration: varchar('duration', { length: 50 }).default('১-২ দিন').notNull(),
+  notes: text('notes'),
+  status: varchar('status', { length: 30 }).default('pending').notNull(),
+  submittedAt: timestamp('submitted_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const patientConsentLogs = pgTable('patient_consent_logs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  patientId: uuid('patient_id').references(() => patients.id, { onDelete: 'cascade' }).notNull(),
+  action: varchar('action', { length: 30 }).notNull(), // 'granted' | 'revoked'
+  reason: text('reason'),
+  loggedAt: timestamp('logged_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const studentCases = pgTable('student_cases', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  title: varchar('title', { length: 200 }).notNull(),
+  specialty: varchar('specialty', { length: 100 }).notNull(),
+  difficulty: varchar('difficulty', { length: 20 }).default('intermediate').notNull(),
+  vignette: text('vignette').notNull(),
+  vitals: jsonb('vitals').default({}).notNull(),
+  options: jsonb('options').default([]).notNull(),
+  correctOption: text('correct_option').notNull(),
+  clinicalExplanation: text('clinical_explanation').notNull(),
+  citations: jsonb('citations').default([]).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const studentQuizzes = pgTable('student_quizzes', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  title: varchar('title', { length: 200 }).notNull(),
+  topic: varchar('topic', { length: 100 }).notNull(),
+  question: text('question').notNull(),
+  options: jsonb('options').default([]).notNull(),
+  correctAnswer: varchar('correct_answer', { length: 10 }).notNull(),
+  explanation: text('explanation').notNull(),
+  citationChunkId: uuid('citation_chunk_id').references(() => chunks.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const studentNotes = pgTable('student_notes', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  chunkId: uuid('chunk_id').references(() => chunks.id, { onDelete: 'set null' }),
+  title: varchar('title', { length: 200 }).notNull(),
+  content: text('content').notNull(),
+  tags: jsonb('tags').default([]).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const researcherCollections = pgTable('researcher_collections', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  title: varchar('title', { length: 200 }).notNull(),
+  description: text('description'),
+  items: jsonb('items').default([]).notNull(),
+  tags: jsonb('tags').default([]).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+

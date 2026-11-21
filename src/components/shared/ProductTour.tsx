@@ -35,13 +35,24 @@ export function ProductTour() {
   const [isOpen, setIsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const [forcedPanel, setForcedPanel] = useState<string | null>(null);
+
+  // Reset forced panel and close on route change
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setForcedPanel(null);
+      setIsOpen(false);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [pathname]);
 
   // Normalize panel key from current pathname
   const getPanelKey = useCallback((): string => {
-    const clean = pathname.replace(/^\/(?:bn|en)\/?/, '');
+    if (forcedPanel) return forcedPanel;
+    const clean = pathname.replace(/^\/(?:bn|en)(?:\/|$)/, '').replace(/^\//, '');
     const firstSegment = clean.split('/')[0] || 'dashboard';
     return firstSegment;
-  }, [pathname]);
+  }, [pathname, forcedPanel]);
 
   // Define steps per panel
   const getStepsForPanel = useCallback((panel: string): TourStep[] => {
@@ -146,9 +157,9 @@ export function ProductTour() {
             descKey: 'askCitationsDesc',
           },
           {
-            selector: '[data-tour="library-sources"]',
-            titleKey: 'librarySourcesTitle',
-            descKey: 'librarySourcesDesc',
+            selector: '[data-tour="nav-sidebar"]',
+            titleKey: 'globalSidebarTitle',
+            descKey: 'globalSidebarDesc',
           },
         ];
       case 'admin':
@@ -222,7 +233,11 @@ export function ProductTour() {
 
   // Listen for custom trigger event
   useEffect(() => {
-    const handleStartTour = () => {
+    const handleStartTour = (e: Event) => {
+      const customEvent = e as CustomEvent<{ panel?: string }>;
+      if (customEvent.detail?.panel) {
+        setForcedPanel(customEvent.detail.panel);
+      }
       setCurrentStep(0);
       setIsOpen(true);
     };

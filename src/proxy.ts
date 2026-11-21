@@ -16,13 +16,13 @@ export function getRoleDefaultPath(role: string): string {
     case 'doctor':
       return '/dashboard';
     case 'student':
-      return '/ask';
+      return '/study';
     case 'researcher':
-      return '/library';
+      return '/research';
     case 'medicine_controller':
       return '/controller';
     case 'patient':
-      return '/prescriptions';
+      return '/portal';
     default:
       return '/dashboard';
   }
@@ -32,16 +32,16 @@ export function getRoleDefaultPath(role: string): string {
  * Evaluates whether a role is authorized to access a given subPath.
  *
  * RBAC Rules:
- * - super_admin: Full access to all panels (/admin, /dashboard, /patients, /prescriptions, /cases, /library, /ask, /settings).
- * - doctor: Clinical decision support (/dashboard, /patients, /prescriptions, /cases, /library, /ask, /settings).
+ * - super_admin: Full access to all panels (/admin, /dashboard, /patients, /prescriptions, /cases, /library, /ask, /settings, /controller, /portal, /study, /research).
+ * - doctor: Clinical decision support (/dashboard, /patients, /prescriptions, /cases, /library, /ask, /settings, /study, /research).
  *           Forbidden from /admin control plane.
- * - student: Trainee learning (/ask, /library, /settings).
- *            Strictly forbidden from patient data (/patients, /prescriptions, /cases), /dashboard, and /admin.
- * - researcher: Guideline & literature research (/library, /ask, /settings).
- *               Strictly forbidden from patient data (/patients, /prescriptions, /cases), /dashboard, and /admin.
- * - medicine_controller: Guideline & formulary inspection (/library, /ask, /settings).
- *                        Strictly forbidden from patient data (/patients, /prescriptions, /cases), /dashboard, and /admin.
- * - patient: Personal portal (/prescriptions, /settings).
+ * - student: Trainee learning (/study, /ask, /library, /settings).
+ *            Strictly forbidden from patient data (/patients, /prescriptions, /cases, /portal), /dashboard, and /admin.
+ * - researcher: Guideline & literature research (/research, /library, /ask, /settings).
+ *               Strictly forbidden from patient data (/patients, /prescriptions, /cases, /portal), /dashboard, and /admin.
+ * - medicine_controller: Guideline & formulary inspection (/controller, /library, /ask, /settings).
+ *                        Strictly forbidden from patient data (/patients, /prescriptions, /cases, /portal), /dashboard, and /admin.
+ * - patient: Personal portal (/portal, /prescriptions, /settings).
  *            Forbidden from other clinical workspaces, library, ask, and admin.
  */
 export function isRouteAllowedForRole(subPath: string, role: string): boolean {
@@ -62,12 +62,12 @@ export function isRouteAllowedForRole(subPath: string, role: string): boolean {
   // 3. Student (Medical Trainee): Learning and guideline exploration only
   // Zero patient data exposure
   if (role === 'student') {
-    return rootSegment === 'ask' || rootSegment === 'library' || rootSegment === 'settings';
+    return rootSegment === 'study' || rootSegment === 'ask' || rootSegment === 'library' || rootSegment === 'settings';
   }
 
   // 4. Researcher: Medical library & guideline search
   if (role === 'researcher') {
-    return rootSegment === 'library' || rootSegment === 'ask' || rootSegment === 'settings';
+    return rootSegment === 'research' || rootSegment === 'library' || rootSegment === 'ask' || rootSegment === 'settings';
   }
 
   // 5. Medicine Controller: DGDA formulary management & safety alerts
@@ -76,9 +76,9 @@ export function isRouteAllowedForRole(subPath: string, role: string): boolean {
     return rootSegment === 'controller' || rootSegment === 'library' || rootSegment === 'ask' || rootSegment === 'settings';
   }
 
-  // 6. Patient: Personal prescriptions and settings only
+  // 6. Patient: Personal prescriptions, daily schedule, and settings only
   if (role === 'patient') {
-    return rootSegment === 'prescriptions' || rootSegment === 'settings';
+    return rootSegment === 'portal' || rootSegment === 'prescriptions' || rootSegment === 'settings';
   }
 
   return false;
@@ -139,6 +139,10 @@ export default async function proxy(request: NextRequest) {
     'ask',
     'settings',
     'admin',
+    'controller',
+    'portal',
+    'study',
+    'research',
   ];
   const isProtectedPath = protectedSegments.includes(rootSegment);
 

@@ -4,6 +4,7 @@ import { getMessages } from 'next-intl/server';
 import { ThemeProvider } from 'next-themes';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { EvidenceSheetProvider } from '@/context/EvidenceSheetContext';
+import { TextSizeProvider } from '@/context/TextSizeContext';
 
 export const metadata: Metadata = {
   title: 'DocMate AI - Clinical Decision Support Assistant',
@@ -23,9 +24,11 @@ export default async function LocaleLayout({
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       <NextIntlClientProvider messages={messages} locale={locale}>
-        <TooltipProvider delay={200}>
-          <EvidenceSheetProvider>{children}</EvidenceSheetProvider>
-        </TooltipProvider>
+        <TextSizeProvider>
+          <TooltipProvider delay={200}>
+            <EvidenceSheetProvider>{children}</EvidenceSheetProvider>
+          </TooltipProvider>
+        </TextSizeProvider>
       </NextIntlClientProvider>
     </ThemeProvider>
   );

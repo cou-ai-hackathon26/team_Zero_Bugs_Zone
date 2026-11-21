@@ -123,6 +123,23 @@
     word-break: break-word;
     overflow-wrap: break-word;
   }
+
+  /* Root text scaling for senior clinicians (100%, 115%, 130%) */
+  html.text-scale-100 {
+    font-size: 16px;
+  }
+  html.text-scale-115 {
+    font-size: 18.4px;
+  }
+  html.text-scale-130 {
+    font-size: 20.8px;
+  }
+
+  /* Senior Doctor Accessible Touch Targets */
+  .touch-target-senior {
+    min-height: 48px;
+    min-width: 48px;
+  }
   
   /* Motion reduced override */
   @media (prefers-reduced-motion: reduce) {

@@ -18,17 +18,17 @@ describe('Role-Wise Panel Redirection & Middleware RBAC Enforcement', () => {
       expect(getRoleDefaultPath('doctor')).toBe('/dashboard');
     });
 
-    it('resolves student to /ask (trainee learning)', () => {
-      expect(getRoleDefaultPath('student')).toBe('/ask');
+    it('resolves student to /study (trainee learning workspace)', () => {
+      expect(getRoleDefaultPath('student')).toBe('/study');
     });
 
-    it('resolves researcher to /library and medicine_controller to /controller', () => {
-      expect(getRoleDefaultPath('researcher')).toBe('/library');
+    it('resolves researcher to /research and medicine_controller to /controller', () => {
+      expect(getRoleDefaultPath('researcher')).toBe('/research');
       expect(getRoleDefaultPath('medicine_controller')).toBe('/controller');
     });
 
-    it('resolves patient to /prescriptions', () => {
-      expect(getRoleDefaultPath('patient')).toBe('/prescriptions');
+    it('resolves patient to /portal (patient health portal)', () => {
+      expect(getRoleDefaultPath('patient')).toBe('/portal');
     });
 
     it('falls back safely to /dashboard for unknown roles', () => {
@@ -38,7 +38,7 @@ describe('Role-Wise Panel Redirection & Middleware RBAC Enforcement', () => {
 
   describe('2. Route Permissions per Role (isRouteAllowedForRole)', () => {
     it('grants super_admin access to all routes', () => {
-      const routes = ['admin', 'dashboard', 'patients', 'prescriptions', 'cases', 'library', 'ask', 'settings'];
+      const routes = ['admin', 'dashboard', 'patients', 'prescriptions', 'cases', 'library', 'ask', 'settings', 'controller', 'portal', 'study', 'research'];
       for (const route of routes) {
         expect(isRouteAllowedForRole(route, 'super_admin')).toBe(true);
       }
@@ -53,6 +53,8 @@ describe('Role-Wise Panel Redirection & Middleware RBAC Enforcement', () => {
       expect(isRouteAllowedForRole('library', 'doctor')).toBe(true);
       expect(isRouteAllowedForRole('ask', 'doctor')).toBe(true);
       expect(isRouteAllowedForRole('settings', 'doctor')).toBe(true);
+      expect(isRouteAllowedForRole('study', 'doctor')).toBe(true);
+      expect(isRouteAllowedForRole('research', 'doctor')).toBe(true);
 
       // Blocked
       expect(isRouteAllowedForRole('admin', 'doctor')).toBe(false);
@@ -60,6 +62,7 @@ describe('Role-Wise Panel Redirection & Middleware RBAC Enforcement', () => {
     });
 
     it('strictly isolates student to learning (blocks all patient & clinical data)', () => {
+      expect(isRouteAllowedForRole('study', 'student')).toBe(true);
       expect(isRouteAllowedForRole('ask', 'student')).toBe(true);
       expect(isRouteAllowedForRole('library', 'student')).toBe(true);
       expect(isRouteAllowedForRole('settings', 'student')).toBe(true);
@@ -70,11 +73,13 @@ describe('Role-Wise Panel Redirection & Middleware RBAC Enforcement', () => {
       expect(isRouteAllowedForRole('patients/new', 'student')).toBe(false);
       expect(isRouteAllowedForRole('prescriptions', 'student')).toBe(false);
       expect(isRouteAllowedForRole('cases', 'student')).toBe(false);
+      expect(isRouteAllowedForRole('portal', 'student')).toBe(false);
       expect(isRouteAllowedForRole('admin', 'student')).toBe(false);
     });
 
     it('strictly isolates researcher and controller from patient data while allowing appropriate workspaces', () => {
       // Researcher
+      expect(isRouteAllowedForRole('research', 'researcher')).toBe(true);
       expect(isRouteAllowedForRole('library', 'researcher')).toBe(true);
       expect(isRouteAllowedForRole('ask', 'researcher')).toBe(true);
       expect(isRouteAllowedForRole('settings', 'researcher')).toBe(true);
@@ -82,6 +87,7 @@ describe('Role-Wise Panel Redirection & Middleware RBAC Enforcement', () => {
       expect(isRouteAllowedForRole('dashboard', 'researcher')).toBe(false);
       expect(isRouteAllowedForRole('patients', 'researcher')).toBe(false);
       expect(isRouteAllowedForRole('prescriptions', 'researcher')).toBe(false);
+      expect(isRouteAllowedForRole('portal', 'researcher')).toBe(false);
 
       // Medicine Controller
       expect(isRouteAllowedForRole('controller', 'medicine_controller')).toBe(true);
@@ -91,10 +97,12 @@ describe('Role-Wise Panel Redirection & Middleware RBAC Enforcement', () => {
       expect(isRouteAllowedForRole('dashboard', 'medicine_controller')).toBe(false);
       expect(isRouteAllowedForRole('patients', 'medicine_controller')).toBe(false);
       expect(isRouteAllowedForRole('prescriptions', 'medicine_controller')).toBe(false);
+      expect(isRouteAllowedForRole('portal', 'medicine_controller')).toBe(false);
       expect(isRouteAllowedForRole('admin', 'medicine_controller')).toBe(false);
     });
 
-    it('isolates patient to prescriptions and settings', () => {
+    it('isolates patient to portal, prescriptions and settings', () => {
+      expect(isRouteAllowedForRole('portal', 'patient')).toBe(true);
       expect(isRouteAllowedForRole('prescriptions', 'patient')).toBe(true);
       expect(isRouteAllowedForRole('settings', 'patient')).toBe(true);
 
@@ -103,6 +111,8 @@ describe('Role-Wise Panel Redirection & Middleware RBAC Enforcement', () => {
       expect(isRouteAllowedForRole('cases', 'patient')).toBe(false);
       expect(isRouteAllowedForRole('library', 'patient')).toBe(false);
       expect(isRouteAllowedForRole('ask', 'patient')).toBe(false);
+      expect(isRouteAllowedForRole('study', 'patient')).toBe(false);
+      expect(isRouteAllowedForRole('research', 'patient')).toBe(false);
       expect(isRouteAllowedForRole('admin', 'patient')).toBe(false);
     });
   });
@@ -133,9 +143,9 @@ describe('Role-Wise Panel Redirection & Middleware RBAC Enforcement', () => {
       const testCases = [
         { role: 'super_admin', expectedTarget: '/en/admin' },
         { role: 'doctor', expectedTarget: '/en/dashboard' },
-        { role: 'student', expectedTarget: '/en/ask' },
-        { role: 'researcher', expectedTarget: '/en/library' },
-        { role: 'patient', expectedTarget: '/en/prescriptions' },
+        { role: 'student', expectedTarget: '/en/study' },
+        { role: 'researcher', expectedTarget: '/en/research' },
+        { role: 'patient', expectedTarget: '/en/portal' },
       ];
 
       for (const tc of testCases) {
@@ -162,7 +172,7 @@ describe('Role-Wise Panel Redirection & Middleware RBAC Enforcement', () => {
     });
 
     it('redirects unauthorized roles accessing restricted panels to their primary panel', async () => {
-      // 1. Student attempting to access /en/dashboard -> redirected to /en/ask
+      // 1. Student attempting to access /en/dashboard -> redirected to /en/study
       const studentToken = await createSessionToken({
         id: '22222222-2222-4222-8222-222222222222',
         email: 'student@docmate.ai',
@@ -174,7 +184,7 @@ describe('Role-Wise Panel Redirection & Middleware RBAC Enforcement', () => {
       });
       const resStudent = await proxy(reqStudent);
       expect(resStudent.status).toBeGreaterThanOrEqual(300);
-      expect(resStudent.headers.get('location')).toBe('http://localhost:3000/en/ask');
+      expect(resStudent.headers.get('location')).toBe('http://localhost:3000/en/study');
 
       // 2. Doctor attempting to access /en/admin -> redirected to /en/dashboard
       const doctorToken = await createSessionToken({
@@ -190,7 +200,7 @@ describe('Role-Wise Panel Redirection & Middleware RBAC Enforcement', () => {
       expect(resDoctor.status).toBeGreaterThanOrEqual(300);
       expect(resDoctor.headers.get('location')).toBe('http://localhost:3000/en/dashboard');
 
-      // 3. Patient attempting to access /en/patients -> redirected to /en/prescriptions
+      // 3. Patient attempting to access /en/patients -> redirected to /en/portal
       const patientToken = await createSessionToken({
         id: '44444444-4444-4444-8444-444444444444',
         email: 'patient@docmate.ai',
@@ -202,7 +212,7 @@ describe('Role-Wise Panel Redirection & Middleware RBAC Enforcement', () => {
       });
       const resPatient = await proxy(reqPatient);
       expect(resPatient.status).toBeGreaterThanOrEqual(300);
-      expect(resPatient.headers.get('location')).toBe('http://localhost:3000/en/prescriptions');
+      expect(resPatient.headers.get('location')).toBe('http://localhost:3000/en/portal');
     });
 
     it('allows authorized users through to their respective panels without redirection', async () => {

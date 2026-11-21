@@ -30,6 +30,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { ThemeToggle } from './ThemeToggle';
+import { TextSizeControl } from './TextSizeControl';
+import { HelpSheet } from './HelpSheet';
 import { GlobalSearchCommand } from './GlobalSearchCommand';
 import { EvidenceSheet } from './EvidenceSheet';
 import { Toaster } from '@/components/ui/sonner';
@@ -48,6 +50,9 @@ import {
   ShieldAlert,
   Pill,
   Sparkles,
+  GraduationCap,
+  FlaskConical,
+  HeartPulse,
 } from 'lucide-react';
 import { User } from '@/types';
 import { cn } from '@/lib/utils';
@@ -120,9 +125,32 @@ export function AppShell({ children }: AppShellProps) {
     ...(role === 'patient'
       ? [
           {
+            title: t('portal'),
+            href: '/portal',
+            icon: HeartPulse,
+          },
+          {
             title: t('prescriptions'),
             href: '/prescriptions',
             icon: FileText,
+          },
+        ]
+      : []),
+    ...(role === 'student' || role === 'super_admin'
+      ? [
+          {
+            title: t('study'),
+            href: '/study',
+            icon: GraduationCap,
+          },
+        ]
+      : []),
+    ...(role === 'researcher' || role === 'super_admin'
+      ? [
+          {
+            title: t('research'),
+            href: '/research',
+            icon: FlaskConical,
           },
         ]
       : []),
@@ -160,11 +188,13 @@ export function AppShell({ children }: AppShellProps) {
     role === 'super_admin'
       ? '/admin'
       : role === 'student'
-      ? '/ask'
-      : role === 'researcher' || role === 'medicine_controller'
-      ? '/library'
+      ? '/study'
+      : role === 'researcher'
+      ? '/research'
+      : role === 'medicine_controller'
+      ? '/controller'
       : role === 'patient'
-      ? '/prescriptions'
+      ? '/portal'
       : '/dashboard';
 
   return (
@@ -295,6 +325,10 @@ export function AppShell({ children }: AppShellProps) {
               </div>
 
               <div className="flex items-center gap-1 sm:gap-2">
+                <TextSizeControl />
+
+                <HelpSheet />
+
                 <Button
                   type="button"
                   variant="outline"

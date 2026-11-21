@@ -47,6 +47,9 @@
     "prescriptions": "Prescriptions",
     "library": "Medical Library",
     "controller": "Drug Controller",
+    "portal": "Patient Portal",
+    "study": "Student Workspace",
+    "research": "Research Suite",
     "ask": "Ask Library",
     "settings": "Settings",
     "logout": "Log Out"
