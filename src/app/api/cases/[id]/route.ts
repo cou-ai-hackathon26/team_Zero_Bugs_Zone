@@ -1,8 +1,9 @@
+import { abstentionModel } from '@/lib/analysis-policy';
 import { ownedCase, requirePhysician, validCaseId } from '@/lib/case-access';
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { cases, analyses, caseTurns } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { and, eq, desc } from 'drizzle-orm';
 
 export async function GET(
   request: Request,
@@ -24,13 +25,13 @@ export async function GET(
 
     // Get latest analysis
     const latestAnalysis = await db.query.analyses.findFirst({
-      where: eq(analyses.caseId, id),
+      where: and(eq(analyses.caseId, id), eq(analyses.model, abstentionModel)),
       orderBy: [desc(analyses.round)],
     });
 
     // Get all analyses for this case (history)
     const allAnalyses = await db.query.analyses.findMany({
-      where: eq(analyses.caseId, id),
+      where: and(eq(analyses.caseId, id), eq(analyses.model, abstentionModel)),
       orderBy: [desc(analyses.round)],
     });
 

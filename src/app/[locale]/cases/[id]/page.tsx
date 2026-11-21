@@ -31,7 +31,7 @@ import {
   FileText,
   ArrowLeft,
 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
 import { toast } from 'sonner';
 
@@ -47,6 +47,8 @@ export default function CaseWorkspacePage({ params }: CaseWorkspacePageProps) {
   const caseId = resolvedParams.id;
 
   const router = useRouter();
+  const locale = useLocale();
+  const tAnalysisGuard = useTranslations('analysisGuard');
   const searchParams = useSearchParams();
   const t = useTranslations('workspace');
 
@@ -163,9 +165,10 @@ export default function CaseWorkspacePage({ params }: CaseWorkspacePageProps) {
   const handleRunAnalysis = async () => {
     try {
       setAnalyzing(true);
-      toast.info('Initiating closed-library clinical reasoning pipeline...');
       const res = await fetch(`/api/cases/${caseId}/analyze`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locale }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -174,11 +177,7 @@ export default function CaseWorkspacePage({ params }: CaseWorkspacePageProps) {
 
       setCaseData(data.case);
       setAnalysis(data.analysis);
-      toast.success('Clinical analysis completed with verified citations.');
-
-      if (data.analysis.status === 'insufficient_evidence') {
-        toast.warning('Evidence is insufficient. Review clarifying questions.');
-      }
+      toast.info(tAnalysisGuard('completed'));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to run analysis';
       toast.error(msg);

@@ -1,4 +1,5 @@
 {
+  "analysisGuard": {"reason": "Verified evidence for an automated assessment is unavailable. A physician should review the case directly.", "vitals": "What vital signs have been measured?", "exam": "What findings did the physician document on examination?", "completed": "Review the missing information before continuing."},
   "common": {
     "appName": "DocMate AI",
     "appTagline": "Clinical Decision Support Assistant",
