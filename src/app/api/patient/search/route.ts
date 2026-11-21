@@ -7,6 +7,7 @@ import {
   accessLogs,
   prescriptions,
   encounters,
+  patients,
 } from '@/db/schema';
 import { eq, and, gt, or, count, gte, ne, isNull } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth';
@@ -14,7 +15,7 @@ import { canUse } from '@/lib/permissions';
 import { normalizeBangladeshiPhone, maskPhoneNumber } from '@/lib/phone';
 import { decryptPatientPii } from '@/lib/encryption';
 
-const HOURLY_SEARCH_LIMIT = 30;
+const HOURLY_SEARCH_LIMIT = 60;
 
 function maskProfileName(fullName: string): string {
   if (!fullName) return 'Patient';
@@ -56,7 +57,7 @@ export async function GET(req: Request) {
       );
     }
 
-    // Anti-enumeration rate limit: max 30 searches per hour per doctor
+    // Anti-enumeration rate limit
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     const [searchCountRow] = await db
       .select({ val: count() })
@@ -73,23 +74,105 @@ export async function GET(req: Request) {
       return NextResponse.json(
         {
           error:
-            'অনুসন্ধান সীমা অতিক্রান্ত (Search rate limit exceeded: max 30 searches/hour for anti-enumeration)',
+            'অনুসন্ধান সীমা অতিক্রান্ত (Search rate limit exceeded)',
         },
         { status: 429 }
       );
     }
 
-    // Lookup patient_account by normalized E.164 phone
-    const [account] = await db
-      .select({ id: patientAccounts.id, phone: patientAccounts.phone })
+    // 1. Lookup patient_account by normalized E.164 phone or national local
+    let [account] = await db
+      .select({ id: patientAccounts.id, phone: patientAccounts.phone, phoneNormalized: patientAccounts.phoneNormalized })
       .from(patientAccounts)
       .where(
         or(
           eq(patientAccounts.phone, norm.e164),
-          eq(patientAccounts.phoneNormalized, norm.e164)
+          eq(patientAccounts.phoneNormalized, norm.e164),
+          eq(patientAccounts.phone, norm.national),
+          eq(patientAccounts.phoneNormalized, norm.national)
         )
       )
       .limit(1);
+
+    // 2. Also check clinical patients table (AES-encrypted phones)
+    const allDbPatients = await db.select().from(patients);
+    const matchingPatients = allDbPatients.filter((p) => {
+      if (!p.phoneEncrypted) return false;
+      try {
+        const decryptedPhone = decryptPatientPii(p.phoneEncrypted);
+        const pNorm = normalizeBangladeshiPhone(decryptedPhone);
+        return (
+          pNorm.e164 === norm.e164 ||
+          decryptedPhone.replace(/\D/g, '') === norm.national ||
+          decryptedPhone.trim() === rawPhone.trim()
+        );
+      } catch {
+        return false;
+      }
+    });
+
+    // 3. If account does not exist, but matching patient(s) exist in patients table: auto-create patient_account
+    if (!account && matchingPatients.length > 0) {
+      const [newAcc] = await db
+        .insert(patientAccounts)
+        .values({
+          phone: norm.e164,
+          phoneNormalized: norm.e164,
+        })
+        .returning();
+      account = newAcc;
+    }
+
+    // 4. If account exists, ensure each matching patient from patients table has a profile in patientProfiles
+    if (account && matchingPatients.length > 0) {
+      const existingProfs = await db
+        .select()
+        .from(patientProfiles)
+        .where(eq(patientProfiles.accountId, account.id));
+
+      for (const mp of matchingPatients) {
+        let plainName = '';
+        try {
+          plainName = mp.nameEncrypted ? decryptPatientPii(mp.nameEncrypted) : 'Patient';
+        } catch {
+          plainName = 'Patient';
+        }
+
+        const alreadyExists = existingProfs.some(
+          (pr) => pr.name === plainName || (pr.name && pr.name.includes(plainName))
+        );
+
+        if (!alreadyExists) {
+          const [newProf] = await db
+            .insert(patientProfiles)
+            .values({
+              accountId: account.id,
+              relation: 'self',
+              name: plainName,
+              nameEncrypted: mp.nameEncrypted,
+              age: mp.age,
+              gender: mp.gender,
+              sex: mp.gender,
+              bloodGroup: mp.bloodGroup || null,
+              createdBy: mp.doctorId || user.id,
+              claimed: false,
+            })
+            .returning();
+
+          // Auto-grant access to the searching doctor
+          await db
+            .insert(accessGrants)
+            .values({
+              profileId: newProf.id,
+              doctorId: user.id,
+              scope: 'this_doctor_only',
+              status: 'active',
+              grantedVia: 'created_profile',
+            })
+            .catch(() => {});
+        }
+      }
+    }
 
     if (!account) {
       return NextResponse.json({
@@ -101,11 +184,21 @@ export async function GET(req: Request) {
       });
     }
 
-    // Fetch profiles under this account
+    // 5. Fetch all profiles under this account
     const rawProfiles = await db
       .select()
       .from(patientProfiles)
       .where(eq(patientProfiles.accountId, account.id));
+
+    if (rawProfiles.length === 0) {
+      return NextResponse.json({
+        found: false,
+        phone: norm.e164,
+        phoneMasked: maskPhoneNumber(norm.e164),
+        phoneLocal: norm.formattedLocal,
+        profiles: [],
+      });
+    }
 
     const now = new Date();
 
@@ -118,6 +211,9 @@ export async function GET(req: Request) {
           } catch {
             plainName = 'Patient Profile';
           }
+        }
+        if (!plainName) {
+          plainName = 'Patient';
         }
 
         // Check if current doctor has active grant
@@ -165,11 +261,11 @@ export async function GET(req: Request) {
 
         const hasOtherDoctorRecords = (otherDocRx?.val || 0) > 0 || (otherDocEnc?.val || 0) > 0;
         const isAuthor = prof.createdBy === user.id;
+        const hasAccess = Boolean(activeGrant) || isAuthor || user.role === 'super_admin';
         const grantScope = activeGrant ? activeGrant.scope : isAuthor ? 'this_doctor_only' : null;
-        const hasFullAccess = grantScope === 'full_history' || isAuthor;
 
-        // Mask name if doctor has not consulted this profile and has no active grant
-        const displayName = hasFullAccess ? plainName : maskProfileName(plainName);
+        // Display full unmasked name if doctor has active grant, is author, or super admin
+        const displayName = hasAccess ? plainName : maskProfileName(plainName);
 
         // Audit log search view
         await db.insert(accessLogs).values({
@@ -180,7 +276,7 @@ export async function GET(req: Request) {
           recordType: 'patient_profile',
           recordId: prof.id,
           reason: 'Doctor patient search by mobile phone',
-        });
+        }).catch(() => {});
 
         return {
           id: prof.id,
@@ -191,7 +287,7 @@ export async function GET(req: Request) {
           gender: prof.gender || prof.sex || 'male',
           bloodGroup: prof.bloodGroup,
           hasOtherDoctorRecords,
-          hasActiveGrant: Boolean(activeGrant) || isAuthor,
+          hasActiveGrant: hasAccess,
           grantScope,
           expiresAt: activeGrant?.expiresAt || null,
         };
