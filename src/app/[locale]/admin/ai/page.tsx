@@ -17,6 +17,7 @@ import {
   Sliders,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { AiCredentialsCard } from '@/components/settings/AiCredentialsCard';
 
 interface PromptVersion {
   id: string;
@@ -270,6 +271,9 @@ export default function AdminAiPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Global AI Model Credentials & API Keys */}
+      <AiCredentialsCard />
 
       {/* Model & Safety Calibration */}
       <Card className="border-border bg-card shadow-2xs">

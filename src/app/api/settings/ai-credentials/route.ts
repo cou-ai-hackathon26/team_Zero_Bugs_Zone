@@ -1,0 +1,72 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { getCurrentUser } from '@/lib/auth';
+import { getStoredAiCredentials, saveAiCredentials } from '@/lib/ai-credentials';
+import { createAuditLogEntry } from '@/lib/audit';
+
+const saveCredentialsSchema = z.object({
+  provider: z.enum(['openai', 'gemini', 'anthropic', 'custom']),
+  apiKey: z.string().optional(),
+  model: z.string().min(1),
+  baseUrl: z.string().optional(),
+  organizationId: z.string().optional(),
+});
+
+export async function GET() {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const config = await getStoredAiCredentials();
+    return NextResponse.json(config);
+  } catch (error) {
+    console.error('Failed to get AI credentials:', error);
+    return NextResponse.json({ error: 'Failed to retrieve AI credentials' }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Only doctors, super_admins, and authorized clinicians can alter AI credentials
+  if (user.role !== 'doctor' && user.role !== 'super_admin' && user.role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden: Insufficient privileges to update AI credentials' }, { status: 403 });
+  }
+
+  try {
+    const body = await req.json();
+    const parsed = saveCredentialsSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid configuration payload', details: parsed.error.issues }, { status: 400 });
+    }
+
+    await saveAiCredentials(parsed.data, user.id);
+
+    // Audit log
+    await createAuditLogEntry({
+      userId: user.id,
+      userRole: user.role,
+      action: 'update_ai_credentials',
+      resourceType: 'system_settings',
+      resourceId: 'ai:credentials',
+      details: {
+        provider: parsed.data.provider,
+        model: parsed.data.model,
+        hasCustomBaseUrl: Boolean(parsed.data.baseUrl),
+        hasApiKeySupplied: Boolean(parsed.data.apiKey),
+      },
+    }).catch(() => {});
+
+    const updated = await getStoredAiCredentials();
+    return NextResponse.json({ success: true, ...updated });
+  } catch (error) {
+    console.error('Failed to save AI credentials:', error);
+    return NextResponse.json({ error: 'Failed to save AI credentials' }, { status: 500 });
+  }
+}

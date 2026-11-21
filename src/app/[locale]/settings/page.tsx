@@ -4,20 +4,26 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
+import { AiCredentialsCard } from '@/components/settings/AiCredentialsCard';
 import { getCurrentUser } from '@/lib/auth';
 import { ShieldCheck, UserCheck, Database, Globe } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { getTranslations } from 'next-intl/server';
 
 export default async function SettingsPage() {
   const user = await getCurrentUser();
+  const t = await getTranslations('settings');
 
   return (
     <AppShell>
       <div className="space-y-6 max-w-4xl">
         <PageHeader
-          title="Settings & System Status"
-          subtitle="Configure language preferences, visual theme, and inspect internal medical engine status."
+          title={t('title')}
+          subtitle={t('subtitle')}
         />
+
+        {/* 1. AI Credentials & Model Configuration (BYOK) */}
+        <AiCredentialsCard />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Preferences */}
@@ -25,16 +31,16 @@ export default async function SettingsPage() {
             <CardHeader className="p-5 pb-3">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <Globe className="w-4 h-4 text-primary" />
-                <span>Localization & Appearance</span>
+                <span>{t('localizationTitle')}</span>
               </CardTitle>
               <CardDescription className="text-xs">
-                Switch language between Bengali (বাংলা) and English, and toggle themes.
+                {t('localizationDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-5 pt-0 space-y-4">
               <div className="flex items-center justify-between py-2 border-b border-border/60">
                 <div>
-                  <h4 className="text-sm font-medium">Interface Language</h4>
+                  <h4 className="text-sm font-medium">{t('language')}</h4>
                   <p className="text-xs text-muted-foreground">Default: বাংলা (bn)</p>
                 </div>
                 <LanguageSwitcher />
@@ -42,7 +48,7 @@ export default async function SettingsPage() {
 
               <div className="flex items-center justify-between py-2">
                 <div>
-                  <h4 className="text-sm font-medium">Visual Theme</h4>
+                  <h4 className="text-sm font-medium">{t('theme')}</h4>
                   <p className="text-xs text-muted-foreground">Light, Dark, or System Sync</p>
                 </div>
                 <ThemeToggle />
@@ -55,24 +61,24 @@ export default async function SettingsPage() {
             <CardHeader className="p-5 pb-3">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <UserCheck className="w-4 h-4 text-primary" />
-                <span>Active Clinician Profile</span>
+                <span>{t('userProfile')}</span>
               </CardTitle>
               <CardDescription className="text-xs">
-                Current authenticated healthcare professional session.
+                {t('userProfileDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-5 pt-0 space-y-3">
               <div className="p-3 rounded-lg bg-muted/40 border border-border space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Name:</span>
+                  <span className="text-xs text-muted-foreground">{t('name')}:</span>
                   <span className="text-xs font-semibold text-foreground">{user?.name || 'Dr. Farhana Rahman'}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Email:</span>
+                  <span className="text-xs text-muted-foreground">{t('email')}:</span>
                   <span className="text-xs font-mono text-foreground">{user?.email || 'doctor@docmate.ai'}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Role:</span>
+                  <span className="text-xs text-muted-foreground">{t('role')}:</span>
                   <Badge variant="outline" className="text-[10px] uppercase font-bold text-primary border-primary/30">
                     {user?.role || 'doctor'}
                   </Badge>
@@ -86,10 +92,10 @@ export default async function SettingsPage() {
             <CardHeader className="p-5 pb-3">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <Database className="w-4 h-4 text-primary" />
-                <span>Clinical Engine & Architecture Status</span>
+                <span>{t('engineStatus')}</span>
               </CardTitle>
               <CardDescription className="text-xs">
-                Verification status of internal medical databases and closed library pipelines.
+                {t('engineStatusDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-5 pt-0">
