@@ -16,7 +16,7 @@ import {
   Compass,
 } from 'lucide-react';
 
-interface TourStep {
+export interface TourStep {
   selector: string;
   titleKey: string;
   descKey: string;
@@ -25,6 +25,245 @@ interface TourStep {
 export function startProductTour(panelKey?: string) {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('docmate:start-tour', { detail: { panel: panelKey } }));
+  }
+}
+
+// Define steps per panel as a pure exported function
+export function getStepsForPanel(panel: string): TourStep[] {
+  switch (panel) {
+    case 'dashboard':
+      return [
+        {
+          selector: '[data-tour="nav-sidebar"]',
+          titleKey: 'globalSidebarTitle',
+          descKey: 'globalSidebarDesc',
+        },
+        {
+          selector: '[data-tour="dashboard-stats"]',
+          titleKey: 'dashboardStatsTitle',
+          descKey: 'dashboardStatsDesc',
+        },
+        {
+          selector: '[data-tour="dashboard-new-patient"]',
+          titleKey: 'dashboardNewPatientTitle',
+          descKey: 'dashboardNewPatientDesc',
+        },
+        {
+          selector: '[data-tour="dashboard-recent"]',
+          titleKey: 'dashboardRecentTitle',
+          descKey: 'dashboardRecentDesc',
+        },
+        {
+          selector: '[data-tour="nav-search"]',
+          titleKey: 'globalSearchTitle',
+          descKey: 'globalSearchDesc',
+        },
+      ];
+    case 'patients':
+      return [
+        {
+          selector: '[data-tour="patients-search"]',
+          titleKey: 'patientsSearchTitle',
+          descKey: 'patientsSearchDesc',
+        },
+        {
+          selector: '[data-tour="patients-new-btn"]',
+          titleKey: 'patientsNewBtnTitle',
+          descKey: 'patientsNewBtnDesc',
+        },
+        {
+          selector: '[data-tour="patients-list"]',
+          titleKey: 'dashboardRecentTitle',
+          descKey: 'patientsSearchDesc',
+        },
+        {
+          selector: '[data-tour="nav-sidebar"]',
+          titleKey: 'globalSidebarTitle',
+          descKey: 'globalSidebarDesc',
+        },
+      ];
+    case 'prescriptions':
+      return [
+        {
+          selector: '[data-tour="rx-search"]',
+          titleKey: 'rxSearchTitle',
+          descKey: 'rxSearchDesc',
+        },
+        {
+          selector: '[data-tour="rx-filter"]',
+          titleKey: 'rxFilterTitle',
+          descKey: 'rxFilterDesc',
+        },
+        {
+          selector: '[data-tour="rx-list"]',
+          titleKey: 'rxSearchTitle',
+          descKey: 'rxSearchDesc',
+        },
+      ];
+    case 'library':
+      return [
+        {
+          selector: '[data-tour="library-search"]',
+          titleKey: 'librarySearchTitle',
+          descKey: 'librarySearchDesc',
+        },
+        {
+          selector: '[data-tour="library-sources"]',
+          titleKey: 'librarySourcesTitle',
+          descKey: 'librarySourcesDesc',
+        },
+        {
+          selector: '[data-tour="nav-search"]',
+          titleKey: 'globalSearchTitle',
+          descKey: 'globalSearchDesc',
+        },
+      ];
+    case 'ask':
+      return [
+        {
+          selector: '[data-tour="ask-input"]',
+          titleKey: 'askInputTitle',
+          descKey: 'askInputDesc',
+        },
+        {
+          selector: '[data-tour="ask-citations"]',
+          titleKey: 'askCitationsTitle',
+          descKey: 'askCitationsDesc',
+        },
+        {
+          selector: '[data-tour="nav-sidebar"]',
+          titleKey: 'globalSidebarTitle',
+          descKey: 'globalSidebarDesc',
+        },
+      ];
+    case 'admin':
+      return [
+        {
+          selector: '[data-tour="admin-stats"]',
+          titleKey: 'adminStatsTitle',
+          descKey: 'adminStatsDesc',
+        },
+        {
+          selector: '[data-tour="admin-killswitches"]',
+          titleKey: 'adminKillswitchesTitle',
+          descKey: 'adminKillswitchesDesc',
+        },
+        {
+          selector: '[data-tour="admin-audit"]',
+          titleKey: 'adminAuditTitle',
+          descKey: 'adminAuditDesc',
+        },
+      ];
+    case 'portal':
+      return [
+        {
+          selector: '[data-tour="portal-profile"]',
+          titleKey: 'portalProfileTitle',
+          descKey: 'portalProfileDesc',
+        },
+        {
+          selector: '[data-tour="portal-tabs"]',
+          titleKey: 'portalTabsTitle',
+          descKey: 'portalTabsDesc',
+        },
+        {
+          selector: '[data-tour="portal-schedule"]',
+          titleKey: 'portalScheduleTitle',
+          descKey: 'portalScheduleDesc',
+        },
+        {
+          selector: '[data-tour="portal-consent"]',
+          titleKey: 'portalConsentTitle',
+          descKey: 'portalConsentDesc',
+        },
+      ];
+    case 'study':
+      return [
+        {
+          selector: '[data-tour="study-cases"]',
+          titleKey: 'studyCasesTitle',
+          descKey: 'studyCasesDesc',
+        },
+        {
+          selector: '[data-tour="study-quizzes"]',
+          titleKey: 'studyQuizzesTitle',
+          descKey: 'studyQuizzesDesc',
+        },
+        {
+          selector: '[data-tour="study-notes"]',
+          titleKey: 'studyNotesTitle',
+          descKey: 'studyNotesDesc',
+        },
+        {
+          selector: '[data-tour="study-library-qa"]',
+          titleKey: 'studyLibraryTitle',
+          descKey: 'studyLibraryDesc',
+        },
+      ];
+    case 'research':
+      return [
+        {
+          selector: '[data-tour="research-search"]',
+          titleKey: 'researchSearchTitle',
+          descKey: 'researchSearchDesc',
+        },
+        {
+          selector: '[data-tour="research-compare"]',
+          titleKey: 'researchCompareTitle',
+          descKey: 'researchCompareDesc',
+        },
+        {
+          selector: '[data-tour="research-collections"]',
+          titleKey: 'researchCollectionsTitle',
+          descKey: 'researchCollectionsDesc',
+        },
+        {
+          selector: '[data-tour="research-export"]',
+          titleKey: 'researchExportTitle',
+          descKey: 'researchExportDesc',
+        },
+      ];
+    case 'controller':
+      return [
+        {
+          selector: '[data-tour="controller-stats"]',
+          titleKey: 'controllerStatsTitle',
+          descKey: 'controllerStatsDesc',
+        },
+        {
+          selector: '[data-tour="controller-formulary"]',
+          titleKey: 'controllerFormularyTitle',
+          descKey: 'controllerFormularyDesc',
+        },
+        {
+          selector: '[data-tour="controller-review"]',
+          titleKey: 'controllerReviewTitle',
+          descKey: 'controllerReviewDesc',
+        },
+        {
+          selector: '[data-tour="controller-notices"]',
+          titleKey: 'controllerNoticesTitle',
+          descKey: 'controllerNoticesDesc',
+        },
+      ];
+    default:
+      return [
+        {
+          selector: '[data-tour="nav-sidebar"]',
+          titleKey: 'globalSidebarTitle',
+          descKey: 'globalSidebarDesc',
+        },
+        {
+          selector: '[data-tour="nav-search"]',
+          titleKey: 'globalSearchTitle',
+          descKey: 'globalSearchDesc',
+        },
+        {
+          selector: '[data-tour="nav-language"]',
+          titleKey: 'globalLangTitle',
+          descKey: 'globalLangDesc',
+        },
+      ];
   }
 }
 
@@ -53,245 +292,6 @@ export function ProductTour() {
     const firstSegment = clean.split('/')[0] || 'dashboard';
     return firstSegment;
   }, [pathname, forcedPanel]);
-
-  // Define steps per panel
-  const getStepsForPanel = useCallback((panel: string): TourStep[] => {
-    switch (panel) {
-      case 'dashboard':
-        return [
-          {
-            selector: '[data-tour="nav-sidebar"]',
-            titleKey: 'globalSidebarTitle',
-            descKey: 'globalSidebarDesc',
-          },
-          {
-            selector: '[data-tour="dashboard-stats"]',
-            titleKey: 'dashboardStatsTitle',
-            descKey: 'dashboardStatsDesc',
-          },
-          {
-            selector: '[data-tour="dashboard-new-patient"]',
-            titleKey: 'dashboardNewPatientTitle',
-            descKey: 'dashboardNewPatientDesc',
-          },
-          {
-            selector: '[data-tour="dashboard-recent"]',
-            titleKey: 'dashboardRecentTitle',
-            descKey: 'dashboardRecentDesc',
-          },
-          {
-            selector: '[data-tour="nav-search"]',
-            titleKey: 'globalSearchTitle',
-            descKey: 'globalSearchDesc',
-          },
-        ];
-      case 'patients':
-        return [
-          {
-            selector: '[data-tour="patients-search"]',
-            titleKey: 'patientsSearchTitle',
-            descKey: 'patientsSearchDesc',
-          },
-          {
-            selector: '[data-tour="patients-new-btn"]',
-            titleKey: 'patientsNewBtnTitle',
-            descKey: 'patientsNewBtnDesc',
-          },
-          {
-            selector: '[data-tour="patients-list"]',
-            titleKey: 'dashboardRecentTitle',
-            descKey: 'patientsSearchDesc',
-          },
-          {
-            selector: '[data-tour="nav-sidebar"]',
-            titleKey: 'globalSidebarTitle',
-            descKey: 'globalSidebarDesc',
-          },
-        ];
-      case 'prescriptions':
-        return [
-          {
-            selector: '[data-tour="rx-search"]',
-            titleKey: 'rxSearchTitle',
-            descKey: 'rxSearchDesc',
-          },
-          {
-            selector: '[data-tour="rx-filter"]',
-            titleKey: 'rxFilterTitle',
-            descKey: 'rxFilterDesc',
-          },
-          {
-            selector: '[data-tour="rx-list"]',
-            titleKey: 'rxSearchTitle',
-            descKey: 'rxSearchDesc',
-          },
-        ];
-      case 'library':
-        return [
-          {
-            selector: '[data-tour="library-search"]',
-            titleKey: 'librarySearchTitle',
-            descKey: 'librarySearchDesc',
-          },
-          {
-            selector: '[data-tour="library-sources"]',
-            titleKey: 'librarySourcesTitle',
-            descKey: 'librarySourcesDesc',
-          },
-          {
-            selector: '[data-tour="nav-search"]',
-            titleKey: 'globalSearchTitle',
-            descKey: 'globalSearchDesc',
-          },
-        ];
-      case 'ask':
-        return [
-          {
-            selector: '[data-tour="ask-input"]',
-            titleKey: 'askInputTitle',
-            descKey: 'askInputDesc',
-          },
-          {
-            selector: '[data-tour="ask-citations"]',
-            titleKey: 'askCitationsTitle',
-            descKey: 'askCitationsDesc',
-          },
-          {
-            selector: '[data-tour="nav-sidebar"]',
-            titleKey: 'globalSidebarTitle',
-            descKey: 'globalSidebarDesc',
-          },
-        ];
-      case 'admin':
-        return [
-          {
-            selector: '[data-tour="admin-stats"]',
-            titleKey: 'adminStatsTitle',
-            descKey: 'adminStatsDesc',
-          },
-          {
-            selector: '[data-tour="admin-killswitches"]',
-            titleKey: 'adminKillswitchesTitle',
-            descKey: 'adminKillswitchesDesc',
-          },
-          {
-            selector: '[data-tour="admin-audit"]',
-            titleKey: 'adminAuditTitle',
-            descKey: 'adminAuditDesc',
-          },
-        ];
-      case 'portal':
-        return [
-          {
-            selector: '[data-tour="portal-profile"]',
-            titleKey: 'portalProfileTitle',
-            descKey: 'portalProfileDesc',
-          },
-          {
-            selector: '[data-tour="portal-tabs"]',
-            titleKey: 'portalTabsTitle',
-            descKey: 'portalTabsDesc',
-          },
-          {
-            selector: '[data-tour="portal-schedule"]',
-            titleKey: 'portalScheduleTitle',
-            descKey: 'portalScheduleDesc',
-          },
-          {
-            selector: '[data-tour="portal-consent"]',
-            titleKey: 'portalConsentTitle',
-            descKey: 'portalConsentDesc',
-          },
-        ];
-      case 'study':
-        return [
-          {
-            selector: '[data-tour="study-cases"]',
-            titleKey: 'studyCasesTitle',
-            descKey: 'studyCasesDesc',
-          },
-          {
-            selector: '[data-tour="study-quizzes"]',
-            titleKey: 'studyQuizzesTitle',
-            descKey: 'studyQuizzesDesc',
-          },
-          {
-            selector: '[data-tour="study-notes"]',
-            titleKey: 'studyNotesTitle',
-            descKey: 'studyNotesDesc',
-          },
-          {
-            selector: '[data-tour="study-library-qa"]',
-            titleKey: 'studyLibraryTitle',
-            descKey: 'studyLibraryDesc',
-          },
-        ];
-      case 'research':
-        return [
-          {
-            selector: '[data-tour="research-search"]',
-            titleKey: 'researchSearchTitle',
-            descKey: 'researchSearchDesc',
-          },
-          {
-            selector: '[data-tour="research-compare"]',
-            titleKey: 'researchCompareTitle',
-            descKey: 'researchCompareDesc',
-          },
-          {
-            selector: '[data-tour="research-collections"]',
-            titleKey: 'researchCollectionsTitle',
-            descKey: 'researchCollectionsDesc',
-          },
-          {
-            selector: '[data-tour="research-export"]',
-            titleKey: 'researchExportTitle',
-            descKey: 'researchExportDesc',
-          },
-        ];
-      case 'controller':
-        return [
-          {
-            selector: '[data-tour="controller-stats"]',
-            titleKey: 'controllerStatsTitle',
-            descKey: 'controllerStatsDesc',
-          },
-          {
-            selector: '[data-tour="controller-formulary"]',
-            titleKey: 'controllerFormularyTitle',
-            descKey: 'controllerFormularyDesc',
-          },
-          {
-            selector: '[data-tour="controller-review"]',
-            titleKey: 'controllerReviewTitle',
-            descKey: 'controllerReviewDesc',
-          },
-          {
-            selector: '[data-tour="controller-notices"]',
-            titleKey: 'controllerNoticesTitle',
-            descKey: 'controllerNoticesDesc',
-          },
-        ];
-      default:
-        return [
-          {
-            selector: '[data-tour="nav-sidebar"]',
-            titleKey: 'globalSidebarTitle',
-            descKey: 'globalSidebarDesc',
-          },
-          {
-            selector: '[data-tour="nav-search"]',
-            titleKey: 'globalSearchTitle',
-            descKey: 'globalSearchDesc',
-          },
-          {
-            selector: '[data-tour="nav-language"]',
-            titleKey: 'globalLangTitle',
-            descKey: 'globalLangDesc',
-          },
-        ];
-    }
-  }, []);
 
   const panelKey = getPanelKey();
   const steps = getStepsForPanel(panelKey);
