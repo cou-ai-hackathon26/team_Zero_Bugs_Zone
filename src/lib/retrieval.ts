@@ -178,3 +178,17 @@ export async function hybridRetrieve(queries: string[], maxChunks = 12): Promise
   retrievalCache.set(cacheKey, { timestamp: Date.now(), chunks: sorted });
   return sorted;
 }
+
+export async function searchLibraryText(query: string, limit: number): Promise<Chunk[]> {
+  const { rows } = await pool.query<Chunk>(
+    `SELECT c.id, c.source_id, c.page, c.section, c.text, c.evidence_level, c.created_at,
+            s.title AS source_title, s.year AS source_year
+     FROM chunks c
+     JOIN sources s ON s.id = c.source_id
+     WHERE s.status = 'active' AND c.tsv @@ plainto_tsquery('english', $1)
+     ORDER BY ts_rank(c.tsv, plainto_tsquery('english', $1)) DESC, c.id
+     LIMIT $2`,
+    [query, limit],
+  );
+  return rows;
+}

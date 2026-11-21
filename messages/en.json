@@ -198,6 +198,7 @@
     "chunkCount": "Chunks Indexed"
   },
   "ask": {
+    "excerpts": "The library contains the following matching source excerpts.",
     "title": "Ask the Medical Library",
     "subtitle": "Semantic search and verified answers for students, clinicians, and researchers",
     "placeholder": "Ask a clinical question (e.g. 'What is the first-line treatment for uncomplicated community-acquired pneumonia?')...",
