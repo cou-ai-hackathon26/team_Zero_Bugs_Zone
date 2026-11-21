@@ -1,4 +1,5 @@
 import { seedDemoUsers } from './demo-users';
+import { seedAllFeatures } from './seed-all-features';
 import { pool as authPool } from '../src/db';
 import { requireAuthSecret } from '../src/lib/session';
 import { Pool } from 'pg';
@@ -874,6 +875,9 @@ export async function runSeed() {
       );
     }
   }
+
+  // 4. Seed all 32 RBAC Feature Keys and Role Matrix
+  await seedAllFeatures();
 
   console.log('Database seeding finished successfully.');
 }
