@@ -324,12 +324,12 @@ export function AppShell({ children }: AppShellProps) {
                   <Search className="w-3.5 h-3.5" />
                   <span className="hidden xl:inline">{t('search')}</span>
                 </button>
-                <div className="hidden md:flex ml-2">
+                <div className="hidden xl:flex ml-2 shrink-0">
                   <DemoBanner variant="header" />
                 </div>
               </div>
 
-              <div className="flex items-center gap-1 sm:gap-2">
+              <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                 <TextSizeControl />
 
                 <HelpSheet />
