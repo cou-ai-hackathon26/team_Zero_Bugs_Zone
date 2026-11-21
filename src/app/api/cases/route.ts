@@ -73,11 +73,15 @@ export async function POST(request: Request) {
     }
     const { patient_code, structured_input, profile_id, idempotency_key } = input.data;
 
+    const isValidUuid = (val: string | null | undefined): val is string =>
+      Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
+    const safeProfileId = isValidUuid(profile_id) ? profile_id : null;
+
     return await withIdempotency(idempotency_key, '/api/cases', async () => {
       const newCase = await db.transaction(async (tx) => {
         const [record] = await tx.insert(cases).values({
           doctorId: user.id,
-          profileId: profile_id || null,
+          profileId: safeProfileId,
           patientCode: patient_code,
           status: 'draft',
           structuredInput: structured_input,
@@ -86,7 +90,7 @@ export async function POST(request: Request) {
           caseId: record.id,
           userId: user.id,
           event: 'case_created',
-          payload: { profileId: profile_id || null },
+          payload: { profileId: safeProfileId },
         });
         return record;
       });
