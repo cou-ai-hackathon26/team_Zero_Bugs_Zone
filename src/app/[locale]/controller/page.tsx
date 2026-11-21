@@ -20,6 +20,7 @@ import {
   LogOut,
   Globe,
   Sparkles,
+  Compass,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -408,17 +409,17 @@ export default function ControllerPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-5">
         <div>
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-800">
-              <Pill className="w-6 h-6" />
+            <div className="w-9 h-9 rounded-lg bg-muted text-foreground flex items-center justify-center shrink-0">
+              <Pill className="w-5 h-5" />
             </div>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                {isBn ? 'ডিজিডিএ ওষুধ নিয়ন্ত্রক পোর্টাল' : 'DGDA Medicine Controller Portal'}
+                {isBn ? 'ডিজিডিএ ওষুধ নিয়ন্ত্রক' : 'DGDA Medicine Controller'}
               </h1>
               <p className="text-sm text-muted-foreground mt-0.5">
                 {isBn
-                  ? 'জাতীয় ওষুধ প্রশাসন অধিদপ্তরের মানদণ্ড, ফর্মুলারি নিরাপত্তা ও ব্যাচ প্রত্যাহার'
-                  : 'Directorate General of Drug Administration (DGDA) Safety & Formulary Management'}
+                  ? 'জাতীয় ফর্মুলারি নিরাপত্তা ও ড্রাগ রিকল ব্যবস্থাপনা'
+                  : 'National formulary safety and drug recall management'}
               </p>
             </div>
           </div>
@@ -426,28 +427,24 @@ export default function ControllerPage() {
 
         <div className="flex flex-wrap items-center gap-3">
           {/* Two-Person Review Setting Card */}
-          <div className="flex items-center gap-3 bg-card p-3 rounded-xl border border-border shadow-xs">
+          <div className="flex items-center gap-3 bg-card p-2.5 rounded-lg border border-border shadow-2xs">
             <div className="flex items-center gap-2">
-              <Users2 className="w-5 h-5 text-teal-700 dark:text-teal-400" />
+              <Users2 className="w-4 h-4 text-muted-foreground" />
               <div className="text-xs">
                 <span className="font-semibold block text-foreground">
-                  {isBn ? 'দ্বৈত পর্যালোচনা (Two-Person Review)' : 'Two-Person Review'}
+                  {isBn ? 'দ্বৈত পর্যালোচনা' : 'Two-Person Review'}
                 </span>
-                <span className="text-muted-foreground">
+                <span className="text-muted-foreground text-[11px]">
                   {twoPersonEnabled
-                    ? isBn
-                      ? '২ জন নিয়ন্ত্রকের স্বাক্ষর প্রয়োজন'
-                      : 'Requires 2 distinct approvals'
-                    : isBn
-                      ? 'একক অনুমোদন সক্রিয় (Staging Mode)'
-                      : 'Single approval enabled'}
+                    ? isBn ? 'বাধ্যতামূলক (সক্রিয়)' : 'Required (Active)'
+                    : isBn ? 'ঐচ্ছিক (নিষ্ক্রিয়)' : 'Optional (Disabled)'}
                 </span>
               </div>
             </div>
             <Button
               size="sm"
               variant={twoPersonEnabled ? 'default' : 'outline'}
-              className={twoPersonEnabled ? 'bg-teal-700 hover:bg-teal-800 text-white' : ''}
+              className="text-xs h-7 px-2.5"
               onClick={handleToggleTwoPerson}
               disabled={isTogglingTwoPerson}
             >
@@ -456,24 +453,24 @@ export default function ControllerPage() {
           </div>
 
           {/* Language & Logout Controls */}
-          <div className="flex items-center gap-2 bg-card p-2 rounded-xl border border-border">
+          <div className="flex items-center gap-2 bg-card p-1.5 rounded-lg border border-border">
             <Button
               variant="outline"
               size="sm"
               onClick={() => startProductTour('controller')}
               className="gap-1.5 text-xs h-8 px-2.5 border-border hover:bg-muted text-foreground font-medium"
-              aria-label={isBn ? 'প্রোডাক্ট ট্যুর' : 'Product Tour'}
-              title={isBn ? 'প্রোডাক্ট ট্যুর' : 'Product Tour'}
+              aria-label={isBn ? 'ট্যুর শুরু করুন' : 'Start Tour'}
+              title={isBn ? 'ট্যুর শুরু করুন' : 'Start Tour'}
               data-tour="nav-tour-btn"
             >
-              <Sparkles className="w-3.5 h-3.5 text-primary" />
-              <span className="hidden sm:inline">{isBn ? 'প্রোডাক্ট ট্যুর' : 'Product Tour'}</span>
+              <Compass className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="hidden sm:inline">{isBn ? 'ট্যুর' : 'Tour'}</span>
             </Button>
 
             <Button
               variant="outline"
               size="sm"
-              className="text-xs flex items-center gap-1.5"
+              className="text-xs flex items-center gap-1.5 h-8 px-2.5"
               onClick={() => {
                 router.push('/controller', { locale: isBn ? 'en' : 'bn' });
               }}
@@ -483,9 +480,9 @@ export default function ControllerPage() {
             </Button>
 
             <Button
-              variant="destructive"
+              variant="ghost"
               size="sm"
-              className="text-xs flex items-center gap-1.5"
+              className="text-xs flex items-center gap-1.5 h-8 px-2.5 text-muted-foreground hover:text-destructive"
               onClick={async () => {
                 await fetch('/api/auth/logout', { method: 'POST' });
                 router.push('/login');
@@ -602,7 +599,7 @@ export default function ControllerPage() {
               </div>
               <Button
                 size="sm"
-                className="bg-teal-700 hover:bg-teal-800 text-white"
+                className="text-xs"
                 onClick={() => setShowAddModal(true)}
               >
                 <Plus className="w-4 h-4 mr-1.5" />
@@ -865,7 +862,7 @@ export default function ControllerPage() {
               </div>
 
               <textarea
-                className="w-full h-40 p-3 font-mono text-xs rounded-lg border border-border bg-background focus:outline-hidden focus:ring-2 focus:ring-teal-600"
+                className="w-full h-40 p-3 font-mono text-xs rounded-lg border border-border bg-background focus:outline-hidden focus:ring-1 focus:ring-primary"
                 placeholder={
                   'brand_name,generic_name,manufacturer,form,strength,pack_size,price_bdt,dgda_reg_num\nNapa Extra,Paracetamol + Caffeine,Beximco Pharmaceuticals Ltd.,Tab,500mg+65mg,20x10,2.50,DAR-024-002'
                 }
@@ -882,7 +879,6 @@ export default function ControllerPage() {
                 {csvPreview && csvPreview.validRecords.length > 0 && (
                   <Button
                     size="sm"
-                    className="bg-teal-700 hover:bg-teal-800 text-white"
                     onClick={handleCommitCsvImport}
                     disabled={isImporting}
                   >
@@ -956,7 +952,7 @@ export default function ControllerPage() {
             <Card className="border border-border">
               <CardHeader className="p-4 pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <BellRing className="w-4 h-4 text-teal-700 dark:text-teal-400" />
+                  <BellRing className="w-4 h-4 text-primary" />
                   {isBn ? 'নতুন ডিজিডিএ নিরাপত্তা নোটিশ জারি' : 'Issue DGDA Safety Notice'}
                 </CardTitle>
                 <CardDescription className="text-xs">
@@ -1029,7 +1025,7 @@ export default function ControllerPage() {
                       {isBn ? 'বিস্তারিত নির্দেশিকা ও বিবরণ *' : 'Detailed Advisory & Instructions *'}
                     </label>
                     <textarea
-                      className="w-full h-24 p-2.5 text-xs rounded-md border border-border bg-background focus:outline-hidden focus:ring-2 focus:ring-teal-600"
+                      className="w-full h-24 p-2.5 text-xs rounded-md border border-border bg-background focus:outline-hidden focus:ring-1 focus:ring-primary"
                       placeholder={
                         isBn
                           ? 'পরীক্ষাগার প্রতিবেদনে অমিল পাওয়ায় উক্ত ব্যাচ বিক্রয় স্থগিতের নির্দেশ দেওয়া হলো...'
@@ -1043,7 +1039,7 @@ export default function ControllerPage() {
 
                   <Button
                     type="submit"
-                    className="w-full bg-teal-700 hover:bg-teal-800 text-white"
+                    className="w-full font-semibold"
                     disabled={isBroadcasting}
                   >
                     <BellRing className="w-4 h-4 mr-1.5" />
@@ -1257,7 +1253,7 @@ export default function ControllerPage() {
                 >
                   {isBn ? 'বাতিল' : 'Cancel'}
                 </Button>
-                <Button type="submit" size="sm" className="bg-teal-700 hover:bg-teal-800 text-white">
+                <Button type="submit" size="sm">
                   {isBn ? 'প্রস্তাব জমা দিন' : 'Submit Proposal'}
                 </Button>
               </div>

@@ -130,8 +130,8 @@ export default async function AdminDashboardPage() {
           </Link>
         </div>
       ) : (
-        <div className="p-3.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-emerald-800 dark:text-emerald-300 flex items-center gap-2.5 text-xs font-medium">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+        <div className="p-3 rounded-lg border border-border bg-muted/40 text-foreground flex items-center gap-2.5 text-xs font-medium">
+          <CheckCircle2 className="w-4 h-4 text-muted-foreground shrink-0" />
           <span>{t('allSystemsOperational')}</span>
         </div>
       )}
@@ -219,14 +219,14 @@ export default async function AdminDashboardPage() {
         {/* Users */}
         <Card className="border-border bg-card shadow-2xs flex flex-col justify-between">
           <CardHeader>
-            <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-2">
-              <UserCheck className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center mb-2">
+              <UserCheck className="w-4 h-4" />
             </div>
-            <CardTitle className="text-base font-bold">{t('users')}</CardTitle>
-            <CardDescription className="text-xs leading-relaxed">
+            <CardTitle className="text-sm font-semibold">{t('users')}</CardTitle>
+            <CardDescription className="text-xs leading-normal">
               {locale === 'bn'
-                ? 'বিএমডিসি (BMDC) সনদ ও স্টুডেন্ট আইডি পর্যালোচনা, অনুমোদন বা সাসপেন্ড করুন।'
-                : 'Review BMDC medical licenses, institute IDs, approve verifications, or suspend users.'}
+                ? 'বিএমডিসি সনদ ও ইউজার ভেরিফিকেশন পরিচালনা করুন।'
+                : 'Review medical licenses and user verifications.'}
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
@@ -234,7 +234,7 @@ export default async function AdminDashboardPage() {
               href={`/${locale}/admin/users`}
               className={buttonVariants({ variant: 'outline', size: 'sm', className: 'w-full text-xs font-medium' })}
             >
-              <span>{locale === 'bn' ? 'ব্যবহারকারী তালিকা খুলুন' : 'Open User Queue'}</span>
+              <span>{locale === 'bn' ? 'তালিকা দেখুন' : 'View Users'}</span>
               <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
             </Link>
           </CardContent>
@@ -243,14 +243,14 @@ export default async function AdminDashboardPage() {
         {/* Feature Matrix */}
         <Card className="border-border bg-card shadow-2xs flex flex-col justify-between">
           <CardHeader>
-            <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-2">
-              <ShieldCheck className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center mb-2">
+              <ShieldCheck className="w-4 h-4" />
             </div>
-            <CardTitle className="text-base font-bold">{t('access')}</CardTitle>
-            <CardDescription className="text-xs leading-relaxed">
+            <CardTitle className="text-sm font-semibold">{t('access')}</CardTitle>
+            <CardDescription className="text-xs leading-normal">
               {locale === 'bn'
-                ? '৬টি রোলের জন্য ২২টি ফিচারের অনুমতি ও দৈনিক ব্যবহারের সীমা পরিবর্তন করুন।'
-                : 'Fine-tune 22 feature access keys and daily usage quotas across all 6 roles.'}
+                ? 'রোল ভিত্তিক ফিচার অনুমতি ও সীমা পরিচালনা করুন।'
+                : 'Manage role permissions and feature limits.'}
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
@@ -258,7 +258,7 @@ export default async function AdminDashboardPage() {
               href={`/${locale}/admin/access`}
               className={buttonVariants({ variant: 'outline', size: 'sm', className: 'w-full text-xs font-medium' })}
             >
-              <span>{locale === 'bn' ? 'ম্যাট্রিক্স এডিট করুন' : 'Edit Feature Matrix'}</span>
+              <span>{locale === 'bn' ? 'ম্যাট্রিক্স দেখুন' : 'View Matrix'}</span>
               <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
             </Link>
           </CardContent>
@@ -267,14 +267,14 @@ export default async function AdminDashboardPage() {
         {/* Audit Log */}
         <Card className="border-border bg-card shadow-2xs flex flex-col justify-between">
           <CardHeader>
-            <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-2">
-              <History className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center mb-2">
+              <History className="w-4 h-4" />
             </div>
-            <CardTitle className="text-base font-bold">{t('audit')}</CardTitle>
-            <CardDescription className="text-xs leading-relaxed">
+            <CardTitle className="text-sm font-semibold">{t('audit')}</CardTitle>
+            <CardDescription className="text-xs leading-normal">
               {locale === 'bn'
-                ? 'ক্রিপ্টোগ্রাফিক হ্যাশ চেইন যাচাই করুন এবং সকল ব্রেক-গ্লাস ও সিস্টেম অডিট দেখুন।'
-                : 'Verify tamper-evident SHA-256 hash chains and monitor break-glass patient access logs.'}
+                ? 'ক্রিপ্টোগ্রাফিক হ্যাশ চেইন ও সিস্টেম অডিট পরীক্ষা করুন।'
+                : 'Verify hash chains and system audit logs.'}
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
@@ -282,7 +282,7 @@ export default async function AdminDashboardPage() {
               href={`/${locale}/admin/audit`}
               className={buttonVariants({ variant: 'outline', size: 'sm', className: 'w-full text-xs font-medium' })}
             >
-              <span>{locale === 'bn' ? 'অডিট লগ ও চেইন যাচাই' : 'Open Audit Verifier'}</span>
+              <span>{locale === 'bn' ? 'অডিট দেখুন' : 'View Logs'}</span>
               <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
             </Link>
           </CardContent>

@@ -6,6 +6,7 @@ import { db } from '@/db';
 import { cases, auditLogs } from '@/db/schema';
 import { desc, eq } from 'drizzle-orm';
 import { requirePhysician } from '@/lib/case-access';
+import { withIdempotency } from '@/lib/idempotency';
 
 export async function GET(request: Request) {
   try {
@@ -61,19 +62,28 @@ export async function POST(request: Request) {
 
     const input = caseInput.safeParse(await boundedJson(request));
     if (!input.success) return NextResponse.json({ error: 'Invalid synthetic case input' }, { status: 400 });
-    const { patient_code, structured_input } = input.data;
+    const { patient_code, structured_input, profile_id, idempotency_key } = input.data;
 
-    const newCase = await db.transaction(async (tx) => {
-      const [record] = await tx.insert(cases).values({
-        doctorId: user.id, patientCode: patient_code, status: 'draft', structuredInput: structured_input,
-      }).returning();
-      await tx.insert(auditLogs).values({
-        caseId: record.id, userId: user.id, event: 'case_created', payload: {},
+    return await withIdempotency(idempotency_key, '/api/cases', async () => {
+      const newCase = await db.transaction(async (tx) => {
+        const [record] = await tx.insert(cases).values({
+          doctorId: user.id,
+          profileId: profile_id || null,
+          patientCode: patient_code,
+          status: 'draft',
+          structuredInput: structured_input,
+        }).returning();
+        await tx.insert(auditLogs).values({
+          caseId: record.id,
+          userId: user.id,
+          event: 'case_created',
+          payload: { profileId: profile_id || null },
+        });
+        return record;
       });
-      return record;
-    });
 
-    return NextResponse.json({ case: newCase });
+      return NextResponse.json({ case: newCase });
+    });
   } catch {
     return NextResponse.json({ error: 'Failed to create case' }, { status: 500 });
   }

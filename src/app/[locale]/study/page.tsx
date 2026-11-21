@@ -16,6 +16,7 @@ import {
   LogOut,
   Globe,
   Sparkles,
+  Compass,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -242,45 +243,45 @@ export default function StudentWorkspacePage() {
       {/* Workspace Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-5">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-800">
-            <GraduationCap className="w-6 h-6" />
+          <div className="w-9 h-9 rounded-lg bg-muted text-foreground flex items-center justify-center shrink-0">
+            <GraduationCap className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                {isBn ? 'মেডিকেল শিক্ষার্থী কর্মক্ষেত্র' : 'Student Clinical Workspace'}
+                {isBn ? 'শিক্ষার্থী কর্মক্ষেত্র' : 'Student Workspace'}
               </h1>
-              <Badge variant="outline" className="text-xs bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 border-teal-200">
-                {isBn ? 'লাইব্রেরি ও শিক্ষানবিস মোড' : 'Library & Trainee Mode'}
+              <Badge variant="outline" className="text-xs font-mono text-muted-foreground">
+                {isBn ? 'শিক্ষানবিস মোড' : 'Trainee Mode'}
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground mt-0.5">
               {isBn
-                ? 'সিমুলেটেড রোগী কেস অনুশীলন, গাইডলাইনভিত্তিক কুইজ এবং একাডেমিক রেফারেন্স নোট'
-                : 'Interactive clinical case simulations, guideline-based quizzes, and academic study notes'}
+                ? 'সিমুলেটেড রোগী কেস, কুইজ ও স্টাডি নোট'
+                : 'Practice clinical cases, quizzes, and study notes'}
             </p>
           </div>
         </div>
 
-        {/* Hard Rule Security Badge & Controls */}
+        {/* Action Controls */}
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={() => startProductTour('study')}
             className="gap-1.5 text-xs h-8 px-2.5 border-border hover:bg-muted text-foreground font-medium"
-            aria-label={isBn ? 'প্রোডাক্ট ট্যুর' : 'Product Tour'}
-            title={isBn ? 'প্রোডাক্ট ট্যুর' : 'Product Tour'}
+            aria-label={isBn ? 'ট্যুর শুরু করুন' : 'Start Tour'}
+            title={isBn ? 'ট্যুর শুরু করুন' : 'Start Tour'}
             data-tour="nav-tour-btn"
           >
-            <Sparkles className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-            <span className="hidden sm:inline">{isBn ? 'প্রোডাক্ট ট্যুর' : 'Product Tour'}</span>
+            <Compass className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="hidden sm:inline">{isBn ? 'ট্যুর' : 'Tour'}</span>
           </Button>
 
           <Button
             variant="outline"
             size="sm"
-            className="text-xs flex items-center gap-1.5"
+            className="text-xs flex items-center gap-1.5 h-8 px-2.5"
             onClick={() => router.push('/study', { locale: isBn ? 'en' : 'bn' })}
           >
             <Globe className="w-3.5 h-3.5 text-muted-foreground" />
@@ -290,7 +291,7 @@ export default function StudentWorkspacePage() {
           <Button
             variant="ghost"
             size="sm"
-            className="text-xs flex items-center gap-1.5 text-muted-foreground hover:text-destructive"
+            className="text-xs flex items-center gap-1.5 h-8 px-2.5 text-muted-foreground hover:text-destructive"
             onClick={async () => {
               await fetch('/api/auth/logout', { method: 'POST' });
               router.push('/login');
@@ -303,15 +304,15 @@ export default function StudentWorkspacePage() {
       </div>
 
       {/* Safety Notice: Zero Real Patient PHI Access */}
-      <div className="flex items-start gap-3 p-3.5 rounded-xl bg-teal-50/60 dark:bg-teal-950/20 text-xs border border-teal-200 dark:border-teal-900 text-muted-foreground">
-        <Shield className="w-4 h-4 text-teal-700 dark:text-teal-400 shrink-0 mt-0.5" />
+      <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/40 text-xs border border-border text-muted-foreground">
+        <Shield className="w-4 h-4 text-primary shrink-0 mt-0.5" />
         <div>
           <strong className="text-foreground block mb-0.5">
-            {isBn ? 'ক্লিনিকাল তথ্যের কঠোর নিরাপত্তা ও গোপনীয়তা নীতিমালা' : 'Strict Educational Sandbox & Data Governance'}
+            {isBn ? 'ক্লিনিকাল তথ্যের কঠোর নিরাপত্তা ও গোপনীয়তা' : 'Educational Sandbox & Privacy Safeguards'}
           </strong>
           {isBn
-            ? 'শিক্ষার্থীদের জন্য বাস্তব কোনো রোগীর তথ্য প্রদর্শিত হয় না। সকল কেস সম্পূর্ণভাবে সিন্থেটিক এবং শুধুমাত্র একাডেমিক প্রশিক্ষণের উদ্দেশ্যে ডিজাইনকৃত।'
-            : 'Medical students and trainees have zero access to real patient health records. All clinical cases are strictly synthetic educational simulations.'}
+            ? 'সকল কেস সম্পূর্ণ সিন্থেটিক এবং শুধুমাত্র একাডেমিক প্রশিক্ষণের উদ্দেশ্যে।'
+            : 'All clinical cases are synthetic and strictly for academic training.'}
         </div>
       </div>
 
@@ -353,14 +354,14 @@ export default function StudentWorkspacePage() {
                     key={c.id}
                     className={`border transition-all cursor-pointer ${
                       selectedCaseId === c.id
-                        ? 'border-teal-600 bg-teal-50/40 dark:bg-teal-950/20 shadow-xs'
-                        : 'border-border bg-card hover:border-teal-300'
+                        ? 'border-primary bg-primary/5 shadow-xs'
+                        : 'border-border bg-card hover:border-foreground/30'
                     }`}
                     onClick={() => handleCaseSelect(c.id)}
                   >
                     <CardContent className="p-3.5 space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <Badge variant="outline" className="text-[10px] text-teal-700 dark:text-teal-400">
+                        <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground">
                           {c.specialty}
                         </Badge>
                         <span className="text-[10px] text-muted-foreground uppercase">{c.difficulty}</span>
@@ -380,7 +381,7 @@ export default function StudentWorkspacePage() {
                 <Card className="border border-border bg-card shadow-xs">
                   <CardHeader className="p-4 sm:p-5 border-b border-border/60">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <Badge className="bg-teal-700 text-white text-xs">{activeCase.specialty}</Badge>
+                      <Badge variant="outline" className="text-xs font-mono">{activeCase.specialty}</Badge>
                       <span className="text-xs text-muted-foreground">
                         {isBn ? 'কঠিন্যের মাত্রা:' : 'Difficulty:'} <strong className="text-foreground capitalize">{activeCase.difficulty}</strong>
                       </span>
@@ -431,7 +432,7 @@ export default function StudentWorkspacePage() {
                               key={opt}
                               className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors text-xs sm:text-sm ${
                                 isSelected
-                                  ? 'border-teal-600 bg-teal-50/50 dark:bg-teal-950/20 text-foreground font-semibold'
+                                  ? 'border-primary bg-primary/5 text-foreground font-semibold'
                                   : 'border-border bg-card text-muted-foreground hover:bg-muted/40'
                               }`}
                             >
@@ -440,7 +441,7 @@ export default function StudentWorkspacePage() {
                                 name="case_diagnosis"
                                 checked={isSelected}
                                 onChange={() => setSelectedOption(opt)}
-                                className="accent-teal-700"
+                                className="accent-primary"
                               />
                               <span>{opt}</span>
                             </label>
@@ -452,7 +453,7 @@ export default function StudentWorkspacePage() {
                     <Button
                       onClick={handleEvaluateCase}
                       disabled={isEvaluatingCase || !selectedOption}
-                      className="w-full bg-teal-700 hover:bg-teal-800 text-white font-semibold py-2.5"
+                      className="w-full font-semibold py-2.5"
                     >
                       {isEvaluatingCase
                         ? isBn ? 'মূল্যায়ন হচ্ছে...' : 'Evaluating...'
@@ -464,13 +465,13 @@ export default function StudentWorkspacePage() {
                       <div
                         className={`p-4 rounded-xl border space-y-3 ${
                           caseEvaluation.isCorrect
-                            ? 'bg-teal-50/70 dark:bg-teal-950/30 border-teal-300 dark:border-teal-800'
-                            : 'bg-red-50/70 dark:bg-red-950/30 border-red-300 dark:border-red-900'
+                            ? 'bg-muted/40 border-border'
+                            : 'bg-destructive/10 border-destructive/30'
                         }`}
                       >
                         <div className="flex items-center gap-2">
                           {caseEvaluation.isCorrect ? (
-                            <CheckCircle2 className="w-5 h-5 text-teal-700 dark:text-teal-400" />
+                            <CheckCircle2 className="w-5 h-5 text-primary" />
                           ) : (
                             <XCircle className="w-5 h-5 text-destructive" />
                           )}
@@ -548,16 +549,16 @@ export default function StudentWorkspacePage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                     {quiz.options.map((opt) => {
                       const isChosen = selectedKey === opt.key;
-                      let btnStyle = 'border-border bg-background text-foreground hover:border-teal-400';
+                      let btnStyle = 'border-border bg-background text-foreground hover:border-foreground/30';
 
                       if (result) {
                         if (opt.key === result.correctAnswer) {
-                          btnStyle = 'border-teal-600 bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 font-bold';
+                          btnStyle = 'border-primary bg-primary/10 text-foreground font-bold';
                         } else if (isChosen && !result.isCorrect) {
-                          btnStyle = 'border-red-500 bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-300 font-bold';
+                          btnStyle = 'border-destructive bg-destructive/10 text-destructive font-bold';
                         }
                       } else if (isChosen) {
-                        btnStyle = 'border-teal-700 bg-teal-50/50 dark:bg-teal-950/20';
+                        btnStyle = 'border-primary bg-primary/5 text-foreground';
                       }
 
                       return (
@@ -579,8 +580,8 @@ export default function StudentWorkspacePage() {
                     <div
                       className={`p-3 rounded-lg text-xs space-y-1 ${
                         result.isCorrect
-                          ? 'bg-teal-50/60 dark:bg-teal-950/30 text-teal-900 dark:text-teal-200 border border-teal-200 dark:border-teal-900'
-                          : 'bg-amber-50/60 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-900'
+                          ? 'bg-muted/40 text-foreground border border-border'
+                          : 'bg-muted/40 text-foreground border border-border'
                       }`}
                     >
                       <span className="font-bold block">
@@ -611,7 +612,7 @@ export default function StudentWorkspacePage() {
 
             <Button
               size="sm"
-              className="bg-teal-700 hover:bg-teal-800 text-white text-xs flex items-center gap-1.5"
+              className="text-xs flex items-center gap-1.5"
               onClick={() => setShowAddNoteModal(true)}
             >
               <Plus className="w-4 h-4" />
@@ -642,8 +643,8 @@ export default function StudentWorkspacePage() {
                   </p>
 
                   {note.sourceTitle && (
-                    <div className="text-[11px] text-teal-700 dark:text-teal-400 font-mono bg-teal-50 dark:bg-teal-950/40 p-2 rounded border border-teal-200 dark:border-teal-900">
-                      উৎস: {note.sourceTitle} {note.chunkSection && `• ${note.chunkSection}`}
+                    <div className="text-[11px] text-muted-foreground font-mono bg-muted/40 p-2 rounded border border-border">
+                      {isBn ? 'উৎস:' : 'Source:'} {note.sourceTitle} {note.chunkSection && `• ${note.chunkSection}`}
                     </div>
                   )}
 
@@ -665,18 +666,18 @@ export default function StudentWorkspacePage() {
         {/* Tab 4: Guideline Search & Internal Closed Library */}
         <TabsContent value="library_qa" className="space-y-4 mt-6">
           <Card className="border border-border bg-card p-6 text-center space-y-3">
-            <BookOpen className="w-12 h-12 text-teal-700 dark:text-teal-400 mx-auto" />
+            <BookOpen className="w-10 h-10 text-muted-foreground mx-auto" />
             <h3 className="text-base font-bold text-foreground">
-              {isBn ? 'অভ্যন্তরীণ মেডিকেল লাইব্রেরিতে অনুসন্ধান' : 'Search Internal Medical Guidelines'}
+              {isBn ? 'মেডিকেল লাইব্রেরিতে অনুসন্ধান' : 'Search Medical Guidelines'}
             </h3>
             <p className="text-xs text-muted-foreground max-w-lg mx-auto">
               {isBn
-                ? 'অনুমোদিত টেক্সটবুক, জাতীয় গাইডলাইন ও ফার্মাকোলজি ডেটাবেজ থেকে নির্ভরযোগ্য উদ্ধৃতি ও রেফারেন্স খুঁজুন।'
-                : 'Search verified textbooks, national clinical guidelines, and drug indications with chunk citations.'}
+                ? 'অনুমোদিত টেক্সটবুক ও গাইডলাইন থেকে সরাসরি রেফারেন্স খুঁজুন।'
+                : 'Search verified textbooks and guidelines with verbatim citations.'}
             </p>
             <div className="pt-2 flex justify-center gap-3">
               <Button
-                className="bg-teal-700 hover:bg-teal-800 text-white text-xs"
+                className="text-xs"
                 onClick={() => router.push('/library')}
               >
                 {isBn ? 'লাইব্রেরি ব্রাউজ করুন' : 'Browse Library'}
@@ -686,7 +687,7 @@ export default function StudentWorkspacePage() {
                 className="text-xs"
                 onClick={() => router.push('/ask')}
               >
-                {isBn ? 'সাইটেড প্রশ্নোত্তর (Ask AI)' : 'Ask with Citations'}
+                {isBn ? 'প্রশ্ন জিজ্ঞাসা করুন' : 'Ask Question'}
               </Button>
             </div>
           </Card>
@@ -742,7 +743,7 @@ export default function StudentWorkspacePage() {
                   <Button type="button" variant="outline" size="sm" onClick={() => setShowAddNoteModal(false)}>
                     {isBn ? 'বাতিল' : 'Cancel'}
                   </Button>
-                  <Button type="submit" size="sm" className="bg-teal-700 hover:bg-teal-800 text-white">
+                  <Button type="submit" size="sm">
                     {isBn ? 'সংরক্ষণ করুন' : 'Save Note'}
                   </Button>
                 </div>

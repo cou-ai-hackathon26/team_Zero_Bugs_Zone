@@ -101,16 +101,16 @@ export default function PrescriptionsListPage() {
           title={locale === 'bn' ? 'প্রেসক্রিপশন তালিকা' : 'Prescription Records'}
           subtitle={
             locale === 'bn'
-              ? 'বাংলাদেশি ফরম্যাটে প্রস্তুতকৃত সকল ডিজিটাল প্রেসক্রিপশন ও বিএমডিসি প্রিন্ট রেকর্ড'
-              : 'Bangladeshi format digital prescriptions with BMDC compliant printing'
+              ? 'ডিজিটাল প্রেসক্রিপশন ও বিএমডিসি রেকর্ড'
+              : 'Digital prescriptions and clinical records'
           }
           action={
             <Link
               href="/prescriptions/new"
-              className={buttonVariants({ className: 'min-h-12 text-base font-semibold px-5 shadow-sm' })}
+              className={buttonVariants({ className: 'h-10 text-sm font-semibold px-4 shadow-xs' })}
             >
-              <PlusCircle className="w-5 h-5 mr-2" />
-              <span>{locale === 'bn' ? 'নতুন প্রেসক্রিপশন লিখুন' : 'New Prescription'}</span>
+              <PlusCircle className="w-4 h-4 mr-2" />
+              <span>{locale === 'bn' ? 'নতুন প্রেসক্রিপশন' : 'New Prescription'}</span>
             </Link>
           }
         />

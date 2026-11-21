@@ -483,5 +483,32 @@
     "controllerReviewDesc": "নতুন ওষুধ অনুমোদনের জন্য যাচাই করুন।",
     "controllerNoticesTitle": "নিরাপত্তা ও রিকল",
     "controllerNoticesDesc": "ড্রাগ রিকল ও সতর্কবার্তা দেখুন।"
+  },
+  "patientFlow": {
+    "findPatient": "রোগী খুঁজুন",
+    "phoneNumber": "ফোন নম্বর",
+    "phonePlaceholder": "০১৭XXXXXXXX",
+    "patientNotFound": "রোগী পাওয়া যায়নি",
+    "createNewProfile": "নতুন রোগীর প্রোফাইল তৈরি করুন",
+    "addFamilyMember": "পরিবারের সদস্য যোগ করুন",
+    "needHistoryConsent": "পুরনো ইতিহাস দেখতে রোগীর অনুমতি লাগবে",
+    "askPermission": "অনুমতি নিন",
+    "enterOtp": "ওটিপি লিখুন",
+    "permissionGiven": "অনুমতি দেওয়া হয়েছে",
+    "revokePermission": "অনুমতি বাতিল করুন",
+    "whoViewedInfo": "কে আমার তথ্য দেখেছে",
+    "previousCheckups": "আগের চেকআপ",
+    "todayMedicines": "আজকের ওষুধ",
+    "taken": "খেয়েছি",
+    "uploadReport": "রিপোর্ট আপলোড",
+    "demoModeOtp": "ডেমো মোড: ওটিপি ১২৩৪৫৬",
+    "skipForNow": "এখন না",
+    "consentDuration": "অনুমতির মেয়াদ",
+    "days7": "৭ দিন",
+    "days30": "৩০ দিন",
+    "days90": "৯০ দিন",
+    "duplicateWarningTitle": "এই রোগী কি আগে থেকেই আছেন?",
+    "duplicateConfirm": "হ্যাঁ, নতুন প্রোফাইল তৈরি করুন",
+    "pickExisting": "আগের প্রোফাইলটি নির্বাচন করুন"
   }
 }

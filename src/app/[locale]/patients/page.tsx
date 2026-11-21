@@ -79,20 +79,20 @@ export default function PatientsListPage() {
         </div>
 
         <PageHeader
-          title={locale === 'bn' ? 'রোগীর তালিকা ও রেজিস্ট্রি' : 'Patient Registry'}
+          title={locale === 'bn' ? 'রোগীর তালিকা' : 'Patient List'}
           subtitle={
             locale === 'bn'
-              ? 'আপনার চিকিৎসাধীন সকল রোগীর বিবরণ, পূর্বের ভিজিট এবং প্রেসক্রিপশন হিস্ট্রি'
-              : 'Registered patients under your clinical care, consultation records, and history'
+              ? 'চিকিৎসাধীন রোগীর তালিকা ও রেকর্ড'
+              : 'Registered patients and consultation records'
           }
           action={
             <Link
               href="/patients/new"
               data-tour="patients-new-btn"
-              className={buttonVariants({ className: 'min-h-12 text-base font-semibold px-5 shadow-sm' })}
+              className={buttonVariants({ className: 'h-10 text-sm font-semibold px-4 shadow-xs' })}
             >
-              <PlusCircle className="w-5 h-5 mr-2" />
-              <span>{locale === 'bn' ? 'নতুন রোগী গ্রহণ' : 'New Patient Intake'}</span>
+              <PlusCircle className="w-4 h-4 mr-2" />
+              <span>{locale === 'bn' ? 'নতুন রোগী' : 'New Patient'}</span>
             </Link>
           }
         />

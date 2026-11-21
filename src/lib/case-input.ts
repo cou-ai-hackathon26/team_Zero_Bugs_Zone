@@ -7,6 +7,8 @@ const vital = z.number().finite().nonnegative().max(350).optional();
 
 export const caseInput = z.object({
   patient_code: z.string().trim().regex(/^P-[0-9]{3,8}$/),
+  profile_id: z.string().uuid().optional(),
+  idempotency_key: z.string().max(100).optional(),
   structured_input: z.object({
     age: z.number().int().min(0).max(130),
     gender: z.enum(['male', 'female', 'other']),

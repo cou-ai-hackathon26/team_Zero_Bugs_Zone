@@ -1,25 +1,46 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from '@/i18n/routing';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { AppShell } from '@/components/shared/AppShell';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { ConsentSheet } from '@/components/shared/ConsentSheet';
 import {
   UserPlus,
   ArrowRight,
   ArrowLeft,
   CheckCircle2,
   AlertTriangle,
-  HeartPulse,
-  Activity,
   ShieldCheck,
   Save,
   Check,
+  Search,
+  Smartphone,
+  Users,
+  Loader2,
+  KeyRound,
 } from 'lucide-react';
+import { toast } from 'sonner';
+
+interface ProfileMatch {
+  id: string;
+  name: string;
+  nameMasked: string;
+  relation: string;
+  age: number;
+  gender: string;
+  bloodGroup: string | null;
+  hasOtherDoctorRecords: boolean;
+  hasActiveGrant: boolean;
+  grantScope: string | null;
+  expiresAt: string | null;
+}
 
 const COMMON_SYMPTOMS_BN = [
   'জ্বর (Fever)',
@@ -54,20 +75,38 @@ const COMMON_HISTORY_BN = [
 export default function NewPatientIntakePage() {
   const router = useRouter();
   const locale = useLocale();
+  const isBn = locale === 'bn';
+  const tFlow = useTranslations('patientFlow');
 
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  // Multi-step Flow: 'find' | 'create_profile' | 'intake'
+  const [flowStep, setFlowStep] = useState<'find' | 'create_profile' | 'intake'>('find');
+  const [intakeStep, setIntakeStep] = useState<1 | 2 | 3 | 4>(1);
+
+  // Phone Search State
+  const [searchPhone, setSearchPhone] = useState('01700000001');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchPerformed, setSearchPerformed] = useState(false);
+  const [foundProfiles, setFoundProfiles] = useState<ProfileMatch[]>([]);
+  const [phoneMasked, setPhoneMasked] = useState('');
+  const [selectedProfile, setSelectedProfile] = useState<ProfileMatch | null>(null);
+
+  // Consent Sheet State
+  const [isConsentOpen, setIsConsentOpen] = useState(false);
+
+  // Profile Creation State
+  const [createName, setCreateName] = useState('');
+  const [createAge, setCreateAge] = useState<number | ''>(35);
+  const [createGender, setCreateGender] = useState<'male' | 'female' | 'other'>('male');
+  const [createRelation, setCreateRelation] = useState<'self' | 'child' | 'spouse' | 'parent' | 'other'>('self');
+  const [createBloodGroup, setCreateBloodGroup] = useState('B+');
+  const [createConsent, setCreateConsent] = useState(true);
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const [duplicateCandidate, setDuplicateCandidate] = useState<Record<string, unknown> | null>(null);
+  const [creatingProfile, setCreatingProfile] = useState(false);
+
+  // Clinical Intake State
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [autoSavedTime, setAutoSavedTime] = useState<string | null>(null);
-
-  // Form State
-  const [name, setName] = useState('');
-  const [age, setAge] = useState<number | ''>(35);
-  const [gender, setGender] = useState<'male' | 'female' | 'other'>('male');
-  const [phone, setPhone] = useState('');
-  const [bloodGroup, setBloodGroup] = useState('B+');
-  const [emergencyContact, setEmergencyContact] = useState('');
-  const [consentObtained, setConsentObtained] = useState(true);
 
   // Step 2: Chief Complaint & Symptoms
   const [chiefComplaint, setChiefComplaint] = useState('');
@@ -87,81 +126,126 @@ export default function NewPatientIntakePage() {
   const [currentMedsText, setCurrentMedsText] = useState('');
   const [selectedHistory, setSelectedHistory] = useState<string[]>([]);
 
-  // Restore draft from localStorage if present
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      try {
-        const draft = localStorage.getItem('docmate_patient_intake_draft');
-        if (draft) {
-          const parsed = JSON.parse(draft);
-          if (parsed.name) setName(parsed.name);
-          if (parsed.age) setAge(parsed.age);
-          if (parsed.gender) setGender(parsed.gender);
-          if (parsed.phone) setPhone(parsed.phone);
-          if (parsed.bloodGroup) setBloodGroup(parsed.bloodGroup);
-          if (parsed.chiefComplaint) setChiefComplaint(parsed.chiefComplaint);
-          if (parsed.selectedSymptoms) setSelectedSymptoms(parsed.selectedSymptoms);
-        }
-      } catch {}
-    }, 0);
-    return () => clearTimeout(timer);
-  }, []);
+  // Search Patient Phone
+  const handleSearchPatient = async (phoneToSearch?: string) => {
+    const target = (phoneToSearch || searchPhone).trim();
+    if (!target || target.length < 8) {
+      toast.error(isBn ? 'সঠিক ফোন নম্বর লিখুন' : 'Please enter valid phone number');
+      return;
+    }
 
-  // Autosave every 30 seconds
-  useEffect(() => {
-    const timer = setInterval(() => {
-      try {
-        const payload = {
-          name,
-          age,
-          gender,
-          phone,
-          bloodGroup,
-          chiefComplaint,
-          selectedSymptoms,
-          bpSystolic,
-          bpDiastolic,
-          pulse,
-          tempF,
-          weightKg,
-          spo2,
-          selectedAllergies,
-          currentMedsText,
-          selectedHistory,
-        };
-        localStorage.setItem('docmate_patient_intake_draft', JSON.stringify(payload));
-        setAutoSavedTime(new Date().toLocaleTimeString(locale === 'bn' ? 'bn-BD' : 'en-US'));
-      } catch {}
-    }, 30000);
-    return () => clearInterval(timer);
-  }, [
-    name,
-    age,
-    gender,
-    phone,
-    bloodGroup,
-    chiefComplaint,
-    selectedSymptoms,
-    bpSystolic,
-    bpDiastolic,
-    pulse,
-    tempF,
-    weightKg,
-    spo2,
-    selectedAllergies,
-    currentMedsText,
-    selectedHistory,
-    locale,
-  ]);
+    setSearchLoading(true);
+    setSearchPerformed(false);
+    setFoundProfiles([]);
 
+    try {
+      const res = await fetch(`/api/patient/search?phone=${encodeURIComponent(target)}`);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to search patients');
+      }
+
+      setSearchPerformed(true);
+      setPhoneMasked(data.phoneMasked || target);
+      if (data.found && data.profiles.length > 0) {
+        setFoundProfiles(data.profiles);
+      } else {
+        setFoundProfiles([]);
+      }
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error searching patient');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // Select profile
+  const handleSelectProfile = (prof: ProfileMatch) => {
+    setSelectedProfile(prof);
+
+    // Pre-fill demographics
+    setCreateName(prof.name);
+    setCreateAge(prof.age);
+    setCreateGender(prof.gender as 'male' | 'female' | 'other');
+    if (prof.bloodGroup) setCreateBloodGroup(prof.bloodGroup);
+
+    // If active grant or author, directly proceed to intake
+    if (prof.hasActiveGrant || !prof.hasOtherDoctorRecords) {
+      setFlowStep('intake');
+    }
+  };
+
+  // Handle Create Profile
+  const handleCreateProfileSubmit = async (confirmDuplicate = false) => {
+    if (!createName || !createAge) {
+      toast.error(isBn ? 'নাম ও বয়স প্রদান করুন' : 'Name and age are required');
+      return;
+    }
+
+    setCreatingProfile(true);
+    setDuplicateWarning(null);
+
+    try {
+      const idempotencyKey = `create-profile-${searchPhone}-${createName}-${Date.now()}`;
+      const res = await fetch('/api/patient/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: searchPhone.trim(),
+          name: createName.trim(),
+          age: Number(createAge),
+          gender: createGender,
+          relation: createRelation,
+          bloodGroup: createBloodGroup,
+          consentObtained: true,
+          confirmDuplicate,
+          idempotencyKey,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.status === 409 && data.duplicateWarning) {
+        setDuplicateWarning(data.message);
+        setDuplicateCandidate(data.existingProfile);
+        setCreatingProfile(false);
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to create profile');
+      }
+
+      toast.success(isBn ? 'রোগীর প্রোফাইল সফলভাবে তৈরি হয়েছে' : 'Profile created successfully');
+      setSelectedProfile({
+        id: data.profile.id,
+        name: data.profile.name,
+        nameMasked: data.profile.name,
+        relation: data.profile.relation,
+        age: data.profile.age,
+        gender: data.profile.gender,
+        bloodGroup: data.profile.bloodGroup,
+        hasOtherDoctorRecords: false,
+        hasActiveGrant: true,
+        grantScope: 'this_doctor_only',
+        expiresAt: null,
+      });
+
+      setFlowStep('intake');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error creating profile');
+    } finally {
+      setCreatingProfile(false);
+    }
+  };
+
+  // Symptoms, Allergies, History toggles
   const toggleSymptom = (sym: string) => {
     if (selectedSymptoms.includes(sym)) {
       setSelectedSymptoms(selectedSymptoms.filter((s) => s !== sym));
     } else {
       setSelectedSymptoms([...selectedSymptoms, sym]);
-      if (!chiefComplaint) {
-        setChiefComplaint(sym);
-      }
+      if (!chiefComplaint) setChiefComplaint(sym);
     }
   };
 
@@ -188,636 +272,846 @@ export default function NewPatientIntakePage() {
     }
   };
 
-  // Critical Vitals Detection
-  const isCriticalBP = (Number(bpSystolic) >= 180 || Number(bpSystolic) <= 90 || Number(bpDiastolic) >= 110);
-  const isCriticalSpO2 = (Number(spo2) < 92);
-  const isHighFever = (Number(tempF) >= 103);
-  const hasCriticalVital = isCriticalBP || isCriticalSpO2 || isHighFever;
-
-  const handleFinalSubmit = async () => {
-    if (!consentObtained) {
-      setErrorMessage(
-        locale === 'bn'
-          ? 'রোগীর ডেটা সুরক্ষার সম্মতি প্রদান আবশ্যক।'
-          : 'Patient data consent is strictly mandatory.'
-      );
-      return;
-    }
-
-    if (!name || !age) {
-      setErrorMessage(
-        locale === 'bn' ? 'রোগীর নাম ও বয়স প্রদান করুন।' : 'Please enter patient name and age.'
-      );
-      return;
-    }
-
+  // Final Clinical Case Submit
+  const handleFinalCaseSubmit = async () => {
     setSubmitting(true);
     setErrorMessage('');
 
     const vitalsData = {
-      bpSystolic: Number(bpSystolic) || 120,
-      bpDiastolic: Number(bpDiastolic) || 80,
-      pulse: Number(pulse) || 76,
-      tempF: Number(tempF) || 98.6,
-      weightKg: Number(weightKg) || 65,
-      spo2: Number(spo2) || 98,
+      blood_pressure_systolic: Number(bpSystolic) || 120,
+      blood_pressure_diastolic: Number(bpDiastolic) || 80,
+      heart_rate: Number(pulse) || 76,
+      temperature_celsius: Math.round(((Number(tempF) || 98.6) - 32) * (5 / 9) * 10) / 10,
+      respiratory_rate: 18,
+      spo2_percent: Number(spo2) || 98,
     };
 
     const currentMedsList = currentMedsText
       .split('\n')
       .map((m) => m.trim())
-      .filter(Boolean)
-      .map((brand) => ({ brand, generic: brand }));
+      .filter(Boolean);
+
+    const seq = Math.floor(100 + Math.random() * 900);
+    const patientCode = `P-${new Date().getFullYear()}-${seq}`;
+    const idempotencyKey = `case-create-${selectedProfile?.id || searchPhone}-${Date.now()}`;
 
     const payload = {
-      name: name.trim(),
-      age: Number(age),
-      gender,
-      phone: phone.trim(),
-      bloodGroup,
-      emergencyContact: emergencyContact.trim(),
-      consentObtained: true,
-      chiefComplaint: chiefComplaint.trim() || selectedSymptoms.join(', ') || 'General Consultation',
-      symptoms: selectedSymptoms,
-      vitals: vitalsData,
-      allergies: selectedAllergies,
-      currentMedications: currentMedsList,
-      pastHistory: selectedHistory.join(', '),
+      patient_code: patientCode,
+      profile_id: selectedProfile?.id || undefined,
+      idempotency_key: idempotencyKey,
+      structured_input: {
+        age: Number(createAge) || 35,
+        gender: createGender,
+        weight_kg: Number(weightKg) || 65,
+        chief_complaint: chiefComplaint.trim() || selectedSymptoms.join(', ') || 'General Consultation',
+        symptoms: selectedSymptoms,
+        past_medical_history: selectedHistory,
+        current_medicines: currentMedsList,
+        allergies: selectedAllergies,
+        vitals: vitalsData,
+        lab_values: [],
+        clinical_notes: `Patient Profile: ${selectedProfile?.name || createName}`,
+      },
     };
 
     try {
-      const res = await fetch('/api/patients', {
+      const res = await fetch('/api/cases', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-        credentials: 'same-origin',
       });
 
+      const data = await res.json();
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to save patient');
+        throw new Error(data.error || 'Failed to create case');
       }
 
-      const data = await res.json();
-      localStorage.removeItem('docmate_patient_intake_draft');
-      router.push(`/patients/${data.patient.id}`);
+      toast.success(isBn ? 'কেস সফলভাবে তৈরি হয়েছে!' : 'Case created successfully!');
+      router.push(`/cases/${data.case.id}`);
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : 'Error occurred while saving patient record');
+      const msg = err instanceof Error ? err.message : 'Error creating case';
+      setErrorMessage(msg);
+      toast.error(msg);
+    } finally {
       setSubmitting(false);
     }
   };
 
   return (
     <AppShell>
-      <div className="space-y-6 max-w-4xl mx-auto pb-16">
+      <div className="max-w-4xl mx-auto space-y-6 pb-12">
         <PageHeader
-          title={locale === 'bn' ? 'নতুন রোগী গ্রহণ (Intake)' : 'New Patient Intake'}
+          title={isBn ? 'নতুন রোগী গ্রহণ ও কেস শুরু' : 'New Patient Intake & Case Creation'}
           subtitle={
-            locale === 'bn'
-              ? '৪-ধাপের সহজ ক্লিনিকাল ইনটেক: মৌলিক তথ্য, উপসর্গ, ভাইটাল ও প্রেসক্রিপশন প্রস্তুতি'
-              : '4-step clinician intake: demographics, symptoms, vitals, and medical history'
+            isBn
+              ? 'মোবাইল নম্বর দিয়ে রোগী খুঁজুন বা নতুন প্রোফাইল তৈরি করে তাৎক্ষণিক কেস শুরু করুন'
+              : 'Find patient by mobile phone or create profile to begin clinical consultation'
           }
         />
 
-        {/* 4-Step Progress Indicator */}
-        <div className="grid grid-cols-4 gap-2 text-center text-xs font-bold">
-          <div
-            onClick={() => setStep(1)}
-            className={`cursor-pointer p-3 rounded-xl border-2 transition-all ${
-              step === 1
-                ? 'border-primary bg-primary text-primary-foreground shadow-sm'
-                : 'border-border bg-card text-muted-foreground hover:border-primary/50'
-            }`}
-          >
-            <span className="block text-[11px] opacity-80">{locale === 'bn' ? 'ধাপ ১' : 'Step 1'}</span>
-            <span className="text-sm">{locale === 'bn' ? 'মৌলিক ও সম্মতি' : 'Info & Consent'}</span>
-          </div>
-
-          <div
-            onClick={() => setStep(2)}
-            className={`cursor-pointer p-3 rounded-xl border-2 transition-all ${
-              step === 2
-                ? 'border-primary bg-primary text-primary-foreground shadow-sm'
-                : 'border-border bg-card text-muted-foreground hover:border-primary/50'
-            }`}
-          >
-            <span className="block text-[11px] opacity-80">{locale === 'bn' ? 'ধাপ ২' : 'Step 2'}</span>
-            <span className="text-sm">{locale === 'bn' ? 'উপসর্গ সমূহ' : 'Symptoms'}</span>
-          </div>
-
-          <div
-            onClick={() => setStep(3)}
-            className={`cursor-pointer p-3 rounded-xl border-2 transition-all ${
-              step === 3
-                ? 'border-primary bg-primary text-primary-foreground shadow-sm'
-                : 'border-border bg-card text-muted-foreground hover:border-primary/50'
-            }`}
-          >
-            <span className="block text-[11px] opacity-80">{locale === 'bn' ? 'ধাপ ৩' : 'Step 3'}</span>
-            <span className="text-sm">{locale === 'bn' ? 'ভাইটাল সাইন' : 'Vitals'}</span>
-          </div>
-
-          <div
-            onClick={() => setStep(4)}
-            className={`cursor-pointer p-3 rounded-xl border-2 transition-all ${
-              step === 4
-                ? 'border-primary bg-primary text-primary-foreground shadow-sm'
-                : 'border-border bg-card text-muted-foreground hover:border-primary/50'
-            }`}
-          >
-            <span className="block text-[11px] opacity-80">{locale === 'bn' ? 'ধাপ ৪' : 'Step 4'}</span>
-            <span className="text-sm">{locale === 'bn' ? 'অ্যালার্জি ও ইতিহাস' : 'Allergies & Meds'}</span>
-          </div>
-        </div>
-
-        {/* Error Alert */}
-        {errorMessage && (
-          <div className="p-4 rounded-xl bg-destructive/15 border border-destructive text-destructive text-sm font-semibold flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 shrink-0" />
-            <span>{errorMessage}</span>
-          </div>
-        )}
-
-        {/* STEP 1: Basic Info & Mandatory Consent */}
-        {step === 1 && (
-          <Card className="border-border shadow-xs">
-            <CardHeader className="pb-3 border-b border-border/50">
-              <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
-                <UserPlus className="w-5 h-5 text-primary" />
-                <span>{locale === 'bn' ? 'ধাপ ১: রোগীর সাধারণ তথ্য ও ডেটা সম্মতি' : 'Step 1: Patient Information & Consent'}</span>
-              </CardTitle>
-              <CardDescription className="text-sm">
-                {locale === 'bn'
-                  ? 'রোগীর নাম, বয়স, যোগাযোগ এবং ডেটা সুরক্ষার সম্মতি নিশ্চিত করুন।'
-                  : 'Enter patient demographics and verify mandatory privacy consent.'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              {/* Mandatory Consent Checkbox */}
-              <div className="p-4 rounded-xl border-2 border-primary/40 bg-primary/5 flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  id="consentCheckbox"
-                  checked={consentObtained}
-                  onChange={(e) => setConsentObtained(e.target.checked)}
-                  className="w-6 h-6 mt-0.5 rounded text-primary focus:ring-primary cursor-pointer"
-                />
-                <label htmlFor="consentCheckbox" className="text-sm font-bold text-foreground cursor-pointer leading-snug">
-                  <span>{locale === 'bn' ? 'রোগীর ডেটা সুরক্ষার সম্মতি নেওয়া হয়েছে (Consent Obtained)' : 'Patient Data Protection Consent Obtained'}</span>
-                  <span className="block font-normal text-xs text-muted-foreground mt-1">
-                    {locale === 'bn'
-                      ? 'রোগী তার ক্লিনিকাল পর্যবেক্ষণ ও স্বাস্থ্য তথ্য ডকমেইট এআই সিস্টেমে নিরাপদ এনক্রিপশনে সংরক্ষণ করতে সম্মত হয়েছেন।'
-                      : 'The patient has explicitly consented to encrypted storage and clinical processing of their health data.'}
-                  </span>
-                </label>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-bold text-foreground mb-1.5">
-                    {locale === 'bn' ? 'রোগীর পুরো নাম *' : 'Patient Full Name *'}
-                  </label>
-                  <Input
-                    placeholder={locale === 'bn' ? 'উদা: মোসাম্মৎ আয়েশা বেগম' : 'e.g. Ayesha Begum'}
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="h-12 text-base"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-foreground mb-1.5">
-                    {locale === 'bn' ? 'বয়স (বছর) *' : 'Age (Years) *'}
-                  </label>
-                  <Input
-                    type="number"
-                    placeholder="35"
-                    value={age}
-                    onChange={(e) => setAge(e.target.value ? Number(e.target.value) : '')}
-                    className="h-12 text-base"
-                    min={0}
-                    max={130}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-bold text-foreground mb-1.5">
-                    {locale === 'bn' ? 'লিঙ্গ *' : 'Gender *'}
-                  </label>
-                  <select
-                    value={gender}
-                    onChange={(e) => setGender(e.target.value as 'male' | 'female' | 'other')}
-                    className="w-full h-12 px-3 rounded-md border border-input bg-background text-base font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+        {/* =========================================================================
+            STAGE 1: FIND OR SELECT PATIENT PROFILE
+           ========================================================================= */}
+        {flowStep === 'find' && (
+          <div className="space-y-6">
+            <Card className="border border-border shadow-xs bg-card">
+              <CardHeader className="space-y-1">
+                <CardTitle className="text-lg font-bold flex items-center gap-2">
+                  <Smartphone className="w-5 h-5 text-primary" />
+                  <span>{tFlow('phoneNumber')}</span>
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  {isBn
+                    ? 'রোগী নিবন্ধিত থাকলে তার সকল পারিবারিক প্রোফাইল প্রদর্শিত হবে'
+                    : 'Search patient by 11-digit mobile number to view family profiles'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="relative flex-1">
+                    <Input
+                      type="tel"
+                      inputMode="numeric"
+                      value={searchPhone}
+                      onChange={(e) => setSearchPhone(e.target.value)}
+                      placeholder={tFlow('phonePlaceholder')}
+                      className="h-12 text-base font-mono tracking-wide pl-4 pr-10"
+                      onKeyDown={(e) => e.key === 'Enter' && handleSearchPatient()}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={() => handleSearchPatient()}
+                    disabled={searchLoading}
+                    className="h-12 px-6 text-sm font-semibold bg-primary hover:bg-primary/90 text-primary-foreground gap-2 shrink-0"
                   >
-                    <option value="male">{locale === 'bn' ? 'পুরুষ (Male)' : 'Male'}</option>
-                    <option value="female">{locale === 'bn' ? 'মহিলা (Female)' : 'Female'}</option>
-                    <option value="other">{locale === 'bn' ? 'অন্যান্য (Other)' : 'Other'}</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-foreground mb-1.5">
-                    {locale === 'bn' ? 'রক্তের গ্রুপ' : 'Blood Group'}
-                  </label>
-                  <select
-                    value={bloodGroup}
-                    onChange={(e) => setBloodGroup(e.target.value)}
-                    className="w-full h-12 px-3 rounded-md border border-input bg-background text-base font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                    <option value="O+">O+</option>
-                    <option value="O-">O-</option>
-                    <option value="">{locale === 'bn' ? 'জানা নেই (Unknown)' : 'Unknown'}</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-foreground mb-1.5">
-                    {locale === 'bn' ? 'মোবাইল নম্বর' : 'Mobile Number'}
-                  </label>
-                  <Input
-                    placeholder="+8801712345678"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="h-12 text-base"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-foreground mb-1.5">
-                  {locale === 'bn' ? 'জরুরি যোগাযোগ (সম্পর্ক ও ফোন)' : 'Emergency Contact (Relation & Phone)'}
-                </label>
-                <Input
-                  placeholder={locale === 'bn' ? 'স্বামী: মো: রফিকুল ইসলাম (+8801711223344)' : 'Spouse / Guardian phone'}
-                  value={emergencyContact}
-                  onChange={(e) => setEmergencyContact(e.target.value)}
-                  className="h-12 text-base"
-                />
-              </div>
-
-              <div className="flex justify-end pt-4">
-                <Button
-                  onClick={() => {
-                    if (!name.trim()) {
-                      setErrorMessage(locale === 'bn' ? 'রোগীর নাম পূরণ করুন' : 'Enter patient name');
-                      return;
-                    }
-                    if (!consentObtained) {
-                      setErrorMessage(locale === 'bn' ? 'সম্মতি প্রদান আবশ্যক' : 'Consent is required');
-                      return;
-                    }
-                    setErrorMessage('');
-                    setStep(2);
-                  }}
-                  className="min-h-12 px-6 text-base font-bold"
-                >
-                  <span>{locale === 'bn' ? 'পরবর্তী: উপসর্গ নির্বাচন' : 'Next: Symptoms'}</span>
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* STEP 2: Chief Complaint & Symptoms */}
-        {step === 2 && (
-          <Card className="border-border shadow-xs">
-            <CardHeader className="pb-3 border-b border-border/50">
-              <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
-                <Activity className="w-5 h-5 text-primary" />
-                <span>{locale === 'bn' ? 'ধাপ ২: প্রধান কষ্ট ও উপসর্গসমূহ (Symptoms)' : 'Step 2: Chief Complaint & Symptoms'}</span>
-              </CardTitle>
-              <CardDescription className="text-sm">
-                {locale === 'bn'
-                  ? 'দ্রুত উপসর্গ চিপে ক্লিক করুন অথবা চিকিৎসকের নিজস্ব ভাষায় বিস্তারিত লিখুন।'
-                  : 'Click common symptoms chips or write detailed clinical complaints.'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              <div>
-                <label className="block text-sm font-bold text-foreground mb-2">
-                  {locale === 'bn' ? 'সাধারণ উপসর্গ চিপসমূহ (ক্লিক করে নির্বাচন করুন):' : 'Common Symptoms (Click to toggle):'}
-                </label>
-                <div className="flex flex-wrap gap-2.5">
-                  {COMMON_SYMPTOMS_BN.map((sym) => {
-                    const isSelected = selectedSymptoms.includes(sym);
-                    return (
-                      <button
-                        key={sym}
-                        type="button"
-                        onClick={() => toggleSymptom(sym)}
-                        className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-all border ${
-                          isSelected
-                            ? 'bg-primary text-primary-foreground border-primary shadow-xs'
-                            : 'bg-muted/40 hover:bg-muted text-foreground border-border'
-                        }`}
-                      >
-                        {isSelected && <Check className="w-4 h-4 inline mr-1" />}
-                        {sym}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-foreground mb-1.5">
-                  {locale === 'bn' ? 'প্রধান কষ্ট / বিস্তারিত বিবরণ (Chief Complaint)' : 'Chief Complaint Description'}
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder={
-                    locale === 'bn'
-                      ? 'উদা: তীব্র জ্বর ও শ্বাসকষ্ট ৪ দিন যাবত। রাতে কাশির তীব্রতা বৃদ্ধি পায়...'
-                      : 'e.g. High fever with cough and dyspnea for 4 days...'
-                  }
-                  value={chiefComplaint}
-                  onChange={(e) => setChiefComplaint(e.target.value)}
-                  className="w-full p-3 rounded-lg border border-input bg-background text-base text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
-                />
-              </div>
-
-              <div className="flex justify-between pt-4">
-                <Button variant="outline" onClick={() => setStep(1)} className="min-h-12 px-5 text-base">
-                  <ArrowLeft className="w-5 h-5 mr-2" />
-                  <span>{locale === 'bn' ? 'পূর্ববর্তী' : 'Back'}</span>
-                </Button>
-                <Button onClick={() => setStep(3)} className="min-h-12 px-6 text-base font-bold">
-                  <span>{locale === 'bn' ? 'পরবর্তী: ভাইটাল সাইন' : 'Next: Vitals'}</span>
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* STEP 3: Vitals */}
-        {step === 3 && (
-          <Card className="border-border shadow-xs">
-            <CardHeader className="pb-3 border-b border-border/50">
-              <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
-                <HeartPulse className="w-5 h-5 text-primary" />
-                <span>{locale === 'bn' ? 'ধাপ ৩: ভাইটাল সাইন (Vital Signs)' : 'Step 3: Vital Signs'}</span>
-              </CardTitle>
-              <CardDescription className="text-sm">
-                {locale === 'bn'
-                  ? 'ক্লিনিকাল স্ট্যান্ডার্ড ভাইটাল পরিমাপ নথিভুক্ত করুন। বিপজ্জনক মানে স্বয়ংক্রিয় সতর্কবার্তা দেখাবে।'
-                  : 'Record baseline patient vitals. Critical values trigger automatic clinical highlights.'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              {hasCriticalVital && (
-                <div className="p-4 rounded-xl bg-destructive/15 border-2 border-destructive text-destructive font-bold text-sm flex items-center gap-2">
-                  <AlertTriangle className="w-6 h-6 shrink-0 animate-pulse" />
-                  <span>
-                    {locale === 'bn'
-                      ? 'সতর্কতা: পরিমাপকৃত ভাইটাল সাইনের মধ্যে সংকটজনক মান পরিলক্ষিত হয়েছে (Critical Vital Detected)!'
-                      : 'Warning: Abnormal or critical vital signs detected! Immediate stabilization may be warranted.'}
-                  </span>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-bold text-foreground mb-1.5">
-                    {locale === 'bn' ? 'রক্তচাপ সিস্টোলিক (BP Sys)' : 'Systolic BP (mmHg)'}
-                  </label>
-                  <Input
-                    type="number"
-                    value={bpSystolic}
-                    onChange={(e) => setBpSystolic(e.target.value ? Number(e.target.value) : '')}
-                    className={`h-12 text-base ${isCriticalBP ? 'border-destructive bg-destructive/5 font-bold text-destructive' : ''}`}
-                    placeholder="120"
-                  />
-                  <span className="text-[11px] text-muted-foreground mt-0.5 block">স্বাভাবিক: ১১০ - ১৩০ mmHg</span>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-foreground mb-1.5">
-                    {locale === 'bn' ? 'রক্তচাপ ডায়াস্টোলিক (BP Dia)' : 'Diastolic BP (mmHg)'}
-                  </label>
-                  <Input
-                    type="number"
-                    value={bpDiastolic}
-                    onChange={(e) => setBpDiastolic(e.target.value ? Number(e.target.value) : '')}
-                    className="h-12 text-base"
-                    placeholder="80"
-                  />
-                  <span className="text-[11px] text-muted-foreground mt-0.5 block">স্বাভাবিক: ৭০ - ৮৫ mmHg</span>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-foreground mb-1.5">
-                    {locale === 'bn' ? 'নাড়ির স্পন্দন (Pulse / min)' : 'Pulse (bpm)'}
-                  </label>
-                  <Input
-                    type="number"
-                    value={pulse}
-                    onChange={(e) => setPulse(e.target.value ? Number(e.target.value) : '')}
-                    className="h-12 text-base"
-                    placeholder="76"
-                  />
-                  <span className="text-[11px] text-muted-foreground mt-0.5 block">স্বাভাবিক: ৬০ - ১০০ bpm</span>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-foreground mb-1.5">
-                    {locale === 'bn' ? 'তাপমাত্রা (°F)' : 'Temperature (°F)'}
-                  </label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={tempF}
-                    onChange={(e) => setTempF(e.target.value ? Number(e.target.value) : '')}
-                    className={`h-12 text-base ${isHighFever ? 'border-destructive bg-destructive/5 font-bold text-destructive' : ''}`}
-                    placeholder="98.6"
-                  />
-                  <span className="text-[11px] text-muted-foreground mt-0.5 block">স্বাভাবিক: ৯৮.৪°F - ৯৮.৬°F</span>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-foreground mb-1.5">
-                    {locale === 'bn' ? 'অক্সিজেন স্যাচুরেশন (SpO2 %)' : 'SpO2 (%)'}
-                  </label>
-                  <Input
-                    type="number"
-                    value={spo2}
-                    onChange={(e) => setSpo2(e.target.value ? Number(e.target.value) : '')}
-                    className={`h-12 text-base ${isCriticalSpO2 ? 'border-destructive bg-destructive/5 font-bold text-destructive' : ''}`}
-                    placeholder="98"
-                  />
-                  <span className="text-[11px] text-muted-foreground mt-0.5 block">স্বাভাবিক: ৯৫% - ১০০%</span>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-foreground mb-1.5">
-                    {locale === 'bn' ? 'ওজন (কেজি / kg)' : 'Weight (kg)'}
-                  </label>
-                  <Input
-                    type="number"
-                    value={weightKg}
-                    onChange={(e) => setWeightKg(e.target.value ? Number(e.target.value) : '')}
-                    className="h-12 text-base"
-                    placeholder="65"
-                  />
-                  <span className="text-[11px] text-muted-foreground mt-0.5 block">ওষুধের সঠিক ডোজের জন্য</span>
-                </div>
-              </div>
-
-              <div className="flex justify-between pt-4">
-                <Button variant="outline" onClick={() => setStep(2)} className="min-h-12 px-5 text-base">
-                  <ArrowLeft className="w-5 h-5 mr-2" />
-                  <span>{locale === 'bn' ? 'পূর্ববর্তী' : 'Back'}</span>
-                </Button>
-                <Button onClick={() => setStep(4)} className="min-h-12 px-6 text-base font-bold">
-                  <span>{locale === 'bn' ? 'পরবর্তী: অ্যালার্জি ও ওষুধ' : 'Next: Allergies & History'}</span>
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* STEP 4: Allergies, Current Meds & Medical History */}
-        {step === 4 && (
-          <Card className="border-border shadow-xs">
-            <CardHeader className="pb-3 border-b border-border/50">
-              <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
-                <ShieldCheck className="w-5 h-5 text-primary" />
-                <span>{locale === 'bn' ? 'ধাপ ৪: পরিচিত অ্যালার্জি ও পূর্বের ওষুধ' : 'Step 4: Known Allergies & History'}</span>
-              </CardTitle>
-              <CardDescription className="text-sm">
-                {locale === 'bn'
-                  ? 'ওষুধের পার্শ্বপ্রতিক্রিয়া এবং ড্রাগ ইন্টারঅ্যাকশন রোধে পূর্ববর্তী তথ্য নথিভুক্ত করুন।'
-                  : 'Document hypersensitivities, existing medications, and chronic conditions to prevent adverse events.'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              {/* Known Allergies */}
-              <div>
-                <label className="block text-sm font-bold text-foreground mb-2">
-                  {locale === 'bn' ? 'পরিচিত ড্রাগ অ্যালার্জি (Known Drug Allergies):' : 'Known Drug Allergies:'}
-                </label>
-                <div className="flex flex-wrap gap-2.5 mb-3">
-                  {COMMON_ALLERGIES_BN.map((all) => {
-                    const isSelected = selectedAllergies.includes(all);
-                    return (
-                      <button
-                        key={all}
-                        type="button"
-                        onClick={() => toggleAllergy(all)}
-                        className={`px-3 py-1.5 rounded-xl text-sm font-semibold transition-all border ${
-                          isSelected
-                            ? 'bg-destructive text-destructive-foreground border-destructive'
-                            : 'bg-muted/40 hover:bg-muted text-foreground border-border'
-                        }`}
-                      >
-                        {isSelected && <Check className="w-4 h-4 inline mr-1" />}
-                        {all}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder={locale === 'bn' ? 'অন্য কোনো অ্যালার্জি যোগ করুন...' : 'Add other allergy...'}
-                    value={customAllergy}
-                    onChange={(e) => setCustomAllergy(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomAllergy())}
-                    className="h-11 text-sm"
-                  />
-                  <Button type="button" variant="outline" onClick={addCustomAllergy} className="h-11">
-                    {locale === 'bn' ? 'যোগ করুন' : 'Add'}
+                    {searchLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Search className="w-4 h-4" />
+                    )}
+                    <span>{tFlow('findPatient')}</span>
                   </Button>
                 </div>
-              </div>
 
-              {/* Current Medications */}
-              <div>
-                <label className="block text-sm font-bold text-foreground mb-1.5">
-                  {locale === 'bn' ? 'বর্তমানে সেবনরত ওষুধ সমূহ (প্রতি লাইনে একটি)' : 'Current Medications (One per line)'}
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder={
-                    locale === 'bn'
-                      ? 'উদা: Tab Napa 500mg (1+0+1)\nCap Seclo 20mg (1+0+0)'
-                      : 'e.g. Tab Napa 500mg\nCap Seclo 20mg'
-                  }
-                  value={currentMedsText}
-                  onChange={(e) => setCurrentMedsText(e.target.value)}
-                  className="w-full p-3 rounded-lg border border-input bg-background text-base text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
-                />
-              </div>
-
-              {/* Past History */}
-              <div>
-                <label className="block text-sm font-bold text-foreground mb-2">
-                  {locale === 'bn' ? 'পূর্বের রোগব্যাধি ও ইতিহাস (Past Medical History):' : 'Past Medical History:'}
-                </label>
-                <div className="flex flex-wrap gap-2.5">
-                  {COMMON_HISTORY_BN.map((hist) => {
-                    const isSelected = selectedHistory.includes(hist);
-                    return (
-                      <button
-                        key={hist}
-                        type="button"
-                        onClick={() => toggleHistory(hist)}
-                        className={`px-3 py-1.5 rounded-xl text-sm font-semibold transition-all border ${
-                          isSelected
-                            ? 'bg-primary text-primary-foreground border-primary'
-                            : 'bg-muted/40 hover:bg-muted text-foreground border-border'
-                        }`}
-                      >
-                        {isSelected && <Check className="w-4 h-4 inline mr-1" />}
-                        {hist}
-                      </button>
-                    );
-                  })}
+                {/* Demo Phone Shortcuts */}
+                <div className="pt-1 space-y-1.5">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    {isBn ? 'ডেমো রোগী নম্বর:' : 'Demo Patient Shortcuts:'}
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchPhone('01700000001');
+                        handleSearchPatient('01700000001');
+                      }}
+                      className="px-2.5 py-1 rounded border border-border text-xs bg-card hover:bg-muted text-muted-foreground hover:text-foreground font-mono"
+                    >
+                      01700000001 (কামাল হোসেন)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchPhone('01700000002');
+                        handleSearchPatient('01700000002');
+                      }}
+                      className="px-2.5 py-1 rounded border border-border text-xs bg-card hover:bg-muted text-muted-foreground hover:text-foreground font-mono"
+                    >
+                      01700000002 (রফিকুল ও পরিবার)
+                    </button>
+                  </div>
                 </div>
-              </div>
+              </CardContent>
+            </Card>
 
-              {autoSavedTime && (
-                <div className="text-xs text-muted-foreground flex items-center gap-1.5 pt-2">
-                  <Save className="w-3.5 h-3.5 text-primary" />
-                  <span>{locale === 'bn' ? `খসড়া স্বয়ংক্রিয় সংরক্ষিত: ${autoSavedTime}` : `Draft autosaved at: ${autoSavedTime}`}</span>
+            {/* Search Results Display */}
+            {searchPerformed && (
+              <div className="space-y-4">
+                {foundProfiles.length > 0 ? (
+                  <Card className="border border-border bg-card shadow-xs">
+                    <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                      <div>
+                        <CardTitle className="text-base font-bold">
+                          {isBn ? 'পাওয়া গেছে: প্রোফাইল তালিকা' : 'Found Profiles on this Account'}
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                          {phoneMasked} • {foundProfiles.length} {isBn ? 'টি প্রোফাইল' : 'profiles'}
+                        </CardDescription>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFlowStep('create_profile')}
+                        className="text-xs gap-1.5"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>{tFlow('addFamilyMember')}</span>
+                      </Button>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {foundProfiles.map((prof) => {
+                          const isSelected = selectedProfile?.id === prof.id;
+                          return (
+                            <div
+                              key={prof.id}
+                              onClick={() => handleSelectProfile(prof)}
+                              className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
+                                isSelected
+                                  ? 'border-primary bg-primary/5 ring-2 ring-primary/40 shadow-xs'
+                                  : 'border-border bg-card hover:border-primary/50 hover:bg-muted/30'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="font-bold text-base text-foreground">
+                                  {prof.name}
+                                </div>
+                                <Badge variant="outline" className="text-[10px] capitalize">
+                                  {prof.relation}
+                                </Badge>
+                              </div>
+
+                              <div className="text-xs text-muted-foreground space-x-2 mb-3">
+                                <span>{prof.age} {isBn ? 'বছর' : 'yrs'}</span>
+                                <span>•</span>
+                                <span className="capitalize">{prof.gender}</span>
+                                {prof.bloodGroup && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="font-semibold text-primary">{prof.bloodGroup}</span>
+                                  </>
+                                )}
+                              </div>
+
+                              <div className="pt-2 border-t border-border/60 flex items-center justify-between">
+                                {prof.hasActiveGrant ? (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                                    <ShieldCheck className="w-3.5 h-3.5" />
+                                    <span>{isBn ? 'অনুমতি আছে' : 'Access Active'}</span>
+                                  </span>
+                                ) : prof.hasOtherDoctorRecords ? (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                                    <KeyRound className="w-3.5 h-3.5" />
+                                    <span>{isBn ? 'অনুমতি প্রয়োজন' : 'Consent Needed'}</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-[11px] text-muted-foreground">
+                                    {isBn ? 'নতুন পরামর্শ' : 'Direct Access'}
+                                  </span>
+                                )}
+
+                                <Button size="sm" variant={isSelected ? 'default' : 'secondary'} className="h-7 text-xs px-2.5">
+                                  {isBn ? 'নির্বাচন করুন' : 'Select'}
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* History Permission Banner if selected profile has other doctor records */}
+                      {selectedProfile && selectedProfile.hasOtherDoctorRecords && !selectedProfile.hasActiveGrant && (
+                        <div className="mt-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                          <div className="space-y-1">
+                            <strong className="font-semibold flex items-center gap-1.5 text-sm">
+                              <KeyRound className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                              <span>{tFlow('needHistoryConsent')}</span>
+                            </strong>
+                            <p className="text-muted-foreground">
+                              {isBn
+                                ? 'রোগীর পূর্ববর্তী ডাক্তারদের প্রেসক্রিপশন ও ড্রাগ হিস্ট্রি দেখার জন্য ওটিপি অনুমোদন নিন।'
+                                : 'Obtain patient OTP authorization to inspect past prescriptions and drug safety records.'}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setFlowStep('intake')}
+                              className="text-xs h-9"
+                            >
+                              {tFlow('skipForNow')}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => setIsConsentOpen(true)}
+                              className="text-xs h-9 bg-amber-600 hover:bg-amber-700 text-white font-semibold gap-1.5"
+                            >
+                              <ShieldCheck className="w-3.5 h-3.5" />
+                              <span>{tFlow('askPermission')}</span>
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card className="border border-border bg-card shadow-xs text-center p-8 space-y-4">
+                    <div className="w-12 h-12 rounded-full bg-muted text-muted-foreground flex items-center justify-center mx-auto">
+                      <Users className="w-6 h-6" />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-base text-foreground">
+                        {tFlow('patientNotFound')}
+                      </h3>
+                      <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                        {isBn
+                          ? `নম্বর ${searchPhone}-এর বিপরীতে কোনো অ্যাকাউন্ট পাওয়া যায়নি। এখনই নতুন রোগীর প্রোফাইল তৈরি করুন।`
+                          : `No patient account found for ${searchPhone}. Create a new patient profile now.`}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => setFlowStep('create_profile')}
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold gap-2"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>{tFlow('createNewProfile')}</span>
+                    </Button>
+                  </Card>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* =========================================================================
+            STAGE 2: CREATE PATIENT PROFILE (OR ADD FAMILY MEMBER)
+           ========================================================================= */}
+        {flowStep === 'create_profile' && (
+          <Card className="border border-border shadow-xs bg-card">
+            <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-border">
+              <div className="space-y-1">
+                <CardTitle className="text-lg font-bold">
+                  {tFlow('createNewProfile')}
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  {isBn ? `মোবাইল নম্বর: ${searchPhone}` : `Account Phone: ${searchPhone}`}
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setFlowStep('find')}
+                className="text-xs gap-1"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>{isBn ? 'ফিরে যান' : 'Back'}</span>
+              </Button>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-5">
+              {duplicateWarning && (
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs space-y-3">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <strong className="font-bold text-sm">{tFlow('duplicateWarningTitle')}</strong>
+                      <p>{duplicateWarning}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        if (duplicateCandidate) {
+                          handleSelectProfile(duplicateCandidate as unknown as ProfileMatch);
+                        }
+                      }}
+                      className="text-xs"
+                    >
+                      {tFlow('pickExisting')}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => handleCreateProfileSubmit(true)}
+                      className="text-xs bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+                    >
+                      {tFlow('duplicateConfirm')}
+                    </Button>
+                  </div>
                 </div>
               )}
 
-              <div className="flex justify-between pt-4">
-                <Button variant="outline" onClick={() => setStep(3)} className="min-h-12 px-5 text-base">
-                  <ArrowLeft className="w-5 h-5 mr-2" />
-                  <span>{locale === 'bn' ? 'পূর্ববর্তী' : 'Back'}</span>
-                </Button>
-                <Button
-                  onClick={handleFinalSubmit}
-                  disabled={submitting}
-                  className="min-h-12 px-8 text-base font-bold bg-primary hover:bg-primary/95 text-primary-foreground shadow-md"
-                >
-                  <CheckCircle2 className="w-5 h-5 mr-2" />
-                  <span>
-                    {submitting
-                      ? locale === 'bn'
-                        ? 'সংরক্ষণ হচ্ছে...'
-                        : 'Saving...'
-                      : locale === 'bn'
-                        ? 'রোগী গ্রহণ সম্পন্ন করুন'
-                        : 'Complete Patient Intake'}
-                  </span>
-                </Button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="profName" className="text-xs font-medium">
+                    {isBn ? 'রোগীর পূর্ণ নাম *' : 'Patient Full Name *'}
+                  </Label>
+                  <Input
+                    id="profName"
+                    value={createName}
+                    onChange={(e) => setCreateName(e.target.value)}
+                    placeholder="কামাল হোসেন"
+                    required
+                    className="h-10 text-sm"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="profAge" className="text-xs font-medium">
+                    {isBn ? 'বয়স *' : 'Age *'}
+                  </Label>
+                  <Input
+                    id="profAge"
+                    type="number"
+                    value={createAge}
+                    onChange={(e) => setCreateAge(e.target.value ? Number(e.target.value) : '')}
+                    placeholder="35"
+                    required
+                    className="h-10 text-sm"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">
+                    {isBn ? 'লিঙ্গ *' : 'Gender *'}
+                  </Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['male', 'female', 'other'] as const).map((g) => (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => setCreateGender(g)}
+                        className={`py-2 px-3 rounded-md border text-xs font-medium transition-colors ${
+                          createGender === g
+                            ? 'border-primary bg-primary/10 text-primary font-semibold'
+                            : 'border-border bg-card hover:bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {g === 'male' && (isBn ? 'পুরুষ' : 'Male')}
+                        {g === 'female' && (isBn ? 'মহিলা' : 'Female')}
+                        {g === 'other' && (isBn ? 'অন্যান্য' : 'Other')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">
+                    {isBn ? 'সম্পর্ক (Relation)' : 'Account Relation'}
+                  </Label>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {(['self', 'child', 'spouse', 'parent'] as const).map((rel) => (
+                      <button
+                        key={rel}
+                        type="button"
+                        onClick={() => setCreateRelation(rel)}
+                        className={`py-2 px-2 rounded-md border text-[11px] font-medium transition-colors ${
+                          createRelation === rel
+                            ? 'border-primary bg-primary/10 text-primary font-semibold'
+                            : 'border-border bg-card hover:bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {rel === 'self' && (isBn ? 'নিজ' : 'Self')}
+                        {rel === 'child' && (isBn ? 'সন্তান' : 'Child')}
+                        {rel === 'spouse' && (isBn ? 'স্বামী/স্ত্রী' : 'Spouse')}
+                        {rel === 'parent' && (isBn ? 'পিতামাতা' : 'Parent')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
+
+              {/* Data Storage Consent Tick */}
+              <div className="p-3.5 rounded-lg bg-muted/40 border border-border flex items-center gap-3">
+                <input
+                  id="consentCheckbox"
+                  type="checkbox"
+                  checked={createConsent}
+                  onChange={(e) => setCreateConsent(e.target.checked)}
+                  className="w-4 h-4 text-primary rounded border-border focus:ring-primary"
+                />
+                <label htmlFor="consentCheckbox" className="text-xs text-foreground cursor-pointer font-medium">
+                  {isBn
+                    ? 'রোগী তথ্য সংরক্ষণে সম্মত (Patient consents to digital health record storage under BMDC rules)'
+                    : 'Patient explicitly consents to digital health record storage under BMDC guidelines'}
+                </label>
+              </div>
+
+              <Button
+                type="button"
+                onClick={() => handleCreateProfileSubmit(false)}
+                disabled={creatingProfile || !createConsent}
+                className="w-full h-11 text-sm font-semibold bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
+              >
+                {creatingProfile ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <ArrowRight className="w-4 h-4" />
+                )}
+                <span>{isBn ? 'প্রোফাইল তৈরি করুন ও কেস শুরু করুন' : 'Create Profile & Start Case'}</span>
+              </Button>
             </CardContent>
           </Card>
+        )}
+
+        {/* =========================================================================
+            STAGE 3: CLINICAL INTAKE (PRE-FILLED WITH PROFILE HEALTH SUMMARY)
+           ========================================================================= */}
+        {flowStep === 'intake' && (
+          <div className="space-y-6">
+            {/* Active Patient Summary Banner */}
+            <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">
+                  {selectedProfile?.name?.charAt(0) || 'P'}
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-foreground">
+                    {selectedProfile?.name || createName}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedProfile?.age || createAge} {isBn ? 'বছর' : 'years'} •{' '}
+                    <span className="capitalize">{selectedProfile?.gender || createGender}</span> •{' '}
+                    <span className="font-mono text-primary font-semibold">{searchPhone}</span>
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setFlowStep('find')}
+                className="text-xs h-8"
+              >
+                {isBn ? 'রোগী পরিবর্তন' : 'Change Patient'}
+              </Button>
+            </div>
+
+            {/* 4-Step Clinical Intake Form */}
+            <Card className="border border-border shadow-xs bg-card">
+              <CardHeader className="pb-4 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <Badge variant="outline" className="text-xs font-mono font-medium">
+                    {isBn ? `ধাপ ${intakeStep}/৪` : `Step ${intakeStep}/4`}
+                  </Badge>
+                  {autoSavedTime && (
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                      <Save className="w-3 h-3 text-emerald-600" />
+                      <span>{isBn ? `স্বয়ংক্রিয় সংরক্ষিত: ${autoSavedTime}` : `Autosaved: ${autoSavedTime}`}</span>
+                    </span>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-6">
+                {/* INTAKE STEP 1: Quick Symptoms */}
+                {intakeStep === 1 && (
+                  <div className="space-y-5">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="complaint" className="text-xs font-semibold">
+                        {isBn ? 'প্রধান উপসর্গ (Chief Complaint) *' : 'Chief Complaint *'}
+                      </Label>
+                      <Input
+                        id="complaint"
+                        value={chiefComplaint}
+                        onChange={(e) => setChiefComplaint(e.target.value)}
+                        placeholder={isBn ? 'যেমন: ৩ দিন ধরে তীব্র জ্বর ও কাশি' : 'e.g. High fever and cough for 3 days'}
+                        className="h-11 text-sm"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold">
+                        {isBn ? 'দ্রুত উপসর্গ নির্বাচন (Quick Symptom Tap):' : 'Common Symptoms Tap:'}
+                      </Label>
+                      <div className="flex flex-wrap gap-2">
+                        {COMMON_SYMPTOMS_BN.map((sym) => {
+                          const active = selectedSymptoms.includes(sym);
+                          return (
+                            <button
+                              key={sym}
+                              type="button"
+                              onClick={() => toggleSymptom(sym)}
+                              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                                active
+                                  ? 'bg-primary text-primary-foreground font-semibold shadow-2xs'
+                                  : 'bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border'
+                              }`}
+                            >
+                              {active && <Check className="w-3 h-3 inline mr-1" />}
+                              {sym}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <Button
+                      type="button"
+                      onClick={() => setIntakeStep(2)}
+                      className="w-full h-11 text-sm font-semibold bg-primary hover:bg-primary/90 text-primary-foreground gap-2 mt-4"
+                    >
+                      <span>{isBn ? 'পরবর্তী: ভাইটালস ও শারীরিক পরীক্ষা' : 'Next: Vitals & Exam'}</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+
+                {/* INTAKE STEP 2: Vitals */}
+                {intakeStep === 2 && (
+                  <div className="space-y-5">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium">রক্তচাপ (Systolic)</Label>
+                        <Input
+                          type="number"
+                          value={bpSystolic}
+                          onChange={(e) => setBpSystolic(e.target.value ? Number(e.target.value) : '')}
+                          placeholder="120"
+                          className="h-10 text-sm font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium">রক্তচাপ (Diastolic)</Label>
+                        <Input
+                          type="number"
+                          value={bpDiastolic}
+                          onChange={(e) => setBpDiastolic(e.target.value ? Number(e.target.value) : '')}
+                          placeholder="80"
+                          className="h-10 text-sm font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium">পালস (Pulse bpm)</Label>
+                        <Input
+                          type="number"
+                          value={pulse}
+                          onChange={(e) => setPulse(e.target.value ? Number(e.target.value) : '')}
+                          placeholder="76"
+                          className="h-10 text-sm font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium">তাপমাত্রা (°F)</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={tempF}
+                          onChange={(e) => setTempF(e.target.value ? Number(e.target.value) : '')}
+                          placeholder="98.6"
+                          className="h-10 text-sm font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium">ওজন (Weight kg)</Label>
+                        <Input
+                          type="number"
+                          value={weightKg}
+                          onChange={(e) => setWeightKg(e.target.value ? Number(e.target.value) : '')}
+                          placeholder="65"
+                          className="h-10 text-sm font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium">SpO2 (%)</Label>
+                        <Input
+                          type="number"
+                          value={spo2}
+                          onChange={(e) => setSpo2(e.target.value ? Number(e.target.value) : '')}
+                          placeholder="98"
+                          className="h-10 text-sm font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                      <Button variant="outline" onClick={() => setIntakeStep(1)} className="h-11 px-4">
+                        <ArrowLeft className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => setIntakeStep(3)}
+                        className="flex-1 h-11 text-sm font-semibold bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
+                      >
+                        <span>{isBn ? 'পরবর্তী: ড্রাগ অ্যালার্জি ও হিস্ট্রি' : 'Next: Allergies & History'}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* INTAKE STEP 3: Allergies & Current Meds */}
+                {intakeStep === 3 && (
+                  <div className="space-y-5">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-rose-700 dark:text-rose-400">
+                        {isBn ? 'ড্রাগ অ্যালার্জি (Drug Allergies):' : 'Known Drug Allergies:'}
+                      </Label>
+                      <div className="flex flex-wrap gap-2">
+                        {COMMON_ALLERGIES_BN.map((all) => {
+                          const active = selectedAllergies.includes(all);
+                          return (
+                            <button
+                              key={all}
+                              type="button"
+                              onClick={() => toggleAllergy(all)}
+                              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                                active
+                                  ? 'bg-rose-600 text-white font-semibold'
+                                  : 'bg-muted/60 hover:bg-muted text-muted-foreground border border-border'
+                              }`}
+                            >
+                              {active && <Check className="w-3 h-3 inline mr-1" />}
+                              {all}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <Input
+                          value={customAllergy}
+                          onChange={(e) => setCustomAllergy(e.target.value)}
+                          placeholder={isBn ? 'অন্য অ্যালার্জি লিখুন...' : 'Add other allergy...'}
+                          className="h-9 text-xs"
+                          onKeyDown={(e) => e.key === 'Enter' && addCustomAllergy()}
+                        />
+                        <Button type="button" size="sm" onClick={addCustomAllergy} className="h-9 text-xs">
+                          {isBn ? 'যোগ করুন' : 'Add'}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-blue-700 dark:text-blue-400">
+                        {isBn ? 'দীর্ঘমেয়াদী রোগ (Chronic Conditions / History):' : 'Chronic Conditions / Past History:'}
+                      </Label>
+                      <div className="flex flex-wrap gap-2">
+                        {COMMON_HISTORY_BN.map((h) => {
+                          const active = selectedHistory.includes(h);
+                          return (
+                            <button
+                              key={h}
+                              type="button"
+                              onClick={() => toggleHistory(h)}
+                              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                                active
+                                  ? 'bg-blue-600 text-white font-semibold'
+                                  : 'bg-muted/60 hover:bg-muted text-muted-foreground border border-border'
+                              }`}
+                            >
+                              {active && <Check className="w-3 h-3 inline mr-1" />}
+                              {h}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">
+                        {isBn ? 'বর্তমান ওষুধসমূহ (Current Medications):' : 'Current Medications:'}
+                      </Label>
+                      <textarea
+                        value={currentMedsText}
+                        onChange={(e) => setCurrentMedsText(e.target.value)}
+                        placeholder={isBn ? 'প্রতি লাইনে একটি ওষুধের নাম (যেমন: Tab. Osartil 50 mg)' : 'One medication per line'}
+                        rows={3}
+                        className="w-full rounded-md border border-border bg-background p-2.5 text-xs font-mono"
+                      />
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                      <Button variant="outline" onClick={() => setIntakeStep(2)} className="h-11 px-4">
+                        <ArrowLeft className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => setIntakeStep(4)}
+                        className="flex-1 h-11 text-sm font-semibold bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
+                      >
+                        <span>{isBn ? 'পরবর্তী: পর্যালোচনা ও নিশ্চিতকরণ' : 'Next: Review & Confirm'}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* INTAKE STEP 4: Review & Finalize Case Creation */}
+                {intakeStep === 4 && (
+                  <div className="space-y-5">
+                    <div className="p-4 rounded-xl bg-muted/40 border border-border space-y-3 text-xs">
+                      <h4 className="font-bold text-sm text-foreground">
+                        {isBn ? 'ক্লিনিকাল কেস সামারি' : 'Clinical Case Summary'}
+                      </h4>
+                      <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                        <div>
+                          <span>{isBn ? 'রোগী:' : 'Patient:'} </span>
+                          <strong className="text-foreground">{selectedProfile?.name || createName}</strong>
+                        </div>
+                        <div>
+                          <span>{isBn ? 'উপসর্গ:' : 'Complaint:'} </span>
+                          <strong className="text-foreground">{chiefComplaint || 'General'}</strong>
+                        </div>
+                        <div>
+                          <span>{isBn ? 'রক্তচাপ:' : 'BP:'} </span>
+                          <strong className="text-foreground font-mono">{bpSystolic}/{bpDiastolic} mmHg</strong>
+                        </div>
+                        <div>
+                          <span>{isBn ? 'অ্যালার্জি:' : 'Allergies:'} </span>
+                          <strong className="text-foreground">{selectedAllergies.length > 0 ? selectedAllergies.join(', ') : 'None'}</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    {errorMessage && (
+                      <div className="p-3 text-xs rounded-md bg-destructive/10 border border-destructive/30 text-destructive">
+                        {errorMessage}
+                      </div>
+                    )}
+
+                    <div className="flex gap-3">
+                      <Button variant="outline" onClick={() => setIntakeStep(3)} className="h-11 px-4">
+                        <ArrowLeft className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={handleFinalCaseSubmit}
+                        disabled={submitting}
+                        className="flex-1 h-11 text-sm font-semibold bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
+                      >
+                        {submitting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>{isBn ? 'কেস তৈরি হচ্ছে...' : 'Creating case...'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>{isBn ? 'কেস শুরু করুন (Open Clinical Workspace)' : 'Open Clinical Workspace'}</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Consent Sheet Modal */}
+        {selectedProfile && (
+          <ConsentSheet
+            isOpen={isConsentOpen}
+            onClose={() => setIsConsentOpen(false)}
+            phone={searchPhone}
+            profileId={selectedProfile.id}
+            profileName={selectedProfile.name}
+            onGrantSuccess={(grant) => {
+              setSelectedProfile({
+                ...selectedProfile,
+                hasActiveGrant: true,
+                grantScope: grant.scope,
+                expiresAt: grant.expiresAt,
+              });
+              setFlowStep('intake');
+            }}
+          />
         )}
       </div>
     </AppShell>

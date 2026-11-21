@@ -24,6 +24,7 @@ import {
   Moon,
   Sunset,
   Sparkles,
+  Compass,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -491,10 +492,10 @@ export default function PatientPortalPage() {
 
             {/* Morning Slot */}
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-amber-700 dark:text-amber-400">
-                <Sun className="w-4 h-4" />
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Sun className="w-4 h-4 text-muted-foreground" />
                 <span>{isBn ? 'সকাল (Morning)' : 'Morning'}</span>
-                <span className="text-xs text-muted-foreground font-normal">({morningItems.length} টি ওষুধ)</span>
+                <span className="text-xs text-muted-foreground font-normal">({morningItems.length} {isBn ? 'টি ওষুধ' : 'medicines'})</span>
               </div>
               <div className="space-y-2">
                 {morningItems.length === 0 ? (
@@ -505,8 +506,8 @@ export default function PatientPortalPage() {
                       key={item.id}
                       className={`border transition-all cursor-pointer ${
                         item.takenToday
-                          ? 'bg-teal-50/50 dark:bg-teal-950/20 border-teal-200 dark:border-teal-900'
-                          : 'bg-card border-border hover:border-teal-300'
+                          ? 'bg-muted/40 border-border'
+                          : 'bg-card border-border hover:border-foreground/30'
                       }`}
                       onClick={() => handleToggleTaken(item)}
                     >
@@ -514,21 +515,21 @@ export default function PatientPortalPage() {
                         <div className="flex items-start gap-3">
                           <button
                             type="button"
-                            className="mt-0.5 text-teal-700 dark:text-teal-400 focus:outline-none"
+                            className="mt-0.5 text-primary focus:outline-none"
                             aria-label={item.takenToday ? 'Mark not taken' : 'Mark taken'}
                           >
                             {item.takenToday ? (
-                              <CheckCircle2 className="w-6 h-6 fill-teal-100 dark:fill-teal-950" />
+                              <CheckCircle2 className="w-5 h-5 text-primary" />
                             ) : (
-                              <Circle className="w-6 h-6 text-muted-foreground" />
+                              <Circle className="w-5 h-5 text-muted-foreground" />
                             )}
                           </button>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className={`font-bold text-base ${item.takenToday ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                              <span className={`font-semibold text-sm ${item.takenToday ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
                                 {item.medicineName}
                               </span>
-                              <Badge variant="outline" className="text-xs">
+                              <Badge variant="outline" className="text-xs font-mono">
                                 {item.dosage}
                               </Badge>
                             </div>
@@ -542,11 +543,8 @@ export default function PatientPortalPage() {
 
                         <div className="text-right shrink-0">
                           <Badge
-                            className={
-                              item.takenToday
-                                ? 'bg-teal-700 hover:bg-teal-800 text-white'
-                                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                            }
+                            variant={item.takenToday ? 'default' : 'secondary'}
+                            className="text-xs"
                           >
                             {item.takenToday ? (isBn ? 'খেয়েছি ✓' : 'Taken ✓') : (isBn ? 'এখনও খাইনি' : 'Pending')}
                           </Badge>
@@ -560,10 +558,10 @@ export default function PatientPortalPage() {
 
             {/* Noon Slot */}
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-orange-700 dark:text-orange-400">
-                <Sunset className="w-4 h-4" />
-                <span>{isBn ? 'দুপুর (Noon / Afternoon)' : 'Noon'}</span>
-                <span className="text-xs text-muted-foreground font-normal">({noonItems.length} টি ওষুধ)</span>
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Sunset className="w-4 h-4 text-muted-foreground" />
+                <span>{isBn ? 'দুপুর (Noon)' : 'Noon'}</span>
+                <span className="text-xs text-muted-foreground font-normal">({noonItems.length} {isBn ? 'টি ওষুধ' : 'medicines'})</span>
               </div>
               <div className="space-y-2">
                 {noonItems.length === 0 ? (
@@ -574,8 +572,8 @@ export default function PatientPortalPage() {
                       key={item.id}
                       className={`border transition-all cursor-pointer ${
                         item.takenToday
-                          ? 'bg-teal-50/50 dark:bg-teal-950/20 border-teal-200 dark:border-teal-900'
-                          : 'bg-card border-border hover:border-teal-300'
+                          ? 'bg-muted/40 border-border'
+                          : 'bg-card border-border hover:border-foreground/30'
                       }`}
                       onClick={() => handleToggleTaken(item)}
                     >
@@ -583,21 +581,21 @@ export default function PatientPortalPage() {
                         <div className="flex items-start gap-3">
                           <button
                             type="button"
-                            className="mt-0.5 text-teal-700 dark:text-teal-400 focus:outline-none"
+                            className="mt-0.5 text-primary focus:outline-none"
                             aria-label={item.takenToday ? 'Mark not taken' : 'Mark taken'}
                           >
                             {item.takenToday ? (
-                              <CheckCircle2 className="w-6 h-6 fill-teal-100 dark:fill-teal-950" />
+                              <CheckCircle2 className="w-5 h-5 text-primary" />
                             ) : (
-                              <Circle className="w-6 h-6 text-muted-foreground" />
+                              <Circle className="w-5 h-5 text-muted-foreground" />
                             )}
                           </button>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className={`font-bold text-base ${item.takenToday ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                              <span className={`font-semibold text-sm ${item.takenToday ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
                                 {item.medicineName}
                               </span>
-                              <Badge variant="outline" className="text-xs">
+                              <Badge variant="outline" className="text-xs font-mono">
                                 {item.dosage}
                               </Badge>
                             </div>
@@ -611,11 +609,8 @@ export default function PatientPortalPage() {
 
                         <div className="text-right shrink-0">
                           <Badge
-                            className={
-                              item.takenToday
-                                ? 'bg-teal-700 hover:bg-teal-800 text-white'
-                                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                            }
+                            variant={item.takenToday ? 'default' : 'secondary'}
+                            className="text-xs"
                           >
                             {item.takenToday ? (isBn ? 'খেয়েছি ✓' : 'Taken ✓') : (isBn ? 'এখনও খাইনি' : 'Pending')}
                           </Badge>
@@ -629,10 +624,10 @@ export default function PatientPortalPage() {
 
             {/* Night Slot */}
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-indigo-700 dark:text-indigo-400">
-                <Moon className="w-4 h-4" />
-                <span>{isBn ? 'রাত (Night / Bedtime)' : 'Night'}</span>
-                <span className="text-xs text-muted-foreground font-normal">({nightItems.length} টি ওষুধ)</span>
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Moon className="w-4 h-4 text-muted-foreground" />
+                <span>{isBn ? 'রাত (Night)' : 'Night'}</span>
+                <span className="text-xs text-muted-foreground font-normal">({nightItems.length} {isBn ? 'টি ওষুধ' : 'medicines'})</span>
               </div>
               <div className="space-y-2">
                 {nightItems.length === 0 ? (
@@ -643,8 +638,8 @@ export default function PatientPortalPage() {
                       key={item.id}
                       className={`border transition-all cursor-pointer ${
                         item.takenToday
-                          ? 'bg-teal-50/50 dark:bg-teal-950/20 border-teal-200 dark:border-teal-900'
-                          : 'bg-card border-border hover:border-teal-300'
+                          ? 'bg-muted/40 border-border'
+                          : 'bg-card border-border hover:border-foreground/30'
                       }`}
                       onClick={() => handleToggleTaken(item)}
                     >
@@ -652,21 +647,21 @@ export default function PatientPortalPage() {
                         <div className="flex items-start gap-3">
                           <button
                             type="button"
-                            className="mt-0.5 text-teal-700 dark:text-teal-400 focus:outline-none"
+                            className="mt-0.5 text-primary focus:outline-none"
                             aria-label={item.takenToday ? 'Mark not taken' : 'Mark taken'}
                           >
                             {item.takenToday ? (
-                              <CheckCircle2 className="w-6 h-6 fill-teal-100 dark:fill-teal-950" />
+                              <CheckCircle2 className="w-5 h-5 text-primary" />
                             ) : (
-                              <Circle className="w-6 h-6 text-muted-foreground" />
+                              <Circle className="w-5 h-5 text-muted-foreground" />
                             )}
                           </button>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className={`font-bold text-base ${item.takenToday ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                              <span className={`font-semibold text-sm ${item.takenToday ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
                                 {item.medicineName}
                               </span>
-                              <Badge variant="outline" className="text-xs">
+                              <Badge variant="outline" className="text-xs font-mono">
                                 {item.dosage}
                               </Badge>
                             </div>
@@ -680,11 +675,8 @@ export default function PatientPortalPage() {
 
                         <div className="text-right shrink-0">
                           <Badge
-                            className={
-                              item.takenToday
-                                ? 'bg-teal-700 hover:bg-teal-800 text-white'
-                                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                            }
+                            variant={item.takenToday ? 'default' : 'secondary'}
+                            className="text-xs"
                           >
                             {item.takenToday ? (isBn ? 'খেয়েছি ✓' : 'Taken ✓') : (isBn ? 'এখনও খাইনি' : 'Pending')}
                           </Badge>
@@ -728,7 +720,7 @@ export default function PatientPortalPage() {
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-foreground">{rx.rxNumber}</span>
-                            <Badge className="bg-teal-700 text-white text-xs">
+                            <Badge variant="outline" className="text-xs">
                               {rx.status === 'finalized' ? (isBn ? 'চূড়ান্ত' : 'Finalized') : (isBn ? 'খসড়া' : 'Draft')}
                             </Badge>
                           </div>
@@ -784,7 +776,7 @@ export default function PatientPortalPage() {
                       </div>
 
                       {rx.generalAdvice && (
-                        <div className="text-xs text-muted-foreground bg-teal-50/40 dark:bg-teal-950/20 p-2.5 rounded-lg border border-teal-100 dark:border-teal-900">
+                        <div className="text-xs text-muted-foreground bg-muted/40 p-2.5 rounded-lg border border-border">
                           <strong className="text-foreground">{isBn ? 'সাধারণ উপদেশ:' : 'Advice:'}</strong> {rx.generalAdvice}
                         </div>
                       )}
@@ -809,7 +801,7 @@ export default function PatientPortalPage() {
 
               <Button
                 size="sm"
-                className="bg-teal-700 hover:bg-teal-800 text-white text-xs flex items-center gap-1.5"
+                className="text-xs flex items-center gap-1.5"
                 onClick={() => setShowUploadModal(true)}
               >
                 <Plus className="w-4 h-4" />
@@ -889,8 +881,8 @@ export default function PatientPortalPage() {
                             onClick={() => toggleSymptom(s)}
                             className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                               active
-                                ? 'bg-teal-700 text-white border-teal-700'
-                                : 'bg-background text-foreground border-border hover:border-teal-400'
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-background text-foreground border-border hover:border-foreground/30'
                             }`}
                           >
                             {active ? '✓ ' : '+ '}
@@ -927,7 +919,7 @@ export default function PatientPortalPage() {
                   <Button
                     type="submit"
                     disabled={isSubmittingPreVisit}
-                    className="w-full bg-teal-700 hover:bg-teal-800 text-white font-semibold py-2.5"
+                    className="w-full font-semibold py-2.5"
                   >
                     {isSubmittingPreVisit ? (isBn ? 'জমা হচ্ছে...' : 'Submitting...') : (isBn ? 'সমস্যা চিকিৎসকের কাছে জমা দিন' : 'Submit Pre-Visit Notes')}
                   </Button>
@@ -979,10 +971,10 @@ export default function PatientPortalPage() {
 
             <Card className="border border-border bg-card">
               <CardContent className="p-4 sm:p-6 space-y-4">
-                <div className="flex items-start gap-3 p-3 rounded-xl bg-teal-50/60 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-900">
-                  <ShieldCheck className="w-6 h-6 text-teal-700 dark:text-teal-400 shrink-0 mt-0.5" />
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/40 border border-border">
+                  <ShieldCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                   <div className="text-xs space-y-1">
-                    <span className="font-bold text-foreground block text-sm">
+                    <span className="font-semibold text-foreground block text-sm">
                       {isBn ? 'তথ্য সুরক্ষা ও গোপনীয়তার নীতি' : 'Data Privacy & Encryption Safeguards'}
                     </span>
                     <p className="text-muted-foreground">
@@ -1027,7 +1019,7 @@ export default function PatientPortalPage() {
 
         {/* Persistent Doctor Decides Disclaimer */}
         <div className="text-center p-3 rounded-xl bg-muted/40 text-xs text-muted-foreground border border-border">
-          <HelpCircle className="w-4 h-4 inline mr-1 text-teal-700 dark:text-teal-400" />
+          <HelpCircle className="w-4 h-4 inline mr-1 text-muted-foreground" />
           {isBn
             ? 'শুধুমাত্র রোগীর তথ্য ও ওষুধ সেবনের সময়সূচি সহায়তা। প্রেসক্রিপশন এবং ওষুধের মাত্রা চিকিৎসক দ্বারা নির্ধারিত।'
             : 'Patient medication tracking support only. Dosages and treatments are strictly determined by your physician.'}
@@ -1084,7 +1076,7 @@ export default function PatientPortalPage() {
                   <Button type="button" variant="outline" size="sm" onClick={() => setShowUploadModal(false)}>
                     {isBn ? 'বাতিল' : 'Cancel'}
                   </Button>
-                  <Button type="submit" size="sm" className="bg-teal-700 hover:bg-teal-800 text-white">
+                  <Button type="submit" size="sm">
                     {isBn ? 'আপলোড সম্পন্ন করুন' : 'Confirm Upload'}
                   </Button>
                 </div>

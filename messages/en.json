@@ -483,5 +483,32 @@
     "controllerReviewDesc": "Verify new medicine submissions.",
     "controllerNoticesTitle": "Safety Notices",
     "controllerNoticesDesc": "Broadcast recalls and safety alerts."
+  },
+  "patientFlow": {
+    "findPatient": "Find patient",
+    "phoneNumber": "Phone number",
+    "phonePlaceholder": "017XXXXXXXX",
+    "patientNotFound": "Patient not found",
+    "createNewProfile": "Create new patient profile",
+    "addFamilyMember": "Add family member",
+    "needHistoryConsent": "Patient permission is needed to see past history",
+    "askPermission": "Ask permission",
+    "enterOtp": "Enter OTP",
+    "permissionGiven": "Permission given",
+    "revokePermission": "Revoke permission",
+    "whoViewedInfo": "Who viewed my information",
+    "previousCheckups": "Previous checkups",
+    "todayMedicines": "Today's medicines",
+    "taken": "Taken",
+    "uploadReport": "Upload report",
+    "demoModeOtp": "Demo mode: OTP 123456",
+    "skipForNow": "Not now",
+    "consentDuration": "Permission duration",
+    "days7": "7 days",
+    "days30": "30 days",
+    "days90": "90 days",
+    "duplicateWarningTitle": "Is this patient already registered?",
+    "duplicateConfirm": "Yes, create new profile",
+    "pickExisting": "Select existing profile"
   }
 }

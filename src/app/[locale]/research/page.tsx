@@ -18,6 +18,7 @@ import {
   Table,
   Search,
   Sparkles,
+  Compass,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -201,22 +202,22 @@ export default function ResearcherWorkspacePage() {
       {/* Workspace Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-5">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-800">
-            <Microscope className="w-6 h-6" />
+          <div className="w-9 h-9 rounded-lg bg-muted text-foreground flex items-center justify-center shrink-0">
+            <Microscope className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                {isBn ? 'মেডিকেল গবেষক কর্মক্ষেত্র' : 'Clinical Researcher Workspace'}
+                {isBn ? 'গবেষক কর্মক্ষেত্র' : 'Researcher Workspace'}
               </h1>
-              <Badge variant="outline" className="text-xs bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 border-teal-200">
-                {isBn ? 'এভিডেন্স সিন্থেসিস ও তুলনামূলক প্ল্যাটফর্ম' : 'Evidence Synthesis & Literature Suite'}
+              <Badge variant="outline" className="text-xs font-mono text-muted-foreground">
+                {isBn ? 'এভিডেন্স মোড' : 'Evidence Mode'}
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground mt-0.5">
               {isBn
-                ? 'ক্লিনিকাল গাইডলাইন মেটা-অ্যানালাইসিস, সাইটেশন এক্সপোর্ট এবং তুলনামূলক গবেষণা'
-                : 'Faceted literature search, side-by-side protocol comparison, and reference exports (RIS/BibTeX/CSV)'}
+                ? 'গাইডলাইন অনুসন্ধান, প্রটোকল তুলনা ও সাইটেশন এক্সপোর্ট'
+                : 'Guideline search, protocol comparison, and citation export'}
             </p>
           </div>
         </div>
@@ -228,18 +229,18 @@ export default function ResearcherWorkspacePage() {
             size="sm"
             onClick={() => startProductTour('research')}
             className="gap-1.5 text-xs h-8 px-2.5 border-border hover:bg-muted text-foreground font-medium"
-            aria-label={isBn ? 'প্রোডাক্ট ট্যুর' : 'Product Tour'}
-            title={isBn ? 'প্রোডাক্ট ট্যুর' : 'Product Tour'}
+            aria-label={isBn ? 'ট্যুর শুরু করুন' : 'Start Tour'}
+            title={isBn ? 'ট্যুর শুরু করুন' : 'Start Tour'}
             data-tour="nav-tour-btn"
           >
-            <Sparkles className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-            <span className="hidden sm:inline">{isBn ? 'প্রোডাক্ট ট্যুর' : 'Product Tour'}</span>
+            <Compass className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="hidden sm:inline">{isBn ? 'ট্যুর' : 'Tour'}</span>
           </Button>
 
           <Button
             variant="outline"
             size="sm"
-            className="text-xs flex items-center gap-1.5"
+            className="text-xs flex items-center gap-1.5 h-8 px-2.5"
             onClick={() => router.push('/research', { locale: isBn ? 'en' : 'bn' })}
           >
             <Globe className="w-3.5 h-3.5 text-muted-foreground" />
@@ -249,7 +250,7 @@ export default function ResearcherWorkspacePage() {
           <Button
             variant="ghost"
             size="sm"
-            className="text-xs flex items-center gap-1.5 text-muted-foreground hover:text-destructive"
+            className="text-xs flex items-center gap-1.5 h-8 px-2.5 text-muted-foreground hover:text-destructive"
             onClick={async () => {
               await fetch('/api/auth/logout', { method: 'POST' });
               router.push('/login');
@@ -262,15 +263,15 @@ export default function ResearcherWorkspacePage() {
       </div>
 
       {/* Safety Notice: Strict Literature Mode (Zero Patient Data) */}
-      <div className="flex items-start gap-3 p-3.5 rounded-xl bg-teal-50/60 dark:bg-teal-950/20 text-xs border border-teal-200 dark:border-teal-900 text-muted-foreground">
-        <ShieldCheck className="w-4 h-4 text-teal-700 dark:text-teal-400 shrink-0 mt-0.5" />
+      <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/40 text-xs border border-border text-muted-foreground">
+        <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
         <div>
           <strong className="text-foreground block mb-0.5">
-            {isBn ? 'গবেষণা প্রটোকল ও গোপনীয়তা নিশ্চয়তা' : 'Research Ethics & Data Isolation Policy'}
+            {isBn ? 'গবেষণা প্রটোকল ও গোপনীয়তা' : 'Research Ethics & Data Isolation'}
           </strong>
           {isBn
-            ? 'গবেষক অ্যাকাউন্টে শুধুমাত্র ওপেন অ্যাক্সেস ও একাডেমিক মেডিকেল গাইডলাইন উন্মুক্ত। কোনো প্রকার রোগীর তথ্য বা পরিচয় দেখার অনুমতি নেই।'
-            : 'Researcher accounts operate exclusively in closed-library evidence synthesis mode. Zero patient health information (PHI) is accessible.'}
+            ? 'শুধুমাত্র অনুমোদিত মেডিকেল গাইডলাইন উন্মুক্ত। রোগীর তথ্যে প্রবেশাধিকার নেই।'
+            : 'Access is limited to verified clinical literature. Zero patient health information is accessible.'}
         </div>
       </div>
 
@@ -314,7 +315,7 @@ export default function ResearcherWorkspacePage() {
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                   />
                 </div>
-                <Button onClick={handleSearch} disabled={isSearching} className="bg-teal-700 hover:bg-teal-800 text-white shrink-0">
+                <Button onClick={handleSearch} disabled={isSearching} className="shrink-0">
                   {isSearching ? (isBn ? 'অনুসন্ধান হচ্ছে...' : 'Searching...') : (isBn ? 'অনুসন্ধান করুন' : 'Search')}
                 </Button>
               </div>
@@ -390,7 +391,7 @@ export default function ResearcherWorkspacePage() {
               <span>{isBn ? `মোট প্রাপ্ত ফলাফল: ${searchResults.length} টি` : `Found ${searchResults.length} excerpts`}</span>
               {selectedChunkIds.length > 0 && (
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-teal-700 dark:text-teal-400">
+                  <span className="font-semibold text-foreground">
                     {selectedChunkIds.length} {isBn ? 'টি নির্বাচিত' : 'selected'}
                   </span>
                   <Button
@@ -414,7 +415,7 @@ export default function ResearcherWorkspacePage() {
                     key={res.id}
                     className={`border transition-all ${
                       isSelected
-                        ? 'border-teal-600 bg-teal-50/30 dark:bg-teal-950/20'
+                        ? 'border-primary bg-primary/5'
                         : 'border-border bg-card'
                     }`}
                   >
@@ -425,9 +426,9 @@ export default function ResearcherWorkspacePage() {
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => toggleSelectChunk(res.id)}
-                            className="w-4 h-4 rounded text-teal-700 accent-teal-700"
+                            className="w-4 h-4 rounded accent-primary"
                           />
-                          <Badge variant="outline" className="text-xs bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 border-teal-200">
+                          <Badge variant="outline" className="text-xs font-mono">
                             Grade {res.evidenceLevel}
                           </Badge>
                           <span className="font-semibold text-xs text-foreground">{res.sourceTitle}</span>
@@ -473,11 +474,11 @@ export default function ResearcherWorkspacePage() {
             <table className="w-full text-xs text-left border-collapse">
               <thead>
                 <tr className="border-b border-border bg-muted/50">
-                  <th className="p-3 font-bold text-foreground w-1/4">{isBn ? 'ক্লিনিকাল মানদণ্ড' : 'Clinical Parameter'}</th>
-                  <th className="p-3 font-bold text-teal-800 dark:text-teal-300 w-3/8">
+                  <th className="p-3 font-semibold text-foreground w-1/4">{isBn ? 'ক্লিনিকাল মানদণ্ড' : 'Clinical Parameter'}</th>
+                  <th className="p-3 font-semibold text-foreground w-3/8">
                     {isBn ? 'বাংলাদেশ জাতীয় গাইডলাইন (DGHS/BSCD 2024)' : 'Bangladesh National Guidelines (2024)'}
                   </th>
-                  <th className="p-3 font-bold text-blue-800 dark:text-blue-300 w-3/8">
+                  <th className="p-3 font-semibold text-foreground w-3/8">
                     {isBn ? 'WHO দক্ষিণ-পূর্ব এশিয়া প্রটোকল (HEARTS 2024)' : 'WHO South-East Asia Protocol (2024)'}
                   </th>
                 </tr>
@@ -546,7 +547,7 @@ export default function ResearcherWorkspacePage() {
 
             <Button
               size="sm"
-              className="bg-teal-700 hover:bg-teal-800 text-white text-xs flex items-center gap-1.5"
+              className="text-xs flex items-center gap-1.5"
               onClick={() => setShowAddCollectionModal(true)}
             >
               <Plus className="w-4 h-4" />
@@ -609,11 +610,11 @@ export default function ResearcherWorkspacePage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* CSV Card */}
             <Card className="border border-border bg-card p-5 text-center space-y-3">
-              <Table className="w-10 h-10 text-teal-700 dark:text-teal-400 mx-auto" />
+              <Table className="w-10 h-10 text-muted-foreground mx-auto" />
               <div>
                 <h4 className="font-bold text-sm text-foreground">CSV / Excel Format</h4>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {isBn ? 'স্প্রেডশিট ও ডেটাসেট বিশ্লেষণের জন্য উপযুক্ত কমা-সেপারেটেড ফাইল' : 'Comma-separated values for tabular analysis'}
+                  {isBn ? 'স্প্রেডশিট ও ডেটাসেট বিশ্লেষণের জন্য ফাইল' : 'Comma-separated values for tabular analysis'}
                 </p>
               </div>
               <Button
@@ -624,17 +625,17 @@ export default function ResearcherWorkspacePage() {
                 onClick={() => handleTriggerExport('csv')}
               >
                 <Download className="w-3.5 h-3.5 mr-1" />
-                {isBn ? 'CSV ডাউনলোড করুন' : 'Export CSV'}
+                {isBn ? 'CSV ডাউনলোড' : 'Export CSV'}
               </Button>
             </Card>
 
             {/* RIS Card */}
             <Card className="border border-border bg-card p-5 text-center space-y-3">
-              <Bookmark className="w-10 h-10 text-teal-700 dark:text-teal-400 mx-auto" />
+              <Bookmark className="w-10 h-10 text-muted-foreground mx-auto" />
               <div>
                 <h4 className="font-bold text-sm text-foreground">RIS Format (Zotero / EndNote)</h4>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {isBn ? 'রেফারেন্স ম্যানেজমেন্ট সফটওয়্যার (Zotero, EndNote, Mendeley)-এ সরাসরি ইম্পোর্টযোগ্য' : 'Direct import for Zotero, EndNote, Mendeley'}
+                  {isBn ? 'রেফারেন্স ম্যানেজারে সরাসরি ইম্পোর্টযোগ্য' : 'Direct import for Zotero, EndNote, Mendeley'}
                 </p>
               </div>
               <Button
@@ -645,17 +646,17 @@ export default function ResearcherWorkspacePage() {
                 onClick={() => handleTriggerExport('ris')}
               >
                 <Download className="w-3.5 h-3.5 mr-1" />
-                {isBn ? 'RIS ডাউনলোড করুন' : 'Export RIS'}
+                {isBn ? 'RIS ডাউনলোড' : 'Export RIS'}
               </Button>
             </Card>
 
             {/* BibTeX Card */}
             <Card className="border border-border bg-card p-5 text-center space-y-3">
-              <Quote className="w-10 h-10 text-teal-700 dark:text-teal-400 mx-auto" />
+              <Quote className="w-10 h-10 text-muted-foreground mx-auto" />
               <div>
                 <h4 className="font-bold text-sm text-foreground">BibTeX Format (LaTeX)</h4>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {isBn ? 'ওভারলিফ (Overleaf) এবং LaTeX একাডেমিক পেপারে সাইটেশন হিসেবে ব্যবহারযোগ্য' : 'Formatted for LaTeX and Overleaf bibliographies'}
+                  {isBn ? 'LaTeX ও Overleaf পেপারের জন্য ফরম্যাট' : 'Formatted for LaTeX bibliographies'}
                 </p>
               </div>
               <Button
@@ -666,7 +667,7 @@ export default function ResearcherWorkspacePage() {
                 onClick={() => handleTriggerExport('bibtex')}
               >
                 <Download className="w-3.5 h-3.5 mr-1" />
-                {isBn ? 'BibTeX ডাউনলোড করুন' : 'Export BibTeX'}
+                {isBn ? 'BibTeX ডাউনলোড' : 'Export BibTeX'}
               </Button>
             </Card>
           </div>
@@ -711,7 +712,7 @@ export default function ResearcherWorkspacePage() {
                   <Button type="button" variant="outline" size="sm" onClick={() => setShowAddCollectionModal(false)}>
                     {isBn ? 'বাতিল' : 'Cancel'}
                   </Button>
-                  <Button type="submit" size="sm" className="bg-teal-700 hover:bg-teal-800 text-white">
+                  <Button type="submit" size="sm">
                     {isBn ? 'সংকলন তৈরি করুন' : 'Create Collection'}
                   </Button>
                 </div>
