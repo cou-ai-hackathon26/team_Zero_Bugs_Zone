@@ -57,7 +57,10 @@ test.describe('DocMate AI Smoke E2E Tests', () => {
   });
 
   test('3. Bilingual persistent disclaimer and language switching', async ({ page }) => {
-    // Visit English dashboard
+    const session = await page.request.post('/api/auth/login', {
+      data: { email: 'doctor@docmate.ai', password: 'demo123' },
+    });
+    expect(session.ok()).toBe(true);
     await page.goto('/en/dashboard');
 
     // Verify persistent disclaimer in English

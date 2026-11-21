@@ -7,7 +7,7 @@ export default defineConfig({
     timeout: 10000,
   },
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: process.env.DOCMATE_QA_BASE_URL || 'http://localhost:3000',
     headless: true,
     viewport: { width: 1280, height: 800 },
     trace: 'on-first-retry',
