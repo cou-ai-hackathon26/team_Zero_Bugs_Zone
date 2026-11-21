@@ -2,7 +2,8 @@
 
 import React, { useEffect } from 'react';
 import { useLocale } from 'next-intl';
-import { Button } from '@/components/ui/button';
+import { Link } from '@/i18n/routing';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
