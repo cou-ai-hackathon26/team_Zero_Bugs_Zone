@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentUser } from '@/lib/auth';
 import { getStoredAiCredentials, saveAiCredentials } from '@/lib/ai-credentials';
-import { createAuditLogEntry } from '@/lib/audit';
+import { recordAuditLog } from '@/lib/audit';
 
 const saveCredentialsSchema = z.object({
   provider: z.enum(['openai', 'gemini', 'anthropic', 'custom']),
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Only doctors, super_admins, and authorized clinicians can alter AI credentials
-  if (user.role !== 'doctor' && user.role !== 'super_admin' && user.role !== 'admin') {
+  if (user.role !== 'doctor' && user.role !== 'super_admin') {
     return NextResponse.json({ error: 'Forbidden: Insufficient privileges to update AI credentials' }, { status: 403 });
   }
 
@@ -49,17 +49,15 @@ export async function POST(req: NextRequest) {
     await saveAiCredentials(parsed.data, user.id);
 
     // Audit log
-    await createAuditLogEntry({
+    await recordAuditLog({
       userId: user.id,
-      userRole: user.role,
-      action: 'update_ai_credentials',
-      resourceType: 'system_settings',
-      resourceId: 'ai:credentials',
-      details: {
+      event: 'update_ai_credentials',
+      payload: {
         provider: parsed.data.provider,
         model: parsed.data.model,
         hasCustomBaseUrl: Boolean(parsed.data.baseUrl),
         hasApiKeySupplied: Boolean(parsed.data.apiKey),
+        userRole: user.role,
       },
     }).catch(() => {});
 
