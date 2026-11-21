@@ -4,6 +4,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
+import { TextSizeControl } from '@/components/shared/TextSizeControl';
 import { AiCredentialsCard } from '@/components/settings/AiCredentialsCard';
 import { getCurrentUser } from '@/lib/auth';
 import { ShieldCheck, UserCheck, Database, Globe } from 'lucide-react';
@@ -46,12 +47,20 @@ export default async function SettingsPage() {
                 <LanguageSwitcher />
               </div>
 
-              <div className="flex items-center justify-between py-2">
+              <div className="flex items-center justify-between py-2 border-b border-border/60">
                 <div>
                   <h4 className="text-sm font-medium">{t('theme')}</h4>
                   <p className="text-xs text-muted-foreground">Light, Dark, or System Sync</p>
                 </div>
                 <ThemeToggle />
+              </div>
+
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <h4 className="text-sm font-medium">Text Size</h4>
+                  <p className="text-xs text-muted-foreground">Adjust display font scale</p>
+                </div>
+                <TextSizeControl />
               </div>
             </CardContent>
           </Card>

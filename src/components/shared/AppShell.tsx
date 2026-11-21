@@ -256,7 +256,30 @@ export function AppShell({ children }: AppShellProps) {
               </nav>
             </SidebarContent>
 
-            <SidebarFooter className="border-t border-border/60 p-3">
+            <SidebarFooter className="border-t border-border/60 p-2.5 space-y-2">
+              {/* Utility Tools: Tour, Help, Theme */}
+              <div className="flex items-center justify-around group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-1 py-1 px-1 rounded-lg bg-muted/40 border border-border/50">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => startProductTour()}
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground shrink-0"
+                  aria-label={tTour('startTour')}
+                  title={tTour('startTour')}
+                  data-tour="nav-tour-btn"
+                >
+                  <Sparkles className="w-4 h-4 text-primary" />
+                </Button>
+
+                <HelpSheet variant="icon" />
+
+                <div data-tour="nav-theme">
+                  <ThemeToggle variant="ghost" className="h-8 w-8 border-0" />
+                </div>
+              </div>
+
+              {/* User Profile / Logout */}
               <div className="flex items-center justify-between group-data-[collapsible=icon]:justify-center">
                 {currentUser ? (
                   <>
@@ -278,7 +301,7 @@ export function AppShell({ children }: AppShellProps) {
                       variant="ghost"
                       size="icon"
                       onClick={handleLogout}
-                      className="w-8 h-8 text-muted-foreground hover:text-destructive"
+                      className="w-8 h-8 text-muted-foreground hover:text-destructive shrink-0"
                       title={t('logout')}
                       aria-label={t('logout')}
                     >
@@ -307,8 +330,8 @@ export function AppShell({ children }: AppShellProps) {
           {/* Main Inset Content Area */}
           <SidebarInset className="flex flex-col flex-1 min-w-0">
             {/* Top Navigation Bar */}
-            <header className="sticky top-0 z-30 flex min-h-14 items-center justify-between gap-1 sm:gap-2 border-b border-border bg-background/95 px-2 backdrop-blur-md sm:px-4 w-full max-w-full overflow-hidden">
-              <div className="flex items-center gap-1 sm:gap-2 min-w-0 shrink">
+            <header className="sticky top-0 z-30 flex min-h-14 items-center justify-between gap-2 border-b border-border bg-background/95 px-3 backdrop-blur-md sm:px-4 w-full max-w-full overflow-hidden">
+              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink">
                 <SidebarTrigger className="size-9 sm:size-10 text-muted-foreground hover:text-foreground shrink-0" aria-label={t('toggleSidebar')} />
                 <button
                   type="button"
@@ -328,62 +351,35 @@ export function AppShell({ children }: AppShellProps) {
                 </div>
               </div>
 
-              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-                <div className="hidden lg:flex shrink-0">
-                  <TextSizeControl />
-                </div>
-
-                <div className="shrink-0">
-                  <HelpSheet />
-                </div>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => startProductTour()}
-                  className="gap-1.5 text-xs h-8 px-2 sm:px-2.5 border-border hover:bg-muted text-foreground font-medium shrink-0"
-                  aria-label={tTour('startTour')}
-                  title={tTour('startTour')}
-                  data-tour="nav-tour-btn"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-primary" />
-                  <span className="hidden xl:inline">{tTour('startTour')}</span>
-                </Button>
-
+              <div className="flex items-center gap-2 shrink-0">
                 <div data-tour="nav-language" className="shrink-0">
                   <LanguageSwitcher />
-                </div>
-                <div data-tour="nav-theme" className="shrink-0">
-                  <ThemeToggle />
                 </div>
 
                 {currentUser ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger
                       render={
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1.5 sm:gap-2 pl-1.5 sm:pl-2 pr-2 sm:pr-3 text-xs font-semibold rounded-full bg-muted/60 shrink-0 max-w-[140px] sm:max-w-[200px]"
+                        <button
+                          type="button"
+                          className="size-8 sm:size-9 rounded-full bg-primary/15 hover:bg-primary/25 text-primary flex items-center justify-center text-xs font-bold ring-1 ring-border/80 hover:ring-primary/50 transition-all shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                          aria-label={currentUser.name}
+                          title={currentUser.name}
                         >
-                          <div className="w-6 h-6 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[11px] font-bold shrink-0">
-                            {currentUser.name.charAt(0)}
-                          </div>
-                          <span className="hidden xl:inline-block max-w-28 truncate">
-                            {currentUser.name}
-                          </span>
-                          <Badge variant="outline" className="text-[10px] uppercase font-bold py-0 px-1 border-primary/30 text-primary shrink-0">
-                            {currentUser.role}
-                          </Badge>
-                        </Button>
+                          {currentUser.name.charAt(0)}
+                        </button>
                       }
                     />
                     <DropdownMenuContent align="end" className="w-56">
                       <DropdownMenuLabel className="font-normal">
                         <div className="flex flex-col space-y-1">
-                          <p className="text-xs font-semibold leading-none">{currentUser.name}</p>
-                          <p className="text-[11px] leading-none text-muted-foreground">{currentUser.email}</p>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-semibold leading-none truncate">{currentUser.name}</p>
+                            <Badge variant="outline" className="text-[9px] uppercase font-bold py-0 px-1 border-primary/30 text-primary shrink-0">
+                              {currentUser.role}
+                            </Badge>
+                          </div>
+                          <p className="text-[11px] leading-none text-muted-foreground truncate">{currentUser.email}</p>
                         </div>
                       </DropdownMenuLabel>
                       <DropdownMenuSeparator />
@@ -433,6 +429,9 @@ export function AppShell({ children }: AppShellProps) {
         </div>
 
         {/* Global Overlays */}
+        <div className="sr-only">
+          <TextSizeControl />
+        </div>
         <GlobalSearchCommand role={currentUser?.role} />
         <EvidenceSheet />
         <ProductTour />

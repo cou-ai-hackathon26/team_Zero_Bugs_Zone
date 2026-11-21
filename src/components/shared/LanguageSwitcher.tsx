@@ -26,10 +26,15 @@ export function LanguageSwitcher() {
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button variant="outline" size="sm" className="gap-1 min-h-11 px-2.5 sm:px-3 text-xs font-medium border-border/80">
-            <Languages className="w-4 h-4 text-primary shrink-0" />
-            <span className="hidden sm:inline">{locale === 'bn' ? 'বাংলা (BN)' : 'English (EN)'}</span>
-            <span className="sm:hidden uppercase">{locale}</span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 h-8 sm:h-9 px-2 sm:px-2.5 text-xs font-semibold border-border/80 shrink-0"
+            aria-label={locale === 'bn' ? 'ভাষা নির্বাচন' : 'Select language'}
+            title={locale === 'bn' ? 'ভাষা: বাংলা' : 'Language: English'}
+          >
+            <Languages className="w-3.5 h-3.5 text-primary shrink-0" />
+            <span className="uppercase font-bold text-[11px] sm:text-xs tracking-wider">{locale}</span>
           </Button>
         }
       />

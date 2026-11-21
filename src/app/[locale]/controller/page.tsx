@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { useLocale } from 'next-intl';
 import { AppShell } from '@/components/shared/AppShell';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { OnboardingTourBlock } from '@/components/shared/OnboardingTourBlock';
 import {
   Pill,
   ShieldCheck,
@@ -431,9 +430,6 @@ export default function ControllerPage() {
             </div>
           }
         />
-
-        {/* Controller Onboarding Tour Block */}
-        <OnboardingTourBlock panel="controller" />
 
       {/* Top Stat Cards */}
       <div data-tour="controller-stats" className="grid grid-cols-2 md:grid-cols-4 gap-4">

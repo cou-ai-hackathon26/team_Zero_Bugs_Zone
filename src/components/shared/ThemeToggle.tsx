@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import { Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,7 +12,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-export function ThemeToggle() {
+interface ThemeToggleProps {
+  variant?: 'outline' | 'ghost';
+  className?: string;
+}
+
+export function ThemeToggle({ variant = 'outline', className = '' }: ThemeToggleProps = {}) {
   const t = useTranslations('common');
   const { setTheme } = useTheme();
 
@@ -19,7 +25,13 @@ export function ThemeToggle() {
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button variant="outline" size="icon" className="size-11 rounded-md" aria-label={t('theme')}>
+          <Button
+            variant={variant}
+            size="icon"
+            className={cn('size-8 sm:size-9 rounded-md', className)}
+            aria-label={t('theme')}
+            title={t('theme')}
+          >
             <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0 text-amber-500" />
             <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100 text-sky-400" />
             <span className="sr-only">{t('theme')}</span>

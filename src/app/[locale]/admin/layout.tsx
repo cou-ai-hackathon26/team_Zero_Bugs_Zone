@@ -5,7 +5,6 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
-import { AdminHeaderTour } from '@/components/admin/AdminHeaderTour';
 import {
   LayoutDashboard,
   Users,
@@ -82,7 +81,6 @@ export default async function AdminLayout({
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            <AdminHeaderTour />
             <LanguageSwitcher />
             <ThemeToggle />
           </div>

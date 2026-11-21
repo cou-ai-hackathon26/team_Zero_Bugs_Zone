@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import {
   HelpCircle,
   Stethoscope,
@@ -162,7 +163,12 @@ const HELP_MAP: Record<string, ScreenHelpInfo> = {
   },
 };
 
-export function HelpSheet() {
+interface HelpSheetProps {
+  variant?: 'default' | 'icon';
+  className?: string;
+}
+
+export function HelpSheet({ variant = 'default', className = '' }: HelpSheetProps = {}) {
   const pathname = usePathname();
   const locale = useLocale();
   const isBn = locale === 'bn';
@@ -178,15 +184,30 @@ export function HelpSheet() {
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger
         render={
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 px-2.5 sm:px-3 text-xs font-semibold flex items-center gap-1.5 border-border/80 bg-background hover:bg-muted/60 text-foreground transition-all duration-150"
-            aria-label={isBn ? 'স্ক্রিন সাহায্য ও হেল্পলাইন খুলুন' : 'Open Screen Help & Helpline'}
-          >
-            <HelpCircle className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
-            <span className="hidden sm:inline">{isBn ? 'সাহায্য' : 'Help'}</span>
-          </Button>
+          variant === 'icon' ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn('h-8 w-8 text-muted-foreground hover:text-foreground', className)}
+              aria-label={isBn ? 'স্ক্রিন সাহায্য ও হেল্পলাইন খুলুন' : 'Open Screen Help & Helpline'}
+              title={isBn ? 'সাহায্য ও হেল্পলাইন' : 'Help & Helpline'}
+            >
+              <HelpCircle className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                'h-8 px-2.5 sm:px-3 text-xs font-semibold flex items-center gap-1.5 border-border/80 bg-background hover:bg-muted/60 text-foreground transition-all duration-150',
+                className
+              )}
+              aria-label={isBn ? 'স্ক্রিন সাহায্য ও হেল্পলাইন খুলুন' : 'Open Screen Help & Helpline'}
+            >
+              <HelpCircle className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
+              <span className="hidden sm:inline">{isBn ? 'সাহায্য' : 'Help'}</span>
+            </Button>
+          )
         }
       />
 
