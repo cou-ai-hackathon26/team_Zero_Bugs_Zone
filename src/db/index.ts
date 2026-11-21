@@ -5,12 +5,16 @@ import * as schema from './schema';
 // Lazy pool singleton to avoid multiple connections in Next.js hot reload
 const globalForDb = globalThis as unknown as { pool: Pool | undefined };
 
+const connectionString = process.env.DATABASE_URL || 'postgresql://apple@localhost:5432/docmate';
+const isLocal = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+
 export const pool =
   globalForDb.pool ??
   new Pool({
-    connectionString: process.env.DATABASE_URL || 'postgresql://apple@localhost:5432/docmate',
+    connectionString,
     max: 10,
     idleTimeoutMillis: 30000,
+    ssl: isLocal ? false : { rejectUnauthorized: false },
   });
 
 if (process.env.NODE_ENV !== 'production') {

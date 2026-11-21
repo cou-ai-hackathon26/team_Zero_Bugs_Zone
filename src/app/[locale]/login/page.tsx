@@ -116,7 +116,8 @@ export default function LoginPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || t('errorInvalid'));
+        const errorText = data.details ? `${data.error} (${data.details})` : (data.error || t('errorInvalid'));
+        throw new Error(errorText);
       }
 
       toast.success(t('signedIn'));

@@ -2,8 +2,12 @@ import { Pool } from 'pg';
 import OpenAI from 'openai';
 import { Chunk } from '@/types';
 
+const connectionString = process.env.DATABASE_URL || 'postgresql://apple@localhost:5432/docmate';
+const isLocal = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://apple@localhost:5432/docmate',
+  connectionString,
+  ssl: isLocal ? false : { rejectUnauthorized: false },
 });
 
 const openai = process.env.OPENAI_API_KEY

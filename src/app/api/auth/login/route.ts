@@ -104,7 +104,9 @@ export async function POST(request: Request) {
         },
       }
     );
-  } catch {
-    return NextResponse.json({ error: 'Login failed' }, { status: 500 });
+  } catch (err) {
+    console.error('[API /api/auth/login Error]:', err);
+    const errorMessage = err instanceof Error ? err.message : 'Login failed';
+    return NextResponse.json({ error: 'Login failed', details: errorMessage }, { status: 500 });
   }
 }
