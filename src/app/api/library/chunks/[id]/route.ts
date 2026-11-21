@@ -1,3 +1,5 @@
+import { z } from 'zod';
+import { getCurrentUser } from '@/lib/auth';
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { chunks, sources } from '@/db/schema';
@@ -8,7 +10,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (!await getCurrentUser()) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     const { id } = await params;
+    if (!z.uuid().safeParse(id).success) return NextResponse.json({ error: 'Invalid chunk ID' }, { status: 400 });
     const chunkRecord = await db.query.chunks.findFirst({
       where: eq(chunks.id, id),
     });
@@ -29,8 +33,7 @@ export async function GET(
         source_license: sourceRecord?.license,
       },
     });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to fetch chunk';
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: 'Failed to fetch chunk' }, { status: 500 });
   }
 }

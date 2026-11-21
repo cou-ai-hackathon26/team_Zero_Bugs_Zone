@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { boundedJson } from '@/lib/api-input';
+import { caseInput } from '@/lib/case-input';
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { cases, auditLogs } from '@/db/schema';
@@ -11,6 +14,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const search = searchParams.get('search');
+    if (!z.object({ status: z.string().max(30).nullable(), search: z.string().max(250).nullable() }).safeParse({ status, search }).success) {
+      return NextResponse.json({ error: 'Invalid case filters' }, { status: 400 });
+    }
 
     const all = await db.query.cases.findMany({
       where: eq(cases.doctorId, user.id),
@@ -43,9 +49,8 @@ export async function GET(request: Request) {
     }));
 
     return NextResponse.json({ cases: mapped });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to fetch cases';
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: 'Failed to fetch cases' }, { status: 500 });
   }
 }
 
@@ -54,43 +59,22 @@ export async function POST(request: Request) {
     const user = await requirePhysician();
     if (user instanceof NextResponse) return user;
 
-    const body = await request.json();
+    const input = caseInput.safeParse(await boundedJson(request));
+    if (!input.success) return NextResponse.json({ error: 'Invalid synthetic case input' }, { status: 400 });
+    const { patient_code, structured_input } = input.data;
 
-    const { patient_code, structured_input } = body;
-
-    if (!patient_code || !structured_input) {
-      return NextResponse.json(
-        { error: 'Patient code and structured input are required' },
-        { status: 400 }
-      );
-    }
-
-    const inserted = await db
-      .insert(cases)
-      .values({
-        doctorId: user.id,
-        patientCode: patient_code,
-        status: 'draft',
-        structuredInput: structured_input,
-      })
-      .returning();
-
-    const newCase = inserted[0];
-
-    // Log audit event
-    await db.insert(auditLogs).values({
-      caseId: newCase.id,
-      userId: user.id,
-      event: 'case_created',
-      payload: {
-        patient_code: newCase.patientCode,
-        chief_complaint: structured_input.chief_complaint,
-      },
+    const newCase = await db.transaction(async (tx) => {
+      const [record] = await tx.insert(cases).values({
+        doctorId: user.id, patientCode: patient_code, status: 'draft', structuredInput: structured_input,
+      }).returning();
+      await tx.insert(auditLogs).values({
+        caseId: record.id, userId: user.id, event: 'case_created', payload: {},
+      });
+      return record;
     });
 
     return NextResponse.json({ case: newCase });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to create case';
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: 'Failed to create case' }, { status: 500 });
   }
 }

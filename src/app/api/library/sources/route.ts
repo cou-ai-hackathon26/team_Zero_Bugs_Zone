@@ -1,11 +1,14 @@
+import { z } from 'zod';
+import { boundedJson } from '@/lib/api-input';
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { sources, chunks } from '@/db/schema';
+import { sources, chunks, auditLogs } from '@/db/schema';
 import { desc, sql } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth';
 
 export async function GET() {
   try {
+    if (!await getCurrentUser()) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     const list = await db.query.sources.findMany({
       orderBy: [desc(sources.createdAt)],
     });
@@ -26,9 +29,8 @@ export async function GET() {
     }));
 
     return NextResponse.json({ sources: enriched });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to fetch sources';
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: 'Failed to fetch sources' }, { status: 500 });
   }
 }
 
@@ -39,27 +41,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized: Admin role required' }, { status: 403 });
     }
 
-    const { title, type, year, license, url } = await request.json();
+    const input = z.object({
+      title: z.string().trim().min(1).max(250),
+      type: z.enum(['textbook', 'guideline', 'journal', 'drug']),
+      year: z.coerce.number().int().min(1800).max(new Date().getFullYear() + 1),
+      license: z.string().trim().max(250).optional(),
+      url: z.union([z.literal(''), z.url({ protocol: /^https?$/ }).max(2048)]).optional(),
+    }).safeParse(await boundedJson(request, 8192));
+    if (!input.success) return NextResponse.json({ error: 'Invalid source metadata' }, { status: 400 });
 
-    if (!title || !type || !year) {
-      return NextResponse.json({ error: 'Title, type, and publication year required' }, { status: 400 });
-    }
-
-    const inserted = await db
-      .insert(sources)
-      .values({
-        title,
-        type,
-        year: parseInt(year, 10),
-        license: license || 'Open Access / Academic Demo',
-        url: url || null,
-        status: 'active',
-      })
-      .returning();
-
-    return NextResponse.json({ source: inserted[0] });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to add source';
-    return NextResponse.json({ error: message }, { status: 500 });
+    const source = await db.transaction(async (tx) => {
+      const [record] = await tx.insert(sources).values({
+        ...input.data, license: input.data.license || undefined, url: input.data.url || null,
+      }).returning();
+      await tx.insert(auditLogs).values({
+        userId: user.id, event: 'source_created', payload: { source_id: record.id },
+      });
+      return record;
+    });
+    return NextResponse.json({ source });
+  } catch {
+    return NextResponse.json({ error: 'Failed to add source' }, { status: 500 });
   }
 }

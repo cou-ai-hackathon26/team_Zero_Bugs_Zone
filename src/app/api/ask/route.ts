@@ -1,3 +1,5 @@
+import { boundedJson, rateLimit } from '@/lib/api-input';
+import { getCurrentUser } from '@/lib/auth';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { searchLibraryText } from '@/lib/retrieval';
@@ -12,7 +14,11 @@ const requestSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const input = requestSchema.safeParse(await request.json().catch(() => null));
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    const limited = rateLimit(`ask:${user.id}`, 20);
+    if (limited) return limited;
+    const input = requestSchema.safeParse(await boundedJson(request, 4096));
     if (!input.success) return NextResponse.json({ error: 'Invalid library question' }, { status: 400 });
 
     const { question, locale } = input.data;

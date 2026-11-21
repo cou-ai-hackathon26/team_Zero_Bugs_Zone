@@ -32,6 +32,8 @@ export default async function middleware(request: NextRequest) {
     subPath.startsWith('dashboard/') ||
     subPath === 'cases' ||
     subPath.startsWith('cases/') ||
+    subPath === 'library' ||
+    subPath === 'ask' ||
     subPath === 'settings' ||
     subPath.startsWith('settings/');
 

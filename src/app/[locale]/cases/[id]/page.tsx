@@ -223,6 +223,12 @@ export default function CaseWorkspacePage({ params }: CaseWorkspacePageProps) {
   const handleConfirmDiagnosis = async (condition: string) => {
     if (!caseData) return;
     try {
+      const response = await fetch(`/api/cases/${caseId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmedDiagnosis: condition }),
+      });
+      if (!response.ok) throw new Error('Unable to record working diagnosis');
       setCaseData({
         ...caseData,
         confirmed_diagnosis: condition,

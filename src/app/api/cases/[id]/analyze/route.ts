@@ -1,3 +1,4 @@
+import { boundedJson, rateLimit } from '@/lib/api-input';
 import { NextResponse } from 'next/server';
 import { desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -38,7 +39,9 @@ export async function POST(
     if (user instanceof NextResponse) return user;
     const { id } = await params;
     if (!validCaseId(id)) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
-    const input = inputSchema.safeParse(await request.json().catch(() => null));
+    const limited = rateLimit(`analyze:${user.id}`, 12);
+    if (limited) return limited;
+    const input = inputSchema.safeParse(await boundedJson(request, 2048));
     if (!input.success) return NextResponse.json({ error: 'Invalid analysis request' }, { status: 400 });
 
     const result = await db.transaction(async (tx) => {

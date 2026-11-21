@@ -1,8 +1,10 @@
+import { z } from 'zod';
+import { boundedJson } from '@/lib/api-input';
 import { abstentionModel } from '@/lib/analysis-policy';
 import { ownedCase, requirePhysician, validCaseId } from '@/lib/case-access';
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { cases, analyses, caseTurns } from '@/db/schema';
+import { cases, analyses, caseTurns, auditLogs } from '@/db/schema';
 import { and, eq, desc } from 'drizzle-orm';
 
 export async function GET(
@@ -58,9 +60,8 @@ export async function GET(
       analyses: allAnalyses,
       turns,
     });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to fetch case';
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: 'Failed to fetch case' }, { status: 500 });
   }
 }
 
@@ -73,24 +74,25 @@ export async function PATCH(
     if (user instanceof NextResponse) return user;
     const { id } = await params;
     if (!validCaseId(id)) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
-    const body = await request.json();
+    const input = z.object({
+      confirmedDiagnosis: z.string().trim().min(1).max(250),
+    }).strict().safeParse(await boundedJson(request));
+    if (!input.success) return NextResponse.json({ error: 'Invalid working diagnosis' }, { status: 400 });
 
-    const { status, confirmedDiagnosis } = body;
+    const updated = await db.transaction(async (tx) => {
+      const [record] = await tx.update(cases).set({
+        status: 'confirmed', confirmedDiagnosis: input.data.confirmedDiagnosis, updatedAt: new Date(),
+      }).where(ownedCase(id, user.id)).returning();
+      if (!record) return null;
+      await tx.insert(auditLogs).values({
+        caseId: id, userId: user.id, event: 'diagnosis_confirmed', payload: {},
+      });
+      return record;
+    });
 
-    const updated = await db
-      .update(cases)
-      .set({
-        ...(status && { status }),
-        ...(confirmedDiagnosis && { confirmedDiagnosis }),
-        updatedAt: new Date(),
-      })
-      .where(ownedCase(id, user.id))
-      .returning();
-
-    if (!updated[0]) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
-    return NextResponse.json({ case: updated[0] });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to update case';
-    return NextResponse.json({ error: message }, { status: 500 });
+    if (!updated) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
+    return NextResponse.json({ case: updated });
+  } catch {
+    return NextResponse.json({ error: 'Failed to update case' }, { status: 500 });
   }
 }

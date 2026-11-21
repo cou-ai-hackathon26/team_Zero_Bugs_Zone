@@ -1,3 +1,5 @@
+import { z } from 'zod';
+import { getCurrentUser } from '@/lib/auth';
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { chunks } from '@/db/schema';
@@ -5,8 +7,12 @@ import { eq, desc } from 'drizzle-orm';
 
 export async function GET(request: Request) {
   try {
+    if (!await getCurrentUser()) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     const { searchParams } = new URL(request.url);
     const sourceId = searchParams.get('source_id');
+    if (sourceId !== null && !z.uuid().safeParse(sourceId).success) {
+      return NextResponse.json({ error: 'Invalid source ID' }, { status: 400 });
+    }
 
     if (!sourceId) {
       const allChunks = await db.query.chunks.findMany({
@@ -22,8 +28,7 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({ chunks: sourceChunks });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to fetch chunks';
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: 'Failed to fetch chunks' }, { status: 500 });
   }
 }
