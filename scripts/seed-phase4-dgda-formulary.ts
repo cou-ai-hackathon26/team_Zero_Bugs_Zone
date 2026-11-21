@@ -1,7 +1,11 @@
 import { Pool } from 'pg';
 
+const connectionString = process.env.DATABASE_URL || 'postgresql://apple@localhost:5432/docmate';
+const isLocal = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://apple:@localhost:5432/docmate',
+  connectionString,
+  ssl: isLocal ? false : { rejectUnauthorized: false },
 });
 
 interface MedicineSeed {
