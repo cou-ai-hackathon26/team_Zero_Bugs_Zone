@@ -389,6 +389,7 @@ export default function NewPatientIntakePage() {
                     <Input
                       type="tel"
                       inputMode="numeric"
+                      data-testid="patient-phone-input"
                       value={searchPhone}
                       onChange={(e) => setSearchPhone(e.target.value)}
                       placeholder={tFlow('phonePlaceholder')}
@@ -400,6 +401,7 @@ export default function NewPatientIntakePage() {
                     type="button"
                     onClick={() => handleSearchPatient()}
                     disabled={searchLoading}
+                    data-testid="search-patient-btn"
                     className="h-12 px-6 text-sm font-semibold bg-primary hover:bg-primary/90 text-primary-foreground gap-2 shrink-0"
                   >
                     {searchLoading ? (
@@ -493,6 +495,7 @@ export default function NewPatientIntakePage() {
                           return (
                             <div
                               key={prof.id}
+                              data-testid="patient-profile-card"
                               onClick={() => handleSelectProfile(prof)}
                               className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
                                 isSelected
@@ -794,7 +797,7 @@ export default function NewPatientIntakePage() {
         {flowStep === 'intake' && (
           <div className="space-y-6">
             {/* Active Patient Summary Banner */}
-            <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div data-testid="selected-patient-banner" className="p-4 rounded-xl bg-primary/10 border border-primary/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">
                   {selectedProfile?.name?.charAt(0) || 'P'}

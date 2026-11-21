@@ -18,6 +18,11 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // Only doctors and super_admins can view AI credentials
+  if (user.role !== 'doctor' && user.role !== 'super_admin') {
+    return NextResponse.json({ error: 'Forbidden: Insufficient privileges to view AI credentials' }, { status: 403 });
+  }
+
   try {
     const config = await getStoredAiCredentials();
     return NextResponse.json(config);

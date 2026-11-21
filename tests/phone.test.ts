@@ -78,4 +78,15 @@ describe('Bangladeshi Phone Normalization & Formatting Helper', () => {
     expect(convertBanglaDigitsToEnglish('১২৩৪৫৬৭৮৯০')).toBe('1234567890');
     expect(convertEnglishDigitsToBangla('1234567890')).toBe('১২৩৪৫৬৭৮৯০');
   });
+
+  it('10. Normalizes 10-digit numbers omitting leading zero and numbers with 00880', () => {
+    const res10 = normalizeBangladeshiPhone('1712345678');
+    expect(res10.isValid).toBe(true);
+    expect(res10.e164).toBe('+8801712345678');
+    expect(res10.national).toBe('01712345678');
+
+    const res0088 = normalizeBangladeshiPhone('008801712345678');
+    expect(res0088.isValid).toBe(true);
+    expect(res0088.e164).toBe('+8801712345678');
+  });
 });

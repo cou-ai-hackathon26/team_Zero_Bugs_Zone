@@ -15,16 +15,19 @@ export default async function SettingsPage() {
   const user = await getCurrentUser();
   const t = await getTranslations('settings');
 
+  const isPatient = user?.role === 'patient';
+  const canConfigureAi = user?.role === 'doctor' || user?.role === 'super_admin';
+
   return (
     <AppShell>
       <div className="space-y-6 max-w-4xl">
         <PageHeader
           title={t('title')}
-          subtitle={t('subtitle')}
+          subtitle={isPatient ? t('patientSubtitle') : t('subtitle')}
         />
 
-        {/* 1. AI Credentials & Model Configuration (BYOK) */}
-        <AiCredentialsCard />
+        {/* 1. AI Credentials & Model Configuration (Doctors & Super Admins only) */}
+        {canConfigureAi && <AiCredentialsCard />}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Preferences */}
@@ -80,67 +83,120 @@ export default async function SettingsPage() {
               <div className="p-3 rounded-lg bg-muted/40 border border-border space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">{t('name')}:</span>
-                  <span className="text-xs font-semibold text-foreground">{user?.name || 'Dr. Farhana Rahman'}</span>
+                  <span className="text-xs font-semibold text-foreground">
+                    {user?.name || (isPatient ? 'Patient Account' : 'Dr. Farhana Rahman')}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{t('email')}:</span>
-                  <span className="text-xs font-mono text-foreground">{user?.email || 'doctor@docmate.ai'}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {user?.phone ? 'Phone:' : `${t('email')}:`}
+                  </span>
+                  <span className="text-xs font-mono text-foreground">
+                    {user?.phone || user?.email || (isPatient ? '01700000001' : 'doctor@docmate.ai')}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">{t('role')}:</span>
                   <Badge variant="outline" className="text-[10px] uppercase font-bold text-primary border-primary/30">
-                    {user?.role || 'doctor'}
+                    {user?.role || (isPatient ? 'patient' : 'doctor')}
                   </Badge>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Engine & Database Status */}
-          <Card className="border-border md:col-span-2">
-            <CardHeader className="p-5 pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Database className="w-4 h-4 text-primary" />
-                <span>{t('engineStatus')}</span>
-              </CardTitle>
-              <CardDescription className="text-xs">
-                {t('engineStatusDesc')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-5 pt-0">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="p-3 rounded-lg border border-border bg-card">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-1">
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>PostgreSQL + pgvector</span>
+          {/* Engine Status (Clinicians/Admins) or Privacy Safeguards (Patients) */}
+          {isPatient ? (
+            <Card className="border-border md:col-span-2">
+              <CardHeader className="p-5 pb-3">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>ব্যক্তিগত স্বাস্থ্য তথ্য ও গোপনীয়তা (Patient Privacy & Security)</span>
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  ডকমেইট এআই-তে আপনার স্বাস্থ্য তথ্য এবং প্রেসক্রিপশন সম্পূর্ণ সুরক্ষিত।
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-5 pt-0">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3 rounded-lg border border-border bg-card">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-1">
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>এনক্রিপ্ট করা প্রোফাইল</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      আপনার জাতীয় পরিচয়পত্র এবং ব্যক্তিগত তথ্য ডাটাবেজে এনক্রিপ্ট অবস্থায় সংরক্ষিত থাকে।
+                    </p>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Connected. Hybrid vector similarity & full-text search active.
-                  </p>
-                </div>
 
-                <div className="p-3 rounded-lg border border-border bg-card">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-1">
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>Closed Library Isolation</span>
+                  <div className="p-3 rounded-lg border border-border bg-card">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-1">
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>রোগীর অনুমতি ও নিয়ন্ত্রণ</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      আপনার সম্মতি ছাড়া কোনো ডাক্তার আপনার পূর্ববর্তী চিকিৎসার রেকর্ড বা রিপোর্ট দেখতে পারবেন না।
+                    </p>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Strict prompt boundaries enforced. No outside web retrieval.
-                  </p>
-                </div>
 
-                <div className="p-3 rounded-lg border border-border bg-card">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-1">
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>Deterministic Drug Engine</span>
+                  <div className="p-3 rounded-lg border border-border bg-card">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-1">
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>যাচাইকৃত প্রেসক্রিপশন</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      প্রতিটি প্রেসক্রিপশন বিএমডিসি নিবন্ধিত ডাক্তার দ্বারা অনুমোদিত এবং ডিজিটালভাবে যাচাইযোগ্য।
+                    </p>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    TypeScript rule engine active for interactions, renal & allergies.
-                  </p>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-border md:col-span-2">
+              <CardHeader className="p-5 pb-3">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Database className="w-4 h-4 text-primary" />
+                  <span>{t('engineStatus')}</span>
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  {t('engineStatusDesc')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-5 pt-0">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3 rounded-lg border border-border bg-card">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-1">
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>PostgreSQL + pgvector</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Connected. Hybrid vector similarity & full-text search active.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-lg border border-border bg-card">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-1">
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Closed Library Isolation</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Strict prompt boundaries enforced. No outside web retrieval.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-lg border border-border bg-card">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-1">
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Deterministic Drug Engine</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      TypeScript rule engine active for interactions, renal & allergies.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </AppShell>

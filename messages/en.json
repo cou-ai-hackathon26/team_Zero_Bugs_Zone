@@ -514,6 +514,7 @@
   "settings": {
     "title": "Settings & System Status",
     "subtitle": "Configure language, visual theme, and AI model credentials.",
+    "patientSubtitle": "Configure interface language, font scaling, and visual theme preferences.",
     "localizationTitle": "Localization & Appearance",
     "localizationDesc": "Switch language between Bengali and English, and toggle themes.",
     "language": "Interface Language",
