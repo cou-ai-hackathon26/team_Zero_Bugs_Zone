@@ -5,8 +5,94 @@ import { verifySessionToken, COOKIE_NAME } from './lib/session';
 
 const intlMiddleware = createMiddleware(routing);
 
+/**
+ * Returns the primary landing panel path for each role.
+ */
+export function getRoleDefaultPath(role: string): string {
+  switch (role) {
+    case 'super_admin':
+    case 'admin':
+      return '/admin';
+    case 'doctor':
+      return '/dashboard';
+    case 'student':
+      return '/ask';
+    case 'researcher':
+    case 'medicine_controller':
+      return '/library';
+    case 'patient':
+      return '/prescriptions';
+    default:
+      return '/dashboard';
+  }
+}
+
+/**
+ * Evaluates whether a role is authorized to access a given subPath.
+ *
+ * RBAC Rules:
+ * - super_admin: Full access to all panels (/admin, /dashboard, /patients, /prescriptions, /cases, /library, /ask, /settings).
+ * - doctor: Clinical decision support (/dashboard, /patients, /prescriptions, /cases, /library, /ask, /settings).
+ *           Forbidden from /admin control plane.
+ * - student: Trainee learning (/ask, /library, /settings).
+ *            Strictly forbidden from patient data (/patients, /prescriptions, /cases), /dashboard, and /admin.
+ * - researcher: Guideline & literature research (/library, /ask, /settings).
+ *               Strictly forbidden from patient data (/patients, /prescriptions, /cases), /dashboard, and /admin.
+ * - medicine_controller: Guideline & formulary inspection (/library, /ask, /settings).
+ *                        Strictly forbidden from patient data (/patients, /prescriptions, /cases), /dashboard, and /admin.
+ * - patient: Personal portal (/prescriptions, /settings).
+ *            Forbidden from other clinical workspaces, library, ask, and admin.
+ */
+export function isRouteAllowedForRole(subPath: string, role: string): boolean {
+  const rootSegment = subPath.split('/')[0];
+
+  // 1. Super Admin has unrestricted operational access across all features
+  if (role === 'super_admin' || role === 'admin') {
+    return true;
+  }
+
+  // 2. Doctor: Clinical workspace
+  if (role === 'doctor') {
+    // Only Super Admin can enter the /admin control plane
+    if (rootSegment === 'admin') return false;
+    return true;
+  }
+
+  // 3. Student (Medical Trainee): Learning and guideline exploration only
+  // Zero patient data exposure
+  if (role === 'student') {
+    return rootSegment === 'ask' || rootSegment === 'library' || rootSegment === 'settings';
+  }
+
+  // 4. Researcher & Medicine Controller: Medical library & guideline search
+  // Zero patient data exposure
+  if (role === 'researcher' || role === 'medicine_controller') {
+    return rootSegment === 'library' || rootSegment === 'ask' || rootSegment === 'settings';
+  }
+
+  // 5. Patient: Personal prescriptions and settings only
+  if (role === 'patient') {
+    return rootSegment === 'prescriptions' || rootSegment === 'settings';
+  }
+
+  return false;
+}
+
+/**
+ * Helper to create a redirect response while preserving cookies set by next-intl.
+ */
+function createRedirect(url: URL | string, intlResponse?: NextResponse): NextResponse {
+  const redirectResponse = NextResponse.redirect(url);
+  if (intlResponse) {
+    intlResponse.cookies.getAll().forEach((c) => {
+      redirectResponse.cookies.set(c);
+    });
+  }
+  return redirectResponse;
+}
+
 export default async function proxy(request: NextRequest) {
-  // 1. Run next-intl middleware first to resolve locale redirects (e.g. / -> /bn)
+  // 1. Run next-intl middleware first to resolve locale redirects (e.g. / -> /bn or cookie detection)
   const intlResponse = intlMiddleware(request);
 
   // If next-intl generated a redirect, return immediately
@@ -26,37 +112,44 @@ export default async function proxy(request: NextRequest) {
   const token = request.cookies.get(COOKIE_NAME)?.value;
   const session = token ? await verifySessionToken(token) : null;
 
-  // Protected paths requiring active session
-  const isProtectedPath =
-    subPath === 'dashboard' ||
-    subPath.startsWith('dashboard/') ||
-    subPath === 'cases' ||
-    subPath.startsWith('cases/') ||
-    subPath === 'library' ||
-    subPath === 'ask' ||
-    subPath === 'settings' ||
-    subPath.startsWith('settings/') ||
-    subPath === 'admin' ||
-    subPath.startsWith('admin/');
+  // 2. Check login page access for already authenticated users
+  if (subPath === 'login') {
+    if (session) {
+      // Redirect already logged in users directly to their designated role panel
+      const targetUrl = new URL(`/${locale}${getRoleDefaultPath(session.role)}`, request.url);
+      return createRedirect(targetUrl, intlResponse);
+    }
+    return intlResponse;
+  }
 
-  // 2. Unauthenticated check for protected routes
+  // Protected paths requiring active session
+  const rootSegment = subPath.split('/')[0];
+  const protectedSegments = [
+    'dashboard',
+    'patients',
+    'prescriptions',
+    'cases',
+    'library',
+    'ask',
+    'settings',
+    'admin',
+  ];
+  const isProtectedPath = protectedSegments.includes(rootSegment);
+
+  // 3. Unauthenticated check for protected routes
   if (isProtectedPath && !session) {
     const loginUrl = new URL(`/${locale}/login`, request.url);
     loginUrl.searchParams.set('callbackUrl', pathname);
-    return NextResponse.redirect(loginUrl);
+    return createRedirect(loginUrl, intlResponse);
   }
 
-  // 3. Super Admin path check
-  if ((subPath === 'admin' || subPath.startsWith('admin/')) && session?.role !== 'super_admin') {
-    return NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url));
-  }
-
-  if (
-    (subPath === 'cases' || subPath.startsWith('cases/')) &&
-    session?.role !== 'doctor' &&
-    session?.role !== 'super_admin'
-  ) {
-    return NextResponse.redirect(new URL(`/${locale}/library`, request.url));
+  // 4. Authenticated RBAC checks: redirect unauthorized roles to their primary panel
+  if (isProtectedPath && session) {
+    const isAllowed = isRouteAllowedForRole(subPath, session.role);
+    if (!isAllowed) {
+      const fallbackUrl = new URL(`/${locale}${getRoleDefaultPath(session.role)}`, request.url);
+      return createRedirect(fallbackUrl, intlResponse);
+    }
   }
 
   return intlResponse;

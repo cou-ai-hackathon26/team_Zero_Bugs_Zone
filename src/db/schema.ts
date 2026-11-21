@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, integer, timestamp, jsonb, uuid, customType, index, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, text, varchar, integer, timestamp, jsonb, uuid, customType, index, boolean, numeric } from 'drizzle-orm/pg-core';
 import { vector } from 'drizzle-orm/pg-core';
 
 export const tsvector = customType<{ data: string }>({
@@ -199,3 +199,109 @@ export const systemSettings = pgTable('system_settings', {
   updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+export const patients = pgTable('patients', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  doctorId: uuid('doctor_id').references(() => users.id, { onDelete: 'set null' }),
+  patientCode: varchar('patient_code', { length: 50 }).notNull(),
+  nameEncrypted: text('name_encrypted').notNull(),
+  phoneEncrypted: text('phone_encrypted'),
+  age: integer('age').notNull(),
+  gender: varchar('gender', { length: 20 }).notNull(),
+  bloodGroup: varchar('blood_group', { length: 10 }),
+  emergencyContact: text('emergency_contact'),
+  consentObtained: boolean('consent_obtained').default(true).notNull(),
+  consentObtainedAt: timestamp('consent_obtained_at', { withTimezone: true }).defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const encounters = pgTable('encounters', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  patientId: uuid('patient_id').references(() => patients.id, { onDelete: 'cascade' }).notNull(),
+  doctorId: uuid('doctor_id').references(() => users.id, { onDelete: 'set null' }),
+  caseId: uuid('case_id').references(() => cases.id, { onDelete: 'set null' }),
+  visitDate: timestamp('visit_date', { withTimezone: true }).defaultNow().notNull(),
+  chiefComplaint: text('chief_complaint').notNull(),
+  symptoms: jsonb('symptoms').notNull(),
+  vitals: jsonb('vitals').notNull(),
+  allergies: jsonb('allergies').notNull(),
+  currentMedications: jsonb('current_medications').notNull(),
+  pastHistory: text('past_history'),
+  clinicalNotes: text('clinical_notes'),
+  status: varchar('status', { length: 30 }).default('in_progress').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const prescriptions = pgTable('prescriptions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  encounterId: uuid('encounter_id').references(() => encounters.id, { onDelete: 'set null' }),
+  patientId: uuid('patient_id').references(() => patients.id, { onDelete: 'cascade' }).notNull(),
+  doctorId: uuid('doctor_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  rxNumber: varchar('rx_number', { length: 50 }).notNull().unique(),
+  diagnosis: text('diagnosis'),
+  investigations: jsonb('investigations').notNull(),
+  generalAdvice: text('general_advice'),
+  followUpText: varchar('follow_up_text', { length: 100 }),
+  status: varchar('status', { length: 30 }).default('draft').notNull(), // 'draft' | 'finalized'
+  qrHash: varchar('qr_hash', { length: 64 }).notNull().unique(),
+  finalizedAt: timestamp('finalized_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const prescriptionItems = pgTable('prescription_items', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  prescriptionId: uuid('prescription_id').references(() => prescriptions.id, { onDelete: 'cascade' }).notNull(),
+  brandName: varchar('brand_name', { length: 100 }).notNull(),
+  genericName: varchar('generic_name', { length: 100 }).notNull(),
+  strength: varchar('strength', { length: 50 }).notNull(),
+  form: varchar('form', { length: 50 }).default('Tab').notNull(),
+  dosingSchedule: varchar('dosing_schedule', { length: 50 }).notNull(),
+  mealTiming: varchar('meal_timing', { length: 50 }).default('খাবারের পর').notNull(),
+  durationDays: integer('duration_days').default(7).notNull(),
+  durationText: varchar('duration_text', { length: 50 }).default('৭ দিন').notNull(),
+  instructions: text('instructions'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const medicineBrands = pgTable('medicine_brands', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  brandName: varchar('brand_name', { length: 150 }).notNull(),
+  genericName: varchar('generic_name', { length: 150 }).notNull(),
+  manufacturer: varchar('manufacturer', { length: 150 }).notNull(),
+  form: varchar('form', { length: 50 }).default('Tab').notNull(),
+  strength: varchar('strength', { length: 50 }).notNull(),
+  packSize: varchar('pack_size', { length: 50 }).default('10x10'),
+  priceBdt: numeric('price_bdt', { precision: 10, scale: 2 }).default('0.00'),
+  dgdaRegNum: varchar('dgda_reg_num', { length: 50 }),
+  status: varchar('status', { length: 30 }).default('approved').notNull(), // 'pending' | 'partially_approved' | 'approved' | 'rejected'
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const medicineVersions = pgTable('medicine_versions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  medicineId: uuid('medicine_id').references(() => medicineBrands.id, { onDelete: 'cascade' }).notNull(),
+  versionNumber: integer('version_number').default(1).notNull(),
+  changesJson: jsonb('changes_json').notNull(),
+  reviewedBy1: uuid('reviewed_by_1').references(() => users.id, { onDelete: 'set null' }),
+  reviewedAt1: timestamp('reviewed_at_1', { withTimezone: true }),
+  reviewedBy2: uuid('reviewed_by_2').references(() => users.id, { onDelete: 'set null' }),
+  reviewedAt2: timestamp('reviewed_at_2', { withTimezone: true }),
+  status: varchar('status', { length: 30 }).default('pending').notNull(), // 'pending' | 'partially_approved' | 'approved' | 'rejected'
+  rejectionReason: text('rejection_reason'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const medicineNotices = pgTable('medicine_notices', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  title: text('title').notNull(),
+  severity: varchar('severity', { length: 30 }).default('info').notNull(), // 'info' | 'warning' | 'critical_recall'
+  body: text('body').notNull(),
+  affectedBatches: jsonb('affected_batches').notNull(),
+  publishedBy: uuid('published_by').references(() => users.id, { onDelete: 'set null' }),
+  publishedAt: timestamp('published_at', { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+

@@ -153,3 +153,5 @@ export async function verifyAuditChain(): Promise<{
 
   return { valid: true, totalChecked: logs.length };
 }
+
+export const createAuditLogEntry = recordAuditLog;

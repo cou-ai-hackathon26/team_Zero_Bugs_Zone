@@ -6,6 +6,7 @@ import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { hashPassword, setAuthCookie, verifyPassword } from '@/lib/auth';
 import { UserRole } from '@/types';
+import { getRoleDefaultPath, isRouteAllowedForRole } from '@/proxy';
 
 export async function POST(request: Request) {
   try {
@@ -76,15 +77,25 @@ export async function POST(request: Request) {
     const isHttps = proto === 'https' || (process.env.NEXT_PUBLIC_APP_URL?.startsWith('https://') ?? false);
     await setAuthCookie(safeUser, isHttps);
 
+    const defaultTarget = getRoleDefaultPath(safeUser.role);
+    let resolvedTarget = defaultTarget;
+    if (callbackUrl && callbackUrl.startsWith('/')) {
+      const cleanSubPath = callbackUrl.replace(/^\/(?:bn|en)\/?/, '');
+      if (isRouteAllowedForRole(cleanSubPath, safeUser.role)) {
+        resolvedTarget = callbackUrl;
+      }
+    }
+
     if (isFormSubmit) {
-      const defaultTarget = safeUser.role === 'student' ? '/ask' : safeUser.role === 'researcher' ? '/library' : '/dashboard';
-      const target = callbackUrl && callbackUrl.startsWith('/') ? callbackUrl : defaultTarget;
-      const redirectUrl = new URL(target, request.url);
+      const redirectUrl = new URL(resolvedTarget, request.url);
       return NextResponse.redirect(redirectUrl, 303);
     }
 
     return NextResponse.json(
-      { user: safeUser },
+      {
+        user: safeUser,
+        redirectUrl: resolvedTarget,
+      },
       {
         headers: {
           'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',

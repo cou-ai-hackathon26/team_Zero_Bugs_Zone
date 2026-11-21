@@ -37,6 +37,7 @@ import {
   LayoutDashboard,
   Users,
   PlusCircle,
+  FileText,
   BookOpen,
   HelpCircle,
   Settings,
@@ -76,32 +77,65 @@ export function AppShell({ children }: AppShellProps) {
     window.location.replace(`/${locale}/login`);
   };
 
+  const role = currentUser?.role;
+
   const navItems = [
-    {
-      title: t('dashboard'),
-      href: '/dashboard',
-      icon: LayoutDashboard,
-    },
-    {
-      title: t('cases'),
-      href: '/cases',
-      icon: Users,
-    },
-    {
-      title: t('newCase'),
-      href: '/cases/new',
-      icon: PlusCircle,
-    },
-    {
-      title: t('library'),
-      href: '/library',
-      icon: BookOpen,
-    },
-    {
-      title: t('ask'),
-      href: '/ask',
-      icon: HelpCircle,
-    },
+    ...(role === 'super_admin'
+      ? [
+          {
+            title: t('admin'),
+            href: '/admin',
+            icon: ShieldAlert,
+          },
+        ]
+      : []),
+    ...(role === 'doctor' || role === 'super_admin'
+      ? [
+          {
+            title: t('dashboard'),
+            href: '/dashboard',
+            icon: LayoutDashboard,
+          },
+          {
+            title: t('patients'),
+            href: '/patients',
+            icon: Users,
+          },
+          {
+            title: t('newCase'),
+            href: '/patients/new',
+            icon: PlusCircle,
+          },
+          {
+            title: t('prescriptions'),
+            href: '/prescriptions',
+            icon: FileText,
+          },
+        ]
+      : []),
+    ...(role === 'patient'
+      ? [
+          {
+            title: t('prescriptions'),
+            href: '/prescriptions',
+            icon: FileText,
+          },
+        ]
+      : []),
+    ...(role !== 'patient'
+      ? [
+          {
+            title: t('library'),
+            href: '/library',
+            icon: BookOpen,
+          },
+          {
+            title: t('ask'),
+            href: '/ask',
+            icon: HelpCircle,
+          },
+        ]
+      : []),
     {
       title: t('settings'),
       href: '/settings',
@@ -109,13 +143,16 @@ export function AppShell({ children }: AppShellProps) {
     },
   ];
 
-  const isPhysicianOrAdmin = currentUser ? (currentUser.role === 'doctor' || currentUser.role === 'super_admin') : true;
-  const filteredNavItems = navItems.filter((item) => {
-    if (item.href === '/cases' || item.href === '/cases/new') {
-      return isPhysicianOrAdmin;
-    }
-    return true;
-  });
+  const logoHref =
+    role === 'super_admin'
+      ? '/admin'
+      : role === 'student'
+      ? '/ask'
+      : role === 'researcher' || role === 'medicine_controller'
+      ? '/library'
+      : role === 'patient'
+      ? '/prescriptions'
+      : '/dashboard';
 
   return (
     <SidebarProvider defaultOpen>
@@ -123,7 +160,7 @@ export function AppShell({ children }: AppShellProps) {
           {/* Main App Sidebar */}
           <Sidebar collapsible="icon" role="complementary" aria-label={t('workspaceSidebar')} className="border-r border-border">
             <SidebarHeader className="border-b border-border/60 p-4">
-              <Link href="/dashboard" className="flex items-center gap-3 group">
+              <Link href={logoHref} className="flex items-center gap-3 group">
                 <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground shadow-xs group-hover:scale-105 transition-transform">
                   <Stethoscope className="w-5 h-5" />
                 </div>
@@ -146,7 +183,7 @@ export function AppShell({ children }: AppShellProps) {
                   </SidebarGroupLabel>
                   <SidebarGroupContent>
                     <SidebarMenu className="space-y-1">
-                      {filteredNavItems.map((item) => {
+                      {navItems.map((item) => {
                         const isActive =
                           pathname === item.href ||
                           (item.href !== '/dashboard' && pathname.startsWith(item.href));

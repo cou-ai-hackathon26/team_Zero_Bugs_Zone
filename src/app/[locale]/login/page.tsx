@@ -87,13 +87,40 @@ export default function LoginPage() {
 
       toast.success(t('signedIn'));
 
+      const role = data.user?.role;
+      let defaultPath = data.redirectUrl;
+      if (!defaultPath) {
+        if (role === 'super_admin' || role === 'admin') defaultPath = '/admin';
+        else if (role === 'student') defaultPath = '/ask';
+        else if (role === 'researcher' || role === 'medicine_controller') defaultPath = '/library';
+        else if (role === 'patient') defaultPath = '/prescriptions';
+        else defaultPath = '/dashboard';
+      }
+
       // Check callbackUrl in URL search parameters
       const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
       const callback = params?.get('callbackUrl');
 
-      const role = data.user?.role;
-      const defaultPath = role === 'student' ? '/ask' : role === 'researcher' ? '/library' : '/dashboard';
-      const targetUrl = callback && callback.startsWith('/') ? callback : `/${locale}${defaultPath}`;
+      let targetPath = defaultPath;
+      if (callback && callback.startsWith('/')) {
+        const cleanSubPath = callback.replace(/^\/(?:bn|en)\/?/, '');
+        const rootSegment = cleanSubPath.split('/')[0];
+        const isAllowed =
+          role === 'super_admin' ||
+          role === 'admin' ||
+          (role === 'doctor' && rootSegment !== 'admin') ||
+          (role === 'student' && ['ask', 'library', 'settings'].includes(rootSegment)) ||
+          ((role === 'researcher' || role === 'medicine_controller') && ['library', 'ask', 'settings'].includes(rootSegment)) ||
+          (role === 'patient' && ['prescriptions', 'settings'].includes(rootSegment));
+
+        if (isAllowed) {
+          targetPath = callback;
+        }
+      }
+
+      const targetUrl = targetPath.startsWith('/en') || targetPath.startsWith('/bn')
+        ? targetPath
+        : `/${locale}${targetPath.startsWith('/') ? targetPath : `/${targetPath}`}`;
 
       // In Safari on macOS (WebKit), client-side router.push() makes an asynchronous fetch for the RSC payload.
       // WebKit's network process often does not attach SameSite=Lax cookies to that immediate second fetch,

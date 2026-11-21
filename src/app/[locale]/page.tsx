@@ -52,6 +52,7 @@ export default function LandingPage() {
   const router = useRouter();
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/auth/session', { cache: 'no-store', credentials: 'same-origin' })
@@ -59,10 +60,19 @@ export default function LandingPage() {
       .then((data) => {
         if (data?.user) {
           setIsLoggedIn(true);
+          setUserRole(data.user.role);
         }
       })
       .catch(() => {});
   }, []);
+
+  const getRoleDestination = (role?: string | null) => {
+    if (role === 'super_admin' || role === 'admin') return '/admin';
+    if (role === 'student') return '/ask';
+    if (role === 'researcher' || role === 'medicine_controller') return '/library';
+    if (role === 'patient') return '/prescriptions';
+    return '/dashboard';
+  };
 
   const handleRoleAction = (targetPath: string) => {
     if (isLoggedIn) {
@@ -116,10 +126,10 @@ export default function LandingPage() {
             {isLoggedIn ? (
               <Button
                 size="sm"
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push(getRoleDestination(userRole))}
                 className="gap-1.5 text-xs font-medium h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
               >
-                <span>{t('navDashboard')}</span>
+                <span>{userRole === 'super_admin' ? t('navAdmin') : t('navDashboard')}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Button>
             ) : (
@@ -669,7 +679,7 @@ export default function LandingPage() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => handleRoleAction('/dashboard')}
+                  onClick={() => handleRoleAction('/admin')}
                   className="w-full text-xs font-medium hover:bg-muted"
                 >
                   {t('tryAsAdmin')}
