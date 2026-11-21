@@ -27,7 +27,6 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { OnboardingTourBlock } from '@/components/shared/OnboardingTourBlock';
 
 interface ProfileItem {
   id: string;
@@ -393,8 +392,6 @@ export default function PatientPortalPage() {
           }
         />
 
-        <OnboardingTourBlock panel="portal" />
-
         {/* Multi-Profile Switcher Bar */}
         <div className="p-3 rounded-xl border border-border bg-card/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
           <div className="space-y-1">
@@ -438,7 +435,7 @@ export default function PatientPortalPage() {
 
         {/* Active Profile Health Card */}
         {activeProfile && (
-          <Card className="border border-border bg-card shadow-xs">
+          <Card data-tour="portal-profile" className="border border-border bg-card shadow-xs">
             <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg shrink-0">
@@ -482,8 +479,8 @@ export default function PatientPortalPage() {
 
         {/* Portal Tabs Navigation */}
         <Tabs defaultValue="today" className="space-y-4">
-          <TabsList className="grid grid-cols-4 w-full bg-muted/50 p-1 rounded-xl">
-            <TabsTrigger value="today" className="text-xs font-semibold gap-1.5 py-2">
+          <TabsList data-tour="portal-tabs" className="grid grid-cols-4 w-full bg-muted/50 p-1 rounded-xl">
+            <TabsTrigger value="today" data-tour="portal-schedule" className="text-xs font-semibold gap-1.5 py-2">
               <Clock className="w-3.5 h-3.5" />
               <span>{isBn ? 'আজকের ওষুধ' : 'Today’s Meds'}</span>
             </TabsTrigger>
@@ -495,7 +492,7 @@ export default function PatientPortalPage() {
               <UploadCloud className="w-3.5 h-3.5" />
               <span>{isBn ? 'রিপোর্ট' : 'Reports'}</span>
             </TabsTrigger>
-            <TabsTrigger value="consent" className="text-xs font-semibold gap-1.5 py-2">
+            <TabsTrigger value="consent" data-tour="portal-consent" className="text-xs font-semibold gap-1.5 py-2">
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>{isBn ? 'অনুমতি ও নিরাপত্তা' : 'Consent & Logs'}</span>
             </TabsTrigger>

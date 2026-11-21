@@ -25,7 +25,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { OnboardingTourBlock } from '@/components/shared/OnboardingTourBlock';
 
 interface MedicineBrand {
   id: string;
@@ -490,9 +489,6 @@ export default function ControllerPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Onboarding Tour Block */}
-      <OnboardingTourBlock panel="controller" className="mt-6" />
 
       {/* Main Functional Tabs */}
       <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as typeof activeTab)} className="space-y-4">

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { AdminHeaderTour } from '@/components/admin/AdminHeaderTour';
-import { OnboardingTourBlock } from '@/components/shared/OnboardingTourBlock';
+import { ProductTour } from '@/components/shared/ProductTour';
 import {
   LayoutDashboard,
   Users,
@@ -111,7 +111,6 @@ export default async function AdminLayout({
 
       {/* Main Admin Page Content */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <OnboardingTourBlock panel="admin" />
         {children}
       </main>
 
@@ -123,6 +122,7 @@ export default async function AdminLayout({
             : 'Clinical decision support only. Not a substitute for professional judgement.'}
         </div>
       </footer>
+      <ProductTour />
     </div>
   );
 }

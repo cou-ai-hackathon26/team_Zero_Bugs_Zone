@@ -34,19 +34,14 @@ export function getStepsForPanel(panel: string): TourStep[] {
     case 'dashboard':
       return [
         {
-          selector: '[data-tour="nav-sidebar"]',
-          titleKey: 'globalSidebarTitle',
-          descKey: 'globalSidebarDesc',
+          selector: '[data-tour="dashboard-new-patient"]',
+          titleKey: 'dashboardNewPatientTitle',
+          descKey: 'dashboardNewPatientDesc',
         },
         {
           selector: '[data-tour="dashboard-stats"]',
           titleKey: 'dashboardStatsTitle',
           descKey: 'dashboardStatsDesc',
-        },
-        {
-          selector: '[data-tour="dashboard-new-patient"]',
-          titleKey: 'dashboardNewPatientTitle',
-          descKey: 'dashboardNewPatientDesc',
         },
         {
           selector: '[data-tour="dashboard-recent"]',
@@ -57,6 +52,11 @@ export function getStepsForPanel(panel: string): TourStep[] {
           selector: '[data-tour="nav-search"]',
           titleKey: 'globalSearchTitle',
           descKey: 'globalSearchDesc',
+        },
+        {
+          selector: '[data-tour="nav-sidebar"]',
+          titleKey: 'globalSidebarTitle',
+          descKey: 'globalSidebarDesc',
         },
       ];
     case 'patients':

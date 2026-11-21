@@ -130,30 +130,31 @@ export default function PatientsListPage() {
         </Card>
 
         {/* Patient Cards / Table List */}
-        {loading ? (
-          <div className="p-12 text-center text-muted-foreground animate-pulse text-base">
-            {locale === 'bn' ? 'রোগীর তালিকা লোড হচ্ছে...' : 'Loading patient records...'}
-          </div>
-        ) : filtered.length === 0 ? (
-          <Card className="p-12 text-center border-dashed">
-            <CardContent className="p-0 space-y-4">
-              <Users className="w-12 h-12 text-muted-foreground mx-auto" />
-              <h3 className="text-lg font-bold text-foreground">
-                {locale === 'bn' ? 'কোনো রোগী পাওয়া যায়নি' : 'No patients found'}
-              </h3>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                {locale === 'bn'
-                  ? 'আপনার অনুসন্ধানের সাথে কোনো রেকর্ড মিলছে না। নতুন রোগী যুক্ত করতে নিচের বাটনে ক্লিক করুন।'
-                  : 'No patient matched your search criteria. Register a new patient to get started.'}
-              </p>
-              <Link href="/patients/new" className={buttonVariants({ className: 'min-h-11 mt-2' })}>
-                <PlusCircle className="w-4 h-4 mr-2" />
-                <span>{locale === 'bn' ? 'নতুন রোগী গ্রহণ করুন' : 'New Patient Intake'}</span>
-              </Link>
-            </CardContent>
-          </Card>
-        ) : (
-          <div data-tour="patients-list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div data-tour="patients-list">
+          {loading ? (
+            <div className="p-12 text-center text-muted-foreground animate-pulse text-base">
+              {locale === 'bn' ? 'রোগীর তালিকা লোড হচ্ছে...' : 'Loading patient records...'}
+            </div>
+          ) : filtered.length === 0 ? (
+            <Card className="p-12 text-center border-dashed">
+              <CardContent className="p-0 space-y-4">
+                <Users className="w-12 h-12 text-muted-foreground mx-auto" />
+                <h3 className="text-lg font-bold text-foreground">
+                  {locale === 'bn' ? 'কোনো রোগী পাওয়া যায়নি' : 'No patients found'}
+                </h3>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                  {locale === 'bn'
+                    ? 'আপনার অনুসন্ধানের সাথে কোনো রেকর্ড মিলছে না। নতুন রোগী যুক্ত করতে নিচের বাটনে ক্লিক করুন।'
+                    : 'No patient matched your search criteria. Register a new patient to get started.'}
+                </p>
+                <Link href="/patients/new" className={buttonVariants({ className: 'min-h-11 mt-2' })}>
+                  <PlusCircle className="w-4 h-4 mr-2" />
+                  <span>{locale === 'bn' ? 'নতুন রোগী গ্রহণ করুন' : 'New Patient Intake'}</span>
+                </Link>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filtered.map((patient) => (
               <Card
                 key={patient.id}
@@ -223,6 +224,7 @@ export default function PatientsListPage() {
             ))}
           </div>
         )}
+        </div>
       </div>
     </AppShell>
   );

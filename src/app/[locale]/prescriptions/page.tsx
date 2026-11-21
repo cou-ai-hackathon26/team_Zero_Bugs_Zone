@@ -147,30 +147,31 @@ export default function PrescriptionsListPage() {
         </Card>
 
         {/* Prescription Cards Grid */}
-        {loading ? (
-          <div className="p-12 text-center text-muted-foreground animate-pulse text-base">
-            {locale === 'bn' ? 'প্রেসক্রিপশন লোড হচ্ছে...' : 'Loading prescriptions...'}
-          </div>
-        ) : filtered.length === 0 ? (
-          <Card className="p-12 text-center border-dashed">
-            <CardContent className="p-0 space-y-4">
-              <FileText className="w-12 h-12 text-muted-foreground mx-auto" />
-              <h3 className="text-lg font-bold text-foreground">
-                {locale === 'bn' ? 'কোনো প্রেসক্রিপশন পাওয়া যায়নি' : 'No prescriptions found'}
-              </h3>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                {locale === 'bn'
-                  ? 'আপনার কোনো প্রেসক্রিপশন রেকর্ড নেই অথবা অনুসন্ধানের সাথে কোনো রেকর্ড মিলছে না।'
-                  : 'No prescription matched your search. Write a new prescription to get started.'}
-              </p>
-              <Link href="/prescriptions/new" className={buttonVariants({ className: 'min-h-11 mt-2' })}>
-                <PlusCircle className="w-4 h-4 mr-2" />
-                <span>{locale === 'bn' ? 'নতুন প্রেসক্রিপশন লিখুন' : 'New Prescription'}</span>
-              </Link>
-            </CardContent>
-          </Card>
-        ) : (
-          <div data-tour="rx-list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div data-tour="rx-list">
+          {loading ? (
+            <div className="p-12 text-center text-muted-foreground animate-pulse text-base">
+              {locale === 'bn' ? 'প্রেসক্রিপশন লোড হচ্ছে...' : 'Loading prescriptions...'}
+            </div>
+          ) : filtered.length === 0 ? (
+            <Card className="p-12 text-center border-dashed">
+              <CardContent className="p-0 space-y-4">
+                <FileText className="w-12 h-12 text-muted-foreground mx-auto" />
+                <h3 className="text-lg font-bold text-foreground">
+                  {locale === 'bn' ? 'কোনো প্রেসক্রিপশন পাওয়া যায়নি' : 'No prescriptions found'}
+                </h3>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                  {locale === 'bn'
+                    ? 'আপনার কোনো প্রেসক্রিপশন রেকর্ড নেই অথবা অনুসন্ধানের সাথে কোনো রেকর্ড মিলছে না।'
+                    : 'No prescription matched your search. Write a new prescription to get started.'}
+                </p>
+                <Link href="/prescriptions/new" className={buttonVariants({ className: 'min-h-11 mt-2' })}>
+                  <PlusCircle className="w-4 h-4 mr-2" />
+                  <span>{locale === 'bn' ? 'নতুন প্রেসক্রিপশন লিখুন' : 'New Prescription'}</span>
+                </Link>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filtered.map((rx) => (
               <Card
                 key={rx.id}
@@ -258,6 +259,7 @@ export default function PrescriptionsListPage() {
             ))}
           </div>
         )}
+        </div>
       </div>
     </AppShell>
   );

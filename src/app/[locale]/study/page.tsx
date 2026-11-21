@@ -21,7 +21,6 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { OnboardingTourBlock } from '@/components/shared/OnboardingTourBlock';
 
 interface StudentCase {
   id: string;
@@ -258,9 +257,6 @@ export default function StudentWorkspacePage() {
             : 'All clinical cases are synthetic and strictly for academic training.'}
         </div>
       </div>
-
-      {/* Onboarding Tour Block */}
-      <OnboardingTourBlock panel="study" />
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'cases' | 'quizzes' | 'notes' | 'library_qa')} className="w-full">

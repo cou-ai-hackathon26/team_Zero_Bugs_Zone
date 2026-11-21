@@ -22,7 +22,6 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { OnboardingTourBlock } from '@/components/shared/OnboardingTourBlock';
 
 interface SearchResult {
   id: string;
@@ -215,9 +214,6 @@ export default function ResearcherWorkspacePage() {
             : 'Access is limited to verified clinical literature. Zero patient health information is accessible.'}
         </div>
       </div>
-
-      {/* Onboarding Tour Block */}
-      <OnboardingTourBlock panel="research" />
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'search' | 'compare' | 'collections' | 'export')} className="w-full">
