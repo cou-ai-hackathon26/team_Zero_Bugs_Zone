@@ -67,24 +67,24 @@ export function PatientSummaryPanel({ caseData, turns }: PatientSummaryPanelProp
   };
 
   return (
-    <Card className="h-full flex flex-col border-border/80 shadow-xs">
-      <CardHeader className="p-4 pb-2 border-b border-border/60">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
+    <Card className="h-full flex flex-col border-border/80 shadow-xs overflow-hidden">
+      <CardHeader className="p-3 sm:p-4 pb-2 border-b border-border/60">
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
               <User className="w-4 h-4" />
             </div>
-            <div>
-              <CardTitle className="text-sm font-semibold tracking-tight text-foreground">
+            <div className="min-w-0 flex-1">
+              <CardTitle className="text-xs sm:text-sm font-semibold tracking-tight text-foreground truncate">
                 {t('patientSummary')} &bull; {patientCode}
               </CardTitle>
-              <p className="text-xs text-muted-foreground capitalize">
+              <p className="text-[11px] sm:text-xs text-muted-foreground capitalize truncate">
                 {input.age ? `${input.age} yrs, ` : ''}{input.gender}
                 {input.weight_kg ? ` • ${input.weight_kg} kg` : ''}
               </p>
             </div>
           </div>
-          <Badge variant="outline" className="text-xs uppercase font-medium">
+          <Badge variant="outline" className="text-[10px] sm:text-xs uppercase font-medium shrink-0">
             {caseData.status.replace('_', ' ')}
           </Badge>
         </div>

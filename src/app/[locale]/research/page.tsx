@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useLocale } from 'next-intl';
 import { AppShell } from '@/components/shared/AppShell';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { OnboardingTourBlock } from '@/components/shared/OnboardingTourBlock';
 import {
   FileSearch,
   Columns2,
@@ -202,6 +203,8 @@ export default function ResearcherWorkspacePage() {
           }
         />
 
+        {/* Research Panel Onboarding Tour Block */}
+        <OnboardingTourBlock panel="research" />
 
       {/* Safety Notice: Strict Literature Mode (Zero Patient Data) */}
       <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/40 text-xs border border-border text-muted-foreground">

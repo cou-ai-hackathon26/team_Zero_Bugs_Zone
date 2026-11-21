@@ -36,6 +36,7 @@ import { DemoBanner } from './DemoBanner';
 import { GlobalSearchCommand } from './GlobalSearchCommand';
 import { EvidenceSheet } from './EvidenceSheet';
 import { Toaster } from '@/components/ui/sonner';
+import { ProductTour, startProductTour } from './ProductTour';
 import {
   LayoutDashboard,
   Users,
@@ -49,6 +50,7 @@ import {
   Stethoscope,
   ShieldAlert,
   Pill,
+  Sparkles,
   GraduationCap,
   FlaskConical,
   HeartPulse,
@@ -66,6 +68,7 @@ export function AppShell({ children }: AppShellProps) {
   const locale = useLocale();
   const t = useTranslations('nav');
   const tCommon = useTranslations('common');
+  const tTour = useTranslations('tour');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -330,6 +333,19 @@ export function AppShell({ children }: AppShellProps) {
 
                 <HelpSheet />
 
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => startProductTour()}
+                  className="gap-1.5 text-xs h-8 px-2.5 border-border hover:bg-muted text-foreground font-medium"
+                  aria-label={tTour('startTour')}
+                  title={tTour('startTour')}
+                  data-tour="nav-tour-btn"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-primary" />
+                  <span className="hidden sm:inline">{tTour('startTour')}</span>
+                </Button>
 
                 <div data-tour="nav-language">
                   <LanguageSwitcher />
@@ -415,6 +431,7 @@ export function AppShell({ children }: AppShellProps) {
         {/* Global Overlays */}
         <GlobalSearchCommand role={currentUser?.role} />
         <EvidenceSheet />
+        <ProductTour />
         <Toaster position="top-right" richColors />
       </SidebarProvider>
   );

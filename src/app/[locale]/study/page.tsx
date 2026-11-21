@@ -5,6 +5,7 @@ import { useLocale } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
 import { AppShell } from '@/components/shared/AppShell';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { OnboardingTourBlock } from '@/components/shared/OnboardingTourBlock';
 import {
   Stethoscope,
   HelpCircle,
@@ -245,6 +246,8 @@ export default function StudentWorkspacePage() {
           }
         />
 
+        {/* Student Panel Onboarding Tour Block */}
+        <OnboardingTourBlock panel="study" />
 
       {/* Safety Notice: Zero Real Patient PHI Access */}
       <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/40 text-xs border border-border text-muted-foreground">

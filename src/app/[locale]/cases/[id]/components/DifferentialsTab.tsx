@@ -206,25 +206,25 @@ export function DifferentialsTab({
                 value={diff.condition}
                 className="border border-border/80 rounded-lg overflow-hidden bg-card shadow-2xs data-open:border-primary/50 transition-colors"
               >
-                <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/40">
-                  <div className="flex flex-1 items-center justify-between gap-3 pr-3 text-left">
-                    <div className="flex items-center gap-2.5">
+                <AccordionTrigger className="px-3 sm:px-4 py-3 hover:no-underline hover:bg-muted/40">
+                  <div className="flex flex-1 items-center justify-between gap-2 sm:gap-3 pr-2 sm:pr-3 text-left min-w-0">
+                    <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
                       <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0">
                         {idx + 1}
                       </span>
-                      <div>
-                        <span className="font-semibold text-sm text-foreground">
+                      <div className="min-w-0 flex-1">
+                        <span className="font-semibold text-xs sm:text-sm text-foreground truncate block">
                           {diff.condition_bn || diff.condition}
                         </span>
                         {diff.condition_bn && (
-                          <span className="text-xs text-muted-foreground ml-2 font-normal">
+                          <span className="text-[11px] sm:text-xs text-muted-foreground font-normal truncate block">
                             ({diff.condition})
                           </span>
                         )}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                       <Badge variant="outline" className="text-[11px] gap-1 px-2 py-0.5">
                         <span className="font-semibold text-primary">{verifiedCitationCount}</span> citations
                       </Badge>

@@ -375,8 +375,8 @@ function CaseWorkspaceContent({ params }: CaseWorkspacePageProps) {
           {/* Right Panel: Tabbed Clinical Workspace (8 cols on lg+) */}
           <div className="w-full lg:col-span-8 bg-card rounded-xl border border-border/80 shadow-xs p-4 sm:p-5">
             <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-              <div className="border-b border-border/60 pb-3 mb-4">
-                <TabsList className="flex flex-wrap h-auto gap-1.5 p-1.5 bg-muted/80 rounded-lg w-full">
+              <div className="border-b border-border/60 pb-3 mb-4 overflow-x-auto scrollbar-none">
+                <TabsList className="inline-flex sm:flex flex-nowrap sm:flex-wrap h-auto gap-1.5 p-1.5 bg-muted/80 rounded-lg min-w-max sm:min-w-0 sm:w-full">
                   <TabsTrigger value="conversation" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5">
                     <MessagesSquare className="w-3.5 h-3.5 text-primary shrink-0" />
                     <span>{t('tabConversation')}</span>
