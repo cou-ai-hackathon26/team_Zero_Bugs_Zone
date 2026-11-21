@@ -15,7 +15,6 @@ import {
 import { count, eq, sql, gte } from 'drizzle-orm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
-import { OnboardingTourBlock } from '@/components/shared/OnboardingTourBlock';
 import {
   Users,
   Activity,
@@ -79,8 +78,6 @@ export default async function AdminDashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Admin Onboarding Tour Block */}
-      <OnboardingTourBlock panel="admin" />
 
       {/* Pending Verifications Alert Banner */}
       {totalPending > 0 && (

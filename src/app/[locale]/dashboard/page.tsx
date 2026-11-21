@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { AppShell } from '@/components/shared/AppShell';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { OnboardingTourBlock } from '@/components/shared/OnboardingTourBlock';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -109,8 +108,6 @@ export default async function DashboardPage() {
           }
         />
 
-        {/* Onboarding Tour Block */}
-        <OnboardingTourBlock panel="dashboard" />
 
         {/* 3 Unified Doctor Quick Action Cards */}
         {isPhysician && (

@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+const { spawn } = require('child_process');
 const { chromium } = require('@playwright/test');
 
-const BASE_URL = 'http://localhost:3000';
+const PORT = 3000;
+const BASE_URL = `http://localhost:${PORT}`;
 
 const ROLES = [
   {
@@ -101,6 +103,18 @@ const ROLES = [
   },
 ];
 
+async function waitForServer(url, timeoutMs = 20000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const res = await fetch(url);
+      if (res.status < 500) return true;
+    } catch {}
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  throw new Error(`Server at ${url} did not become ready within ${timeoutMs}ms`);
+}
+
 async function getSessionCookie(email, password) {
   const res = await fetch(`${BASE_URL}/api/auth/login`, {
     method: 'POST',
@@ -122,7 +136,28 @@ async function getSessionCookie(email, password) {
 }
 
 async function runAudit() {
-  console.log('--- Starting Comprehensive Browser Audit ---');
+  console.log('--- Starting Next.js Production Server for Audit ---');
+
+  // Spawn Next.js server child process
+  const nextServer = spawn('./node_modules/.bin/next', ['start', '-p', String(PORT)], {
+    stdio: 'pipe',
+  });
+
+  nextServer.stderr.on('data', (d) => process.stderr.write(d));
+  nextServer.on('error', (err) => console.error('Next server error:', err));
+
+  const cleanup = () => {
+    try {
+      nextServer.kill('SIGTERM');
+    } catch {}
+  };
+  process.on('exit', cleanup);
+  process.on('SIGINT', () => { cleanup(); process.exit(1); });
+
+  console.log('Waiting for Next.js server to be ready on port', PORT);
+  await waitForServer(`${BASE_URL}/bn/login`);
+  console.log('✓ Next.js server is ready!');
+
   const browser = await chromium.launch({ headless: true });
   const allIssues = [];
 
@@ -178,8 +213,7 @@ async function runAudit() {
       try {
         const fullUrl = `${BASE_URL}${route}`;
         const response = await page.goto(fullUrl, { waitUntil: 'load', timeout: 12000 });
-        // Wait an extra second for hydration
-        await page.waitForTimeout(1000);
+        await page.waitForTimeout(600);
 
         const status = response ? response.status() : 'no-response';
         const bodyText = await page.locator('body').innerText();
@@ -188,7 +222,7 @@ async function runAudit() {
                                 bodyText.includes('Reload to try again') ||
                                 bodyText.includes('পৃষ্ঠাটি লোড হতে সমস্যা হয়েছে');
 
-        if (hasCouldNotLoad) {
+        if (hasCouldNotLoad || status >= 500) {
           console.error(`  ❌ FAILED: ${route} [status: ${status}] shows "This page couldn’t load" or Error Boundary!`);
           allIssues.push({
             role: user.role,
@@ -258,6 +292,7 @@ async function runAudit() {
   await anonContext.close();
 
   await browser.close();
+  cleanup();
 
   console.log('\n==============================================');
   console.log('               AUDIT RESULTS                  ');
