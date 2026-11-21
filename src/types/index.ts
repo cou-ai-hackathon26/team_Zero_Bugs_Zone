@@ -22,7 +22,17 @@ export type FeatureKey =
   | 'plans.billing'
   | 'ai.settings'
   | 'audit.read'
-  | 'system.manage';
+  | 'system.manage'
+  | 'patient.search'
+  | 'patient.create'
+  | 'history.request'
+  | 'history.view'
+  | 'portal.profiles'
+  | 'portal.prescriptions'
+  | 'portal.reports'
+  | 'portal.medicine_schedule'
+  | 'portal.permissions'
+  | 'portal.access_log';
 
 export type UserStatus = 'active' | 'pending_verification' | 'suspended';
 

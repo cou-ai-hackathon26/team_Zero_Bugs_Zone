@@ -37,6 +37,7 @@ export default async function AdminLayout({
   const navItems = [
     { href: `/${locale}/admin`, label: t('dashboard'), icon: LayoutDashboard },
     { href: `/${locale}/admin/users`, label: t('users'), icon: Users },
+    { href: `/${locale}/admin/patients`, label: locale === 'bn' ? 'রোগী গভর্ন্যান্স' : 'Patients', icon: Users },
     { href: `/${locale}/admin/access`, label: t('access'), icon: ShieldCheck },
     { href: `/${locale}/admin/ai`, label: t('ai'), icon: Cpu },
     { href: `/${locale}/admin/plans`, label: t('plans'), icon: CreditCard },

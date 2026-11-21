@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, integer, timestamp, jsonb, uuid, customType, index, boolean, numeric } from 'drizzle-orm/pg-core';
+import { pgTable, text, varchar, integer, timestamp, jsonb, uuid, customType, index, boolean, numeric, unique } from 'drizzle-orm/pg-core';
 import { vector } from 'drizzle-orm/pg-core';
 
 export const tsvector = customType<{ data: string }>({
@@ -90,7 +90,9 @@ export const profileHealthSummary = pgTable('profile_health_summary', {
   updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   changeReason: text('change_reason'),
-});
+}, (table) => [
+  unique('profile_health_summary_profile_version_key').on(table.profileId, table.version),
+]);
 
 export const accessGrants = pgTable('access_grants', {
   id: uuid('id').defaultRandom().primaryKey(),

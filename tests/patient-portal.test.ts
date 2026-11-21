@@ -6,10 +6,9 @@ import {
   profileHealthSummary,
   medicineIntakeLogs,
   accessGrants,
-  accessLogs,
   users,
 } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 describe('Phase 4: Upgraded Patient Portal & Multi-Profile Model', () => {
   const testPhone = `+8801755${Math.floor(100000 + Math.random() * 900000)}`;
@@ -91,6 +90,7 @@ describe('Phase 4: Upgraded Patient Portal & Multi-Profile Model', () => {
     expect(self).toBeDefined();
     expect(self?.name).toBe('Portal Test User');
     expect(child).toBeDefined();
+    expect(child?.id).toBe(childProfileId);
     expect(child?.name).toBe('Portal Test Child');
   });
 
