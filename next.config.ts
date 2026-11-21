@@ -1,5 +1,13 @@
+import type { NextConfig } from 'next';
 import createNextIntlPlugin from 'next-intl/plugin';
 
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
-export default withNextIntl({});
+const nextConfig: NextConfig = {
+  experimental: {
+    cpus: 1,
+    workerThreads: false,
+  },
+};
+
+export default withNextIntl(nextConfig);
