@@ -1,7 +1,7 @@
 import createMiddleware from 'next-intl/middleware';
 import { routing } from './i18n/routing';
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySessionTokenWeb, COOKIE_NAME } from './lib/session';
+import { verifySessionToken, COOKIE_NAME } from './lib/session';
 
 const intlMiddleware = createMiddleware(routing);
 
@@ -24,7 +24,7 @@ export default async function middleware(request: NextRequest) {
 
   // Session verification
   const token = request.cookies.get(COOKIE_NAME)?.value;
-  const session = token ? await verifySessionTokenWeb(token) : null;
+  const session = token ? await verifySessionToken(token) : null;
 
   // Protected paths requiring active session
   const isProtectedPath =

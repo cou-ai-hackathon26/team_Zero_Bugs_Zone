@@ -1,95 +1,49 @@
-import { UserRole } from '@/types';
+import { z } from 'zod';
 
-export const AUTH_SECRET = process.env.AUTH_SECRET || 'docmate_hackathon_super_secret_demo_token_key_2026';
 export const COOKIE_NAME = 'docmate_session';
 
-export interface SessionPayload {
-  id: string;
-  email: string;
-  role: UserRole;
-  name: string;
-  exp: number;
+const sessionSchema = z.object({
+  id: z.uuid(),
+  email: z.email(),
+  role: z.enum(['doctor', 'student', 'researcher', 'admin']),
+  name: z.string().min(1),
+  exp: z.number().int().positive(),
+});
+
+type Session = z.infer<typeof sessionSchema>;
+
+export function requireAuthSecret(): string {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret || secret.length < 32 || /demo|hackathon|change.?me|replace/i.test(secret)) {
+    throw new Error('Set a deployment-specific AUTH_SECRET of at least 32 characters.');
+  }
+  return secret;
 }
 
-/**
- * Universal Web Crypto token generator (Edge & Node compatible)
- */
-export async function createSessionTokenWeb(user: {
-  id: string;
-  email: string;
-  role: UserRole;
-  name: string;
-}): Promise<string> {
-  const payload: SessionPayload = {
-    id: user.id,
-    email: user.email,
-    role: user.role,
-    name: user.name,
-    exp: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
-  };
-
-  const jsonStr = JSON.stringify(payload);
-  const data = typeof Buffer !== 'undefined' 
-    ? Buffer.from(jsonStr).toString('base64url')
-    : btoa(unescape(encodeURIComponent(jsonStr))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(AUTH_SECRET),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
+async function sessionKey() {
+  return crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(requireAuthSecret()), { name: 'HMAC', hash: 'SHA-256' },
+    false, ['sign', 'verify'],
   );
-
-  const sigBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(data));
-  const signature = typeof Buffer !== 'undefined'
-    ? Buffer.from(sigBuffer).toString('base64url')
-    : btoa(String.fromCharCode(...new Uint8Array(sigBuffer))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-
-  return `${data}.${signature}`;
 }
 
-/**
- * Universal Web Crypto token verifier (Edge & Node compatible)
- */
-export async function verifySessionTokenWeb(token: string): Promise<SessionPayload | null> {
+export async function createSessionToken(user: Omit<Session, 'exp'>): Promise<string> {
+  const data = Buffer.from(JSON.stringify({ ...user, exp: Date.now() + 7 * 24 * 60 * 60 * 1000 })).toString('base64url');
+  const signature = await crypto.subtle.sign('HMAC', await sessionKey(), new TextEncoder().encode(data));
+  return `${data}.${Buffer.from(signature).toString('base64url')}`;
+}
+
+export async function verifySessionToken(token: string): Promise<Session | null> {
   try {
-    if (!token || typeof token !== 'string') return null;
     const parts = token.split('.');
     if (parts.length !== 2) return null;
-
     const [data, signature] = parts;
-    if (!data || !signature) return null;
-
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(AUTH_SECRET),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign']
+    const validSignature = await crypto.subtle.verify(
+      'HMAC', await sessionKey(), Buffer.from(signature, 'base64url'), new TextEncoder().encode(data),
     );
-
-    const sigBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(data));
-    const expectedSig = typeof Buffer !== 'undefined'
-      ? Buffer.from(sigBuffer).toString('base64url')
-      : btoa(String.fromCharCode(...new Uint8Array(sigBuffer))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-
-    if (signature !== expectedSig) {
-      return null;
-    }
-
-    const jsonStr = typeof Buffer !== 'undefined'
-      ? Buffer.from(data, 'base64url').toString('utf-8')
-      : decodeURIComponent(escape(atob(data.replace(/-/g, '+').replace(/_/g, '/'))));
-
-    const payload = JSON.parse(jsonStr) as SessionPayload;
-    if (payload.exp && Date.now() > payload.exp) {
-      return null;
-    }
-
-    return payload;
+    if (!validSignature) return null;
+    const result = sessionSchema.safeParse(JSON.parse(Buffer.from(data, 'base64url').toString('utf8')));
+    return result.success && result.data.exp > Date.now() ? result.data : null;
   } catch {
     return null;
   }

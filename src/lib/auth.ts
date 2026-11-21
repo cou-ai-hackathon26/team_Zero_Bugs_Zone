@@ -5,50 +5,27 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
-const AUTH_SECRET = process.env.AUTH_SECRET || 'docmate_hackathon_super_secret_demo_token_key_2026';
-const COOKIE_NAME = 'docmate_session';
+import { promisify } from 'node:util';
+import { COOKIE_NAME, createSessionToken, requireAuthSecret, verifySessionToken } from '@/lib/session';
 
-export function hashPassword(password: string): string {
-  return crypto.createHmac('sha256', AUTH_SECRET).update(password).digest('hex');
+const scrypt = promisify(crypto.scrypt);
+
+export async function hashPassword(password: string): Promise<string> {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const key = await scrypt(password, salt, 64) as Buffer;
+  return `scrypt:${salt}:${key.toString('hex')}`;
 }
 
-export function createSessionToken(user: { id: string; email: string; role: UserRole; name: string }): string {
-  const payload = JSON.stringify({
-    id: user.id,
-    email: user.email,
-    role: user.role,
-    name: user.name,
-    exp: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
-  });
-  const data = Buffer.from(payload).toString('base64url');
-  const signature = crypto.createHmac('sha256', AUTH_SECRET).update(data).digest('base64url');
-  return `${data}.${signature}`;
-}
-
-export function verifySessionToken(token: string): { id: string; email: string; role: UserRole; name: string } | null {
-  try {
-    const [data, signature] = token.split('.');
-    if (!data || !signature) return null;
-
-    const expectedSignature = crypto.createHmac('sha256', AUTH_SECRET).update(data).digest('base64url');
-    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
-      return null;
-    }
-
-    const payload = JSON.parse(Buffer.from(data, 'base64url').toString('utf-8'));
-    if (payload.exp && Date.now() > payload.exp) {
-      return null;
-    }
-
-    return {
-      id: payload.id,
-      email: payload.email,
-      role: payload.role,
-      name: payload.name,
-    };
-  } catch {
-    return null;
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  if (/^[a-f0-9]{64}$/.test(stored)) {
+    const legacy = crypto.createHmac('sha256', requireAuthSecret()).update(password).digest();
+    return crypto.timingSafeEqual(legacy, Buffer.from(stored, 'hex'));
   }
+
+  const format = /^scrypt:([a-f0-9]{32}):([a-f0-9]{128})$/.exec(stored);
+  if (!format) return false;
+  const key = await scrypt(password, format[1], 64) as Buffer;
+  return crypto.timingSafeEqual(key, Buffer.from(format[2], 'hex'));
 }
 
 export async function getCurrentUser(): Promise<User | null> {
@@ -56,20 +33,22 @@ export async function getCurrentUser(): Promise<User | null> {
   const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token) return null;
 
-  const session = verifySessionToken(token);
+  const session = await verifySessionToken(token);
   if (!session) return null;
 
+  const record = await db.query.users.findFirst({ where: eq(users.id, session.id) });
+  if (!record) return null;
   return {
-    id: session.id,
-    email: session.email,
-    role: session.role,
-    name: session.name,
-    created_at: new Date().toISOString(),
+    id: record.id,
+    email: record.email,
+    role: record.role as UserRole,
+    name: record.name,
+    created_at: record.createdAt.toISOString(),
   };
 }
 
 export async function setAuthCookie(user: { id: string; email: string; role: UserRole; name: string }) {
-  const token = createSessionToken(user);
+  const token = await createSessionToken(user);
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
@@ -83,48 +62,4 @@ export async function setAuthCookie(user: { id: string; email: string; role: Use
 export async function clearAuthCookie() {
   const cookieStore = await cookies();
   cookieStore.delete(COOKIE_NAME);
-}
-
-// Demo users seed helper
-export const DEMO_USERS = [
-  {
-    email: 'doctor@docmate.ai',
-    name: 'Dr. Farhana Rahman (MBBS, FCPS)',
-    role: 'doctor' as UserRole,
-    password: 'demo123',
-  },
-  {
-    email: 'student@docmate.ai',
-    name: 'Tanvir Ahmed (5th Year Trainee)',
-    role: 'student' as UserRole,
-    password: 'demo123',
-  },
-  {
-    email: 'researcher@docmate.ai',
-    name: 'Dr. Shamim Hossain (MPhil Clinical Epidemiology)',
-    role: 'researcher' as UserRole,
-    password: 'demo123',
-  },
-  {
-    email: 'admin@docmate.ai',
-    name: 'Admin User',
-    role: 'admin' as UserRole,
-    password: 'demo123',
-  },
-];
-
-export async function seedDemoUsers() {
-  for (const demo of DEMO_USERS) {
-    const existing = await db.query.users.findFirst({
-      where: eq(users.email, demo.email),
-    });
-    if (!existing) {
-      await db.insert(users).values({
-        email: demo.email,
-        name: demo.name,
-        role: demo.role,
-        passwordHash: hashPassword(demo.password),
-      });
-    }
-  }
 }

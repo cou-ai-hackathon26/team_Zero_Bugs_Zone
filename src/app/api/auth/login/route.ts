@@ -1,16 +1,21 @@
+import { z } from 'zod';
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { hashPassword, setAuthCookie } from '@/lib/auth';
+import { hashPassword, setAuthCookie, verifyPassword } from '@/lib/auth';
 import { UserRole } from '@/types';
 
 export async function POST(request: Request) {
   try {
-    const { email, password } = await request.json();
-
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password required' }, { status: 400 });
+    const input = z.object({
+      email: z.email().max(255),
+      password: z.string().min(1).max(256),
+    }).safeParse(await request.json().catch(() => null));
+    if (!input.success) return NextResponse.json({ error: 'Invalid credentials' }, { status: 400 });
+    const { email, password } = input.data;
+    if (email.toLowerCase().endsWith('@docmate.ai') && process.env.DOCMATE_DEMO_MODE !== 'true') {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
     const user = await db.query.users.findFirst({
@@ -21,9 +26,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    const hashedInput = hashPassword(password);
-    if (hashedInput !== user.passwordHash) {
+    if (!await verifyPassword(password, user.passwordHash)) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    }
+
+    if (!user.passwordHash.startsWith('scrypt:')) {
+      await db.update(users).set({ passwordHash: await hashPassword(password) }).where(eq(users.id, user.id));
     }
 
     const safeUser = {
@@ -36,8 +44,7 @@ export async function POST(request: Request) {
     await setAuthCookie(safeUser);
 
     return NextResponse.json({ user: safeUser });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Login failed';
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: 'Login failed' }, { status: 500 });
   }
 }
