@@ -241,3 +241,48 @@ The follow-up addressed the reproducible UI findings and found additional author
 | `DOCMATE_QA_BASE_URL=http://localhost:3106 DOCMATE_QA_SYNTHETIC=1 pnpm run test:e2e --output /tmp/docmate-qa-followup-hardened` | After rejecting the recognizable signing-secret default, the rebuilt app passed all 9 tests in 6.7 s with a separate QA secret. |
 
 Still open include independently reviewed source and formulary evidence, a verified model-assisted assessment, server-authorized treatment and acknowledgment, signed prescription output, production identity and distributed controls, and accessibility and localization outside the verified pages and states.
+
+---
+
+## Conversational case workspace & clinical readiness verification
+
+The case workspace at `/[locale]/cases/[id]` has been upgraded into an interactive consultation between the attending clinician and DocMate AI, with the patient summary positioned beside the chat stream on desktop (`1280px`) and accessible via an accessible Sheet on mobile (`390px` and `768px`).
+
+### 1. Conversational Features & Safety Enforcements
+
+- **Direct Conversation Entry**: Cases open directly into the `Case Conversation` tab (`/cases/[id]?tab=conversation` by default).
+- **Natural Language Observation & Fact Extraction**: Clinicians record observations in natural language (Enter sends, Shift+Enter adds newline). A deterministic regex-based clinical extractor (`src/lib/clinical-extractor.ts`) parses physiological values (temperature, BP, pulse, SpO2, RR, symptoms, allergies) and presents structured proposed updates for explicit clinician review, showing original wording side-by-side with proposed changes. Unrecorded values are left unknown.
+- **Clinician Confirmation Gate**: Proposed patient updates are applied to `cases.structuredInput` only after clinician confirmation via `POST /api/cases/[id]/confirm-update`, logging an audit trail event.
+- **Closed-Library Evidence Review**: Clinicians can request evidence reviews inline. The engine retrieves approved internal library chunks using concept-based text queries, verifies verbatim quotes with `verifyClaims`, and surfaces citations with `CitationChip`. Clicking citations opens the `EvidenceSheet`.
+- **Abstention & Follow-up**: When clinical data is incomplete, the assistant abstains from automated diagnosis and requests clarifying follow-ups (vitals, systemic examination) inline.
+- **Prescription Safety Recomputation & Stale Acknowledgment Invalidation**: `src/lib/safety-engine.ts` recomputes drug-drug interactions, allergies, and contraindications. It binds clinician acknowledgments to the exact `case_version` and `regimen_hash`, marking prior overrides stale if the patient record or regimen changes. Direct allergy and pregnancy category X contraindications remain non-bypassable hard stops.
+- **Draft & Duplicate Send Defense**: In-progress textarea drafts are persisted in `sessionStorage` across transient network failures and reloads. Identical `client_draft_id` submissions within 5 minutes are rejected as duplicates.
+
+### 2. Verification Command Log
+
+| Exact command | Observed result |
+|---|---|
+| `pnpm install --frozen-lockfile` | Passed in 752ms. Lockfile up to date, resolution skipped. |
+| `pnpm run lint` | Exit 0. 0 errors, 0 warnings across all files. |
+| `pnpm run typecheck` | Exit 0. TypeScript compiled with zero diagnostics. |
+| `pnpm test` | Exit 0. 7 test files, 58 tests passed in 359ms (`tests/clinical-extractor.test.ts`, `tests/safety-engine.test.ts`, `tests/citation-verifier.test.ts`, `tests/i18n-parity.test.ts`, `tests/rbac.test.ts`, `tests/session.test.ts`, `tests/api-input.test.ts`). |
+| `pnpm run build` | Exit 0. Next.js 16 (Turbopack) compiled 11 static pages and API routes in 1351ms. |
+| `DOCMATE_QA_SYNTHETIC=1 pnpm exec playwright test` | Exit 0. 13 tests passed in 7.3s across 3 workers (`e2e/smoke.spec.ts`, `e2e/release-guardrails.spec.ts`, `e2e/case-conversation.spec.ts`). Tested observation submission, fact proposal, clinician confirmation, evidence review, citation sheet inspection, reload recovery, draft preservation, duplicate send prevention, mobile 390px sheet toggle, and student role access denial. |
+| `DOCMATE_QA_SYNTHETIC=1 node scripts/axe-audit.cjs` | Exit 0. 0 WCAG 2.1 AA violations across light and dark themes for `/login`, `/dashboard`, `/cases`, `/cases/[id]`, `/library`, and `/ask`. 0px horizontal overflow measured at 390px, 768px, and 1280px viewports in both English and Bangla. |
+
+### 3. Controlled Clinical Pilot Release Gates
+
+**Release Verdict: No-go for business or autonomous clinical use.**
+The application is validated as a synthetic-data clinical demonstration and pilot prototype. Automated diagnostic commitment, automated drug selection, automated prescription finalization, and official prescription printing remain disabled until the following release gates are satisfied.
+
+| Gate ID | Capability / Scope | Evidence & Test Status | Required Reviewer(s) | Status |
+|---|---|---|---|:---:|
+| **GATE-01** | **Source Library Provenance** | 4 open-access guideline notes indexed. Real-world guideline provenance, edition licensing, and copyright review pending. | Clinical Literature Reviewer, Medical Director | **LOCKED (No-go)** |
+| **GATE-02** | **Source-Linked Formulary** | 30 synthetic drug rows seeded. Independent clinical review of dosing bounds, paediatric rules, and renal adjustment thresholds pending. | Clinical Pharmacologist, Formulary Committee | **LOCKED (No-go)** |
+| **GATE-03** | **Supported Clinical Scope** | Tested on 3 synthetic fixtures (CAP, ACS, vague fatigue). Comprehensive validation across general practice conditions pending. | Chief Medical Officer, Clinical Safety Officer | **LOCKED (No-go)** |
+| **GATE-04** | **Automated Diagnostic Reasoning** | Engine currently enforces abstention (`insufficient_evidence`) and surfaces missing information questions. LLM diagnostic claims disabled. | Clinical AI Safety Committee, Biostatistician | **LOCKED (No-go)** |
+| **GATE-05** | **Conversational Workspace & Intake** | Full synthetic chat, natural language fact extraction, clinician update confirmation, and draft resilience verified (13 E2E tests, 0 axe violations). | Lead UX Designer, Clinical Safety Officer | **PASSED (Pilot Ready)** |
+| **GATE-06** | **Prescription Safety Checks & Override Protocol** | Stale acknowledgment invalidation, case version binding, and allergy/pregnancy hard stops verified in code and unit tests. Automated finalization disabled (HTTP 409). | Clinical Pharmacologist, Safety Engineer | **GATE ENFORCED (Finalize Disabled)** |
+| **GATE-07** | **Authentication, Session & RBAC** | Scrypt hashing, HMAC-SHA256 tokens, 64-char deployment secret, and physician/student/admin role boundaries verified. Rate limiting enforced. | Security Architect, Privacy Officer | **PASSED (Demo / Pilot)** |
+| **GATE-08** | **Production Deployment & Operations** | Tested in local containerized environment. Distributed rate limiting, remote secret rotation, and operational telemetry pending. | DevOps Lead, Systems Security Officer | **LOCKED (No-go)** |
+
