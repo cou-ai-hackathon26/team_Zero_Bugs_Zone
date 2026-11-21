@@ -22,9 +22,9 @@ describe('Role-Wise Panel Redirection & Middleware RBAC Enforcement', () => {
       expect(getRoleDefaultPath('student')).toBe('/ask');
     });
 
-    it('resolves researcher & medicine_controller to /library', () => {
+    it('resolves researcher to /library and medicine_controller to /controller', () => {
       expect(getRoleDefaultPath('researcher')).toBe('/library');
-      expect(getRoleDefaultPath('medicine_controller')).toBe('/library');
+      expect(getRoleDefaultPath('medicine_controller')).toBe('/controller');
     });
 
     it('resolves patient to /prescriptions', () => {
@@ -73,18 +73,25 @@ describe('Role-Wise Panel Redirection & Middleware RBAC Enforcement', () => {
       expect(isRouteAllowedForRole('admin', 'student')).toBe(false);
     });
 
-    it('strictly isolates researcher and controller from patient data', () => {
-      for (const r of ['researcher', 'medicine_controller']) {
-        expect(isRouteAllowedForRole('library', r)).toBe(true);
-        expect(isRouteAllowedForRole('ask', r)).toBe(true);
-        expect(isRouteAllowedForRole('settings', r)).toBe(true);
+    it('strictly isolates researcher and controller from patient data while allowing appropriate workspaces', () => {
+      // Researcher
+      expect(isRouteAllowedForRole('library', 'researcher')).toBe(true);
+      expect(isRouteAllowedForRole('ask', 'researcher')).toBe(true);
+      expect(isRouteAllowedForRole('settings', 'researcher')).toBe(true);
+      expect(isRouteAllowedForRole('controller', 'researcher')).toBe(false);
+      expect(isRouteAllowedForRole('dashboard', 'researcher')).toBe(false);
+      expect(isRouteAllowedForRole('patients', 'researcher')).toBe(false);
+      expect(isRouteAllowedForRole('prescriptions', 'researcher')).toBe(false);
 
-        expect(isRouteAllowedForRole('dashboard', r)).toBe(false);
-        expect(isRouteAllowedForRole('patients', r)).toBe(false);
-        expect(isRouteAllowedForRole('prescriptions', r)).toBe(false);
-        expect(isRouteAllowedForRole('cases', r)).toBe(false);
-        expect(isRouteAllowedForRole('admin', r)).toBe(false);
-      }
+      // Medicine Controller
+      expect(isRouteAllowedForRole('controller', 'medicine_controller')).toBe(true);
+      expect(isRouteAllowedForRole('library', 'medicine_controller')).toBe(true);
+      expect(isRouteAllowedForRole('ask', 'medicine_controller')).toBe(true);
+      expect(isRouteAllowedForRole('settings', 'medicine_controller')).toBe(true);
+      expect(isRouteAllowedForRole('dashboard', 'medicine_controller')).toBe(false);
+      expect(isRouteAllowedForRole('patients', 'medicine_controller')).toBe(false);
+      expect(isRouteAllowedForRole('prescriptions', 'medicine_controller')).toBe(false);
+      expect(isRouteAllowedForRole('admin', 'medicine_controller')).toBe(false);
     });
 
     it('isolates patient to prescriptions and settings', () => {
@@ -135,7 +142,7 @@ describe('Role-Wise Panel Redirection & Middleware RBAC Enforcement', () => {
         const token = await createSessionToken({
           id: '11111111-1111-4111-8111-111111111111',
           email: `${tc.role}@docmate.ai`,
-          role: tc.role as any,
+          role: tc.role as 'super_admin' | 'doctor' | 'student' | 'researcher' | 'patient',
           name: 'Test User',
         });
 

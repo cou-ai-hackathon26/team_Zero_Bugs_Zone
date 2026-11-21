@@ -284,7 +284,7 @@ export default function LibraryPage() {
         </Link>}
 
         {/* Filter and Search Bar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-card p-3 rounded-xl border border-border shadow-2xs">
+        <div data-tour="library-search" className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-card p-3 rounded-xl border border-border shadow-2xs">
           <div className="relative flex-1 w-full sm:w-auto">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -327,7 +327,7 @@ export default function LibraryPage() {
             <p className="text-xs text-muted-foreground mt-1">Try clearing filters or add a new source document.</p>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div data-tour="library-sources" className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredSources.map((source) => (
               <Card
                 key={source.id}

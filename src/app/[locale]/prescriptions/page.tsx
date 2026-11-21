@@ -116,7 +116,7 @@ export default function PrescriptionsListPage() {
         />
 
         {/* Search & Filter Bar */}
-        <Card className="border-border shadow-xs">
+        <Card data-tour="rx-search" className="border-border shadow-xs">
           <CardContent className="p-4 flex flex-col sm:flex-row gap-3 items-center justify-between">
             <div className="relative w-full sm:max-w-md">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -131,7 +131,7 @@ export default function PrescriptionsListPage() {
                 className="pl-9 h-11 text-base"
               />
             </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-2 w-full sm:w-auto" data-tour="rx-filter">
               <select
                 aria-label={locale === 'bn' ? 'স্ট্যাটাস ফিল্টার' : 'Status Filter'}
                 value={statusFilter}
@@ -170,7 +170,7 @@ export default function PrescriptionsListPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div data-tour="rx-list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filtered.map((rx) => (
               <Card
                 key={rx.id}

@@ -107,6 +107,7 @@ export default async function AdminDashboardPage() {
       )}
 
       {/* Kill Switch Active Warning Banner */}
+      <div data-tour="admin-killswitches">
       {activeKillswitches.length > 0 ? (
         <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
           <div className="flex items-start gap-3">
@@ -134,9 +135,10 @@ export default async function AdminDashboardPage() {
           <span>{t('allSystemsOperational')}</span>
         </div>
       )}
+      </div>
 
       {/* Top Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div data-tour="admin-stats" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Users */}
         <Card className="border-border bg-card shadow-2xs">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -194,7 +196,7 @@ export default async function AdminDashboardPage() {
         </Card>
 
         {/* Card 4: Audit */}
-        <Card className="border-border bg-card shadow-2xs">
+        <Card data-tour="admin-audit" className="border-border bg-card shadow-2xs">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               {t('totalLogs')}

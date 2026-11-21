@@ -33,6 +33,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { GlobalSearchCommand } from './GlobalSearchCommand';
 import { EvidenceSheet } from './EvidenceSheet';
 import { Toaster } from '@/components/ui/sonner';
+import { ProductTour, startProductTour } from './ProductTour';
 import {
   LayoutDashboard,
   Users,
@@ -45,6 +46,8 @@ import {
   LogOut,
   Stethoscope,
   ShieldAlert,
+  Pill,
+  Sparkles,
 } from 'lucide-react';
 import { User } from '@/types';
 import { cn } from '@/lib/utils';
@@ -59,6 +62,7 @@ export function AppShell({ children }: AppShellProps) {
   const locale = useLocale();
   const t = useTranslations('nav');
   const tCommon = useTranslations('common');
+  const tTour = useTranslations('tour');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -122,6 +126,15 @@ export function AppShell({ children }: AppShellProps) {
           },
         ]
       : []),
+    ...(role === 'medicine_controller' || role === 'super_admin'
+      ? [
+          {
+            title: t('controller'),
+            href: '/controller',
+            icon: Pill,
+          },
+        ]
+      : []),
     ...(role !== 'patient'
       ? [
           {
@@ -158,7 +171,7 @@ export function AppShell({ children }: AppShellProps) {
     <SidebarProvider defaultOpen>
       <div className="flex min-h-screen w-full bg-background text-foreground">
           {/* Main App Sidebar */}
-          <Sidebar collapsible="icon" role="complementary" aria-label={t('workspaceSidebar')} className="border-r border-border">
+          <Sidebar collapsible="icon" role="complementary" aria-label={t('workspaceSidebar')} className="border-r border-border" data-tour="nav-sidebar">
             <SidebarHeader className="border-b border-border/60 p-4">
               <Link href={logoHref} className="flex items-center gap-3 group">
                 <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground shadow-xs group-hover:scale-105 transition-transform">
@@ -268,6 +281,7 @@ export function AppShell({ children }: AppShellProps) {
                 <SidebarTrigger className="size-11 text-muted-foreground hover:text-foreground" aria-label={t('toggleSidebar')} />
                 <button
                   type="button"
+                  data-tour="nav-search"
                   onClick={() => {
                     const event = new KeyboardEvent('keydown', { key: 'k', metaKey: true });
                     document.dispatchEvent(event);
@@ -281,8 +295,26 @@ export function AppShell({ children }: AppShellProps) {
               </div>
 
               <div className="flex items-center gap-1 sm:gap-2">
-                <LanguageSwitcher />
-                <ThemeToggle />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => startProductTour()}
+                  className="gap-1.5 text-xs h-8 px-2.5 border-border hover:bg-muted text-foreground font-medium"
+                  aria-label={tTour('startTour')}
+                  title={tTour('startTour')}
+                  data-tour="nav-tour-btn"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-primary" />
+                  <span className="hidden sm:inline">{tTour('startTour')}</span>
+                </Button>
+
+                <div data-tour="nav-language">
+                  <LanguageSwitcher />
+                </div>
+                <div data-tour="nav-theme">
+                  <ThemeToggle />
+                </div>
 
                 {currentUser ? (
                   <DropdownMenu>
@@ -361,6 +393,7 @@ export function AppShell({ children }: AppShellProps) {
         {/* Global Overlays */}
         <GlobalSearchCommand role={currentUser?.role} />
         <EvidenceSheet />
+        <ProductTour />
         <Toaster position="top-right" richColors />
       </SidebarProvider>
   );

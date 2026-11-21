@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { prescriptions, prescriptionItems, encounters, drugs, drugInteractions } from '@/db/schema';
+import { prescriptions, prescriptionItems, encounters, drugs, drugInteractions, medicineNotices } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth';
 import { assertPatientDataScope } from '@/lib/permissions';
@@ -134,6 +134,32 @@ export async function POST(
 
       const interactionAlerts = checkInteractions(drugObj, otherMeds, interactionsDb);
       alerts.push(...interactionAlerts);
+    }
+
+    // 3. Check items against DGDA critical recall notices
+    const recallNotices = await db
+      .select()
+      .from(medicineNotices)
+      .where(eq(medicineNotices.severity, 'critical_recall'));
+
+    for (const item of items) {
+      for (const notice of recallNotices) {
+        if (
+          notice.title.toLowerCase().includes(item.genericName.toLowerCase()) ||
+          notice.body.toLowerCase().includes(item.genericName.toLowerCase()) ||
+          notice.title.toLowerCase().includes(item.brandName.toLowerCase())
+        ) {
+          alerts.push({
+            id: `notice-recall-${item.id}`,
+            drug_id: item.id,
+            drug_name: item.brandName,
+            severity: 'critical',
+            type: 'contraindication',
+            title: `ডিজিডিএ জরুরি প্রত্যাহার (DGDA Recall): ${item.brandName}`,
+            description: `${notice.title} — ${notice.body}`,
+          });
+        }
+      }
     }
 
     // Deduplicate alerts by id

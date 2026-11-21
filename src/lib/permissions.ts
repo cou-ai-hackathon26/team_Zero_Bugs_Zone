@@ -418,3 +418,21 @@ export async function requireSuperAdmin(): Promise<RequireSuperAdminResult> {
   }
   return { user, error: null, status: 200 };
 }
+
+export type RequireMedicineControllerResult =
+  | { user: User; error: null; status: 200 }
+  | { user: User; error: string; status: 401 | 403 };
+
+/**
+ * Route guard helper requiring active Medicine Controller or Super Admin authentication.
+ */
+export async function requireMedicineControllerOrAdmin(): Promise<RequireMedicineControllerResult> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { error: 'Authentication required', status: 401, user: {} as User };
+  }
+  if (user.role !== 'medicine_controller' && user.role !== 'super_admin') {
+    return { error: 'Medicine Controller or Super Admin access required', status: 403, user: {} as User };
+  }
+  return { user, error: null, status: 200 };
+}

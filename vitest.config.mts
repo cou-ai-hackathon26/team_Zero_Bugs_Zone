@@ -7,8 +7,8 @@ const require = createRequire(import.meta.url);
 // Polyfill Map.groupBy for Node versions < 21 so Vitest error reporter formats failures cleanly
 if (!('groupBy' in Map)) {
   // @ts-expect-error - Polyfill for Node.js < 21
-  Map.groupBy = function (items: Iterable<any>, callback: (item: any) => any) {
-    const map = new Map();
+  Map.groupBy = function <T, K>(items: Iterable<T>, callback: (item: T) => K) {
+    const map = new Map<K, T[]>();
     for (const item of items) {
       const key = callback(item);
       const collection = map.get(key);

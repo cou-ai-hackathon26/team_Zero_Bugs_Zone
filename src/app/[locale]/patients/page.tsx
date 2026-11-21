@@ -88,6 +88,7 @@ export default function PatientsListPage() {
           action={
             <Link
               href="/patients/new"
+              data-tour="patients-new-btn"
               className={buttonVariants({ className: 'min-h-12 text-base font-semibold px-5 shadow-sm' })}
             >
               <PlusCircle className="w-5 h-5 mr-2" />
@@ -97,7 +98,7 @@ export default function PatientsListPage() {
         />
 
         {/* Filter and Search Bar */}
-        <Card className="border-border shadow-xs">
+        <Card data-tour="patients-search" className="border-border shadow-xs">
           <CardContent className="p-4 flex flex-col sm:flex-row gap-3 items-center justify-between">
             <div className="relative w-full sm:max-w-md">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -152,7 +153,7 @@ export default function PatientsListPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div data-tour="patients-list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filtered.map((patient) => (
               <Card
                 key={patient.id}

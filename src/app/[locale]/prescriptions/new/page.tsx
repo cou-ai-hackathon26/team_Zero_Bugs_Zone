@@ -7,6 +7,7 @@ import { AppShell } from '@/components/shared/AppShell';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Link } from '@/i18n/routing';
 import {
@@ -93,15 +94,21 @@ export default function NewPrescriptionPage() {
     },
   ]);
 
-  // Safety Alerts
+  // Safety Alerts & Active Notices
   const [safetyAlerts, setSafetyAlerts] = useState<Array<{ id: string; severity: string; title: string; description: string }>>([]);
+  const [activeNotices, setActiveNotices] = useState<Array<{ id: string; title: string; severity: string; body: string }>>([]);
   const [safetyChecked, setSafetyChecked] = useState(false);
   const [checkingSafety, setCheckingSafety] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Pre-select patient if provided in query param
+  // Pre-select patient if provided in query param and load active notices
   useEffect(() => {
+    fetch('/api/medicines/notices/active', { credentials: 'same-origin' })
+      .then((res) => (res.ok ? res.json() : { notices: [] }))
+      .then((data) => setActiveNotices(data.notices || []))
+      .catch(() => {});
+
     fetch('/api/patients', { credentials: 'same-origin' })
       .then((res) => (res.ok ? res.json() : { patients: [] }))
       .then((data) => {
@@ -314,6 +321,37 @@ export default function NewPrescriptionPage() {
               : 'BMDC compliant prescription editor: Brand, Generic, strength, dosing schedule, and safety engine'
           }
         />
+
+        {/* Active DGDA Safety Notices Banner */}
+        {activeNotices.length > 0 && (
+          <div className="space-y-2">
+            {activeNotices.map((n) => (
+              <div
+                key={n.id}
+                className={`p-3.5 rounded-lg border text-xs sm:text-sm flex items-start gap-3 ${
+                  n.severity === 'critical_recall'
+                    ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200'
+                    : 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+                }`}
+              >
+                <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold">{n.title}</span>
+                    <Badge variant="destructive" className="text-[10px] uppercase">
+                      {n.severity === 'critical_recall'
+                        ? locale === 'bn'
+                          ? 'জরুরি প্রত্যাহার (DGDA Recall)'
+                          : 'Critical Recall'
+                        : 'Warning'}
+                    </Badge>
+                  </div>
+                  <p className="text-xs opacity-90">{n.body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Patient Selector Card */}
         <Card className="border-border shadow-xs bg-card">

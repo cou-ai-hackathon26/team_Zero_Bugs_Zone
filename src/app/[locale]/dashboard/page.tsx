@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Link } from '@/i18n/routing';
 import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import { db } from '@/db';
-import { patients, prescriptions, sources, drugs } from '@/db/schema';
+import { patients, prescriptions, sources, drugs, medicineNotices } from '@/db/schema';
 import { desc, eq } from 'drizzle-orm';
 import { decryptPatientPii } from '@/lib/encryption';
 import {
@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   Calendar,
   AlertCircle,
+  AlertTriangle,
 } from 'lucide-react';
 
 export default async function DashboardPage() {
@@ -35,7 +36,7 @@ export default async function DashboardPage() {
   const isPhysician = user.role === 'doctor' || user.role === 'super_admin';
 
   // Fetch live stats for doctor
-  const [patientCount, prescriptionCount, sourceCount, drugCount, recentPatientsList] = await Promise.all([
+  const [patientCount, prescriptionCount, sourceCount, drugCount, recentPatientsList, activeNotices] = await Promise.all([
     isPhysician ? db.$count(patients, eq(patients.doctorId, user.id)) : 0,
     isPhysician ? db.$count(prescriptions, eq(prescriptions.doctorId, user.id)) : 0,
     db.$count(sources, eq(sources.status, 'active')),
@@ -47,6 +48,7 @@ export default async function DashboardPage() {
           limit: 5,
         })
       : [],
+    db.select().from(medicineNotices).orderBy(desc(medicineNotices.publishedAt)).limit(3),
   ]);
 
   const decryptedRecentPatients = recentPatientsList.map((p) => ({
@@ -66,6 +68,42 @@ export default async function DashboardPage() {
           </div>
           <span className="text-muted-foreground hidden sm:inline">{tCommon('doctorDecides')}</span>
         </div>
+
+        {/* DGDA Active Safety Notices */}
+        {activeNotices.length > 0 && (
+          <div className="space-y-2">
+            {activeNotices.map((n) => (
+              <div
+                key={n.id}
+                className={`p-3 rounded-xl border text-xs sm:text-sm flex items-start gap-3 ${
+                  n.severity === 'critical_recall'
+                    ? 'bg-rose-50/80 dark:bg-rose-950/40 border-rose-300 dark:border-rose-900 text-rose-900 dark:text-rose-200'
+                    : 'bg-amber-50/80 dark:bg-amber-950/40 border-amber-300 dark:border-amber-900 text-amber-900 dark:text-amber-200'
+                }`}
+              >
+                <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-foreground">{n.title}</span>
+                    <Badge
+                      variant={n.severity === 'critical_recall' ? 'destructive' : 'outline'}
+                      className="text-[10px]"
+                    >
+                      {n.severity === 'critical_recall'
+                        ? locale === 'bn'
+                          ? '🚨 জরুরি প্রত্যাহার (DGDA Recall)'
+                          : '🚨 Critical Recall'
+                        : locale === 'bn'
+                          ? '⚠️ সতর্কতা'
+                          : '⚠️ Warning'}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{n.body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Doctor Header & Welcome */}
         <PageHeader
@@ -87,6 +125,7 @@ export default async function DashboardPage() {
             {/* 1. New Patient Intake */}
             <Link
               href="/patients/new"
+              data-tour="dashboard-new-patient"
               className="group block p-6 rounded-2xl bg-gradient-to-br from-primary/10 via-card to-card border-2 border-primary/30 hover:border-primary shadow-sm hover:shadow-md transition-all text-left"
             >
               <div className="flex items-center justify-between mb-4">
@@ -168,7 +207,7 @@ export default async function DashboardPage() {
         )}
 
         {/* Summary Metric Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div data-tour="dashboard-stats" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="border-border shadow-2xs">
             <CardHeader className="p-4 pb-2">
               <CardDescription className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
@@ -232,7 +271,7 @@ export default async function DashboardPage() {
 
         {/* Recently Seen Patients Section */}
         {isPhysician && (
-          <div className="space-y-4">
+          <div data-tour="dashboard-recent" className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
                 <Users className="w-5 h-5 text-primary" />

@@ -93,7 +93,7 @@ export default function AskLibraryPage() {
         />
 
         {/* Search & Query Input Box */}
-        <Card className="border-border shadow-xs bg-card">
+        <Card data-tour="ask-input" className="border-border shadow-xs bg-card">
           <CardContent className="p-4 sm:p-5">
             <form
               onSubmit={(e) => {
@@ -184,7 +184,7 @@ export default function AskLibraryPage() {
 
         {/* Verified Answer Presentation */}
         {answer && (
-          <Card className="border-primary/30 shadow-xs bg-card space-y-4">
+          <Card data-tour="ask-citations" className="border-primary/30 shadow-xs bg-card space-y-4">
             <CardHeader className="p-5 pb-2 border-b border-border/60 bg-primary/5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-primary font-bold text-sm">

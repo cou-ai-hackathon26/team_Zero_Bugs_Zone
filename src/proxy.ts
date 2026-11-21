@@ -18,8 +18,9 @@ export function getRoleDefaultPath(role: string): string {
     case 'student':
       return '/ask';
     case 'researcher':
-    case 'medicine_controller':
       return '/library';
+    case 'medicine_controller':
+      return '/controller';
     case 'patient':
       return '/prescriptions';
     default:
@@ -64,13 +65,18 @@ export function isRouteAllowedForRole(subPath: string, role: string): boolean {
     return rootSegment === 'ask' || rootSegment === 'library' || rootSegment === 'settings';
   }
 
-  // 4. Researcher & Medicine Controller: Medical library & guideline search
-  // Zero patient data exposure
-  if (role === 'researcher' || role === 'medicine_controller') {
+  // 4. Researcher: Medical library & guideline search
+  if (role === 'researcher') {
     return rootSegment === 'library' || rootSegment === 'ask' || rootSegment === 'settings';
   }
 
-  // 5. Patient: Personal prescriptions and settings only
+  // 5. Medicine Controller: DGDA formulary management & safety alerts
+  // Zero patient data exposure
+  if (role === 'medicine_controller') {
+    return rootSegment === 'controller' || rootSegment === 'library' || rootSegment === 'ask' || rootSegment === 'settings';
+  }
+
+  // 6. Patient: Personal prescriptions and settings only
   if (role === 'patient') {
     return rootSegment === 'prescriptions' || rootSegment === 'settings';
   }
