@@ -393,6 +393,9 @@ export default function PatientPortalPage() {
           }
         />
 
+        {/* Patient Portal Onboarding Tour Block */}
+        <OnboardingTourBlock panel="portal" />
+
         {/* Multi-Profile Switcher Bar */}
         <div className="p-3 rounded-xl border border-border bg-card/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
           <div className="space-y-1">
