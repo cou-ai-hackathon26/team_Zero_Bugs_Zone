@@ -406,7 +406,7 @@ export const patientSchedules = pgTable('patient_schedules', {
 
 export const patientReports = pgTable('patient_reports', {
   id: uuid('id').defaultRandom().primaryKey(),
-  patientId: uuid('patient_id').references(() => patients.id, { onDelete: 'cascade' }).notNull(),
+  patientId: uuid('patient_id').references(() => patients.id, { onDelete: 'cascade' }),
   profileId: uuid('profile_id').references(() => patientProfiles.id, { onDelete: 'set null' }),
   title: varchar('title', { length: 150 }).notNull(),
   reportType: varchar('report_type', { length: 50 }).default('lab_test').notNull(),
@@ -419,7 +419,7 @@ export const patientReports = pgTable('patient_reports', {
 
 export const patientPreVisits = pgTable('patient_pre_visits', {
   id: uuid('id').defaultRandom().primaryKey(),
-  patientId: uuid('patient_id').references(() => patients.id, { onDelete: 'cascade' }).notNull(),
+  patientId: uuid('patient_id').references(() => patients.id, { onDelete: 'cascade' }),
   profileId: uuid('profile_id').references(() => patientProfiles.id, { onDelete: 'set null' }),
   chiefComplaint: text('chief_complaint').notNull(),
   symptoms: jsonb('symptoms').default([]).notNull(),
@@ -431,7 +431,7 @@ export const patientPreVisits = pgTable('patient_pre_visits', {
 
 export const patientConsentLogs = pgTable('patient_consent_logs', {
   id: uuid('id').defaultRandom().primaryKey(),
-  patientId: uuid('patient_id').references(() => patients.id, { onDelete: 'cascade' }).notNull(),
+  patientId: uuid('patient_id').references(() => patients.id, { onDelete: 'cascade' }),
   profileId: uuid('profile_id').references(() => patientProfiles.id, { onDelete: 'set null' }),
   action: varchar('action', { length: 30 }).notNull(), // 'granted' | 'revoked'
   reason: text('reason'),
