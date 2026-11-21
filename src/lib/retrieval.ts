@@ -1,5 +1,4 @@
 import { Pool } from 'pg';
-import crypto from 'crypto';
 import OpenAI from 'openai';
 import { Chunk } from '@/types';
 
@@ -12,7 +11,6 @@ const openai = process.env.OPENAI_API_KEY
   : null;
 
 // In-memory cache for embeddings and retrieval (cost control & speed)
-const embeddingCache = new Map<string, number[]>();
 const retrievalCache = new Map<string, { timestamp: number; chunks: ScoredChunk[] }>();
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -24,47 +22,23 @@ export interface ScoredChunk extends Chunk {
   textScore?: number;
 }
 
-function generateDeterministicVector(text: string): number[] {
-  const hash = crypto.createHash('sha256').update(text.trim().toLowerCase()).digest();
-  const vector: number[] = new Array(1536);
-  let norm = 0;
-  for (let i = 0; i < 1536; i++) {
-    const val = ((hash[i % hash.length] + (i * 31)) % 1000) / 500 - 1;
-    vector[i] = val;
-    norm += val * val;
+async function getQueryEmbedding(query: string): Promise<number[] | null> {
+  if (!openai) return null;
+  try {
+    const response = await openai.embeddings.create({
+      model: process.env.OPENAI_EMBED_MODEL || 'text-embedding-3-small',
+      input: query,
+      dimensions: 1536,
+    });
+    return response.data[0].embedding;
+  } catch {
+    return null;
   }
-  norm = Math.sqrt(norm);
-  return vector.map((v) => Number((v / norm).toFixed(6)));
-}
-
-export async function getQueryEmbedding(query: string): Promise<number[]> {
-  const cacheKey = query.trim().toLowerCase();
-  if (embeddingCache.has(cacheKey)) {
-    return embeddingCache.get(cacheKey)!;
-  }
-
-  let embedding: number[];
-  if (openai && process.env.OPENAI_API_KEY) {
-    try {
-      const response = await openai.embeddings.create({
-        model: process.env.OPENAI_EMBED_MODEL || 'text-embedding-3-small',
-        input: query.replace(/\n/g, ' '),
-      });
-      embedding = response.data[0].embedding;
-    } catch {
-      embedding = generateDeterministicVector(query);
-    }
-  } else {
-    embedding = generateDeterministicVector(query);
-  }
-
-  embeddingCache.set(cacheKey, embedding);
-  return embedding;
 }
 
 export async function singleQueryHybridSearch(query: string, limit = 15): Promise<ScoredChunk[]> {
   const embedding = await getQueryEmbedding(query);
-  const vectorStr = `[${embedding.join(',')}]`;
+  const vectorStr = embedding ? `[${embedding.join(',')}]` : null;
 
   // 1. Vector Search
   const vectorQuery = `
@@ -73,7 +47,7 @@ export async function singleQueryHybridSearch(query: string, limit = 15): Promis
            1 - (c.embedding <=> $1::vector) as vector_score
     FROM chunks c
     JOIN sources s ON c.source_id = s.id
-    WHERE c.embedding IS NOT NULL
+    WHERE s.status = 'active' AND c.embedding IS NOT NULL
     ORDER BY c.embedding <=> $1::vector ASC
     LIMIT $2;
   `;
@@ -85,14 +59,14 @@ export async function singleQueryHybridSearch(query: string, limit = 15): Promis
            ts_rank(c.tsv, plainto_tsquery('english', $1)) as text_score
     FROM chunks c
     JOIN sources s ON c.source_id = s.id
-    WHERE c.tsv @@ plainto_tsquery('english', $1)
+    WHERE s.status = 'active' AND c.tsv @@ plainto_tsquery('english', $1)
     ORDER BY text_score DESC
     LIMIT $2;
   `;
 
   const [vectorRes, textRes] = await Promise.all([
-    pool.query(vectorQuery, [vectorStr, limit]),
-    pool.query(textQuery, [query, limit]).catch(() => ({ rows: [] })),
+    vectorStr ? pool.query(vectorQuery, [vectorStr, limit]) : Promise.resolve({ rows: [] }),
+    pool.query(textQuery, [query, limit]),
   ]);
 
   const k = 60; // Standard RRF smoothing constant
@@ -175,6 +149,7 @@ export async function hybridRetrieve(queries: string[], maxChunks = 12): Promise
     .sort((a, b) => b.rrfScore - a.rrfScore)
     .slice(0, maxChunks);
 
+  if (retrievalCache.size >= 256) retrievalCache.delete(retrievalCache.keys().next().value!);
   retrievalCache.set(cacheKey, { timestamp: Date.now(), chunks: sorted });
   return sorted;
 }

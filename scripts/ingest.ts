@@ -16,33 +16,14 @@ function computeHash(content: string): string {
   return crypto.createHash('sha256').update(content.trim()).digest('hex');
 }
 
-// Generates deterministic 1536-dimension normalized vector when offline or OPENAI_API_KEY is not set
-function generateDeterministicVector(text: string): number[] {
-  const hash = crypto.createHash('sha256').update(text).digest();
-  const vector: number[] = new Array(1536);
-  let norm = 0;
-  for (let i = 0; i < 1536; i++) {
-    const val = ((hash[i % hash.length] + (i * 31)) % 1000) / 500 - 1;
-    vector[i] = val;
-    norm += val * val;
-  }
-  norm = Math.sqrt(norm);
-  return vector.map((v) => Number((v / norm).toFixed(6)));
-}
-
-async function getEmbedding(text: string): Promise<number[]> {
-  if (openai && process.env.OPENAI_API_KEY) {
-    try {
-      const response = await openai.embeddings.create({
-        model: process.env.OPENAI_EMBED_MODEL || 'text-embedding-3-small',
-        input: text.replace(/\n/g, ' '),
-      });
-      return response.data[0].embedding;
-    } catch (err) {
-      console.warn('OpenAI embedding call failed, falling back to deterministic vector:', err instanceof Error ? err.message : err);
-    }
-  }
-  return generateDeterministicVector(text);
+async function getEmbedding(text: string): Promise<string | null> {
+  if (!openai) return null;
+  const response = await openai.embeddings.create({
+    model: process.env.OPENAI_EMBED_MODEL || 'text-embedding-3-small',
+    input: text.replace(/\n/g, ' '),
+    dimensions: 1536,
+  });
+  return `[${response.data[0].embedding.join(',')}]`;
 }
 
 interface ParsedDoc {
@@ -126,8 +107,7 @@ export async function runIngestion() {
   const libraryDir = path.join(process.cwd(), 'data', 'library');
 
   if (!fs.existsSync(libraryDir)) {
-    console.error(`Library directory not found: ${libraryDir}`);
-    return;
+    throw new Error('Library directory not found.');
   }
 
   const files = fs.readdirSync(libraryDir).filter((f) => f.endsWith('.md') || f.endsWith('.txt'));
@@ -138,58 +118,60 @@ export async function runIngestion() {
     const parsed = parseMarkdownFile(filePath);
     console.log(`Processing: "${parsed.title}" (${parsed.year}, Level: ${parsed.evidenceLevel})`);
 
-    // Insert or retrieve source
-    const sourceRes = await pool.query(
-      `INSERT INTO sources (title, type, year, license, status)
-       VALUES ($1, $2, $3, $4, 'active')
-       ON CONFLICT DO NOTHING
-       RETURNING id`,
-      [parsed.title, 'guideline', parsed.year, parsed.license]
-    );
-
-    let sourceId: string;
-    if (sourceRes.rows.length > 0) {
-      sourceId = sourceRes.rows[0].id;
-    } else {
-      const existing = await pool.query(`SELECT id FROM sources WHERE title = $1 LIMIT 1`, [parsed.title]);
-      sourceId = existing.rows[0].id;
-    }
-
+    const client = await pool.connect();
     let chunkCount = 0;
     let skippedCount = 0;
+    try {
+      await client.query('BEGIN');
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`docmate-ingest:${parsed.title}:${parsed.year}`]);
+      const existing = await client.query<{ id: string }>(
+        `SELECT id FROM sources WHERE title = $1 AND year = $2 AND type = 'guideline'
+         ORDER BY (EXISTS (SELECT 1 FROM chunks WHERE source_id = sources.id)) DESC, created_at, id LIMIT 1`,
+        [parsed.title, parsed.year],
+      );
+      const source = existing.rows[0] ?? (await client.query<{ id: string }>(
+        `INSERT INTO sources (title, type, year, license, status)
+         VALUES ($1, 'guideline', $2, $3, 'active') RETURNING id`,
+        [parsed.title, parsed.year, parsed.license],
+      )).rows[0];
 
-    for (const sec of parsed.sections) {
-      const subChunks = chunkText(sec.text);
-      for (let i = 0; i < subChunks.length; i++) {
-        const chunkContent = subChunks[i];
-        if (!chunkContent || chunkContent.length < 20) continue;
+      for (const sec of parsed.sections) {
+        for (const text of chunkText(sec.text)) {
+          if (text.length < 20) continue;
 
-        const hash = computeHash(chunkContent);
+          const hash = computeHash(text);
+          const { rows: [prior] } = await client.query<{ id: string; has_embedding: boolean }>(
+            `SELECT id, embedding IS NOT NULL AS has_embedding FROM chunks
+             WHERE source_id = $1 AND page = $2 AND section = $3 AND hash = $4 LIMIT 1`,
+            [source.id, sec.page, sec.section, hash],
+          );
+          if (prior) {
+            const embedding = prior.has_embedding && openai ? null : await getEmbedding(text);
+            await client.query(
+              `UPDATE chunks SET tsv = to_tsvector('english', text),
+               embedding = COALESCE($2::vector, embedding) WHERE id = $1`,
+              [prior.id, embedding],
+            );
+            skippedCount++;
+            continue;
+          }
 
-        // Check if hash already exists (cost control check!)
-        const checkRes = await pool.query(
-          `SELECT id, embedding FROM chunks WHERE hash = $1 LIMIT 1`,
-          [hash]
-        );
-
-        if (checkRes.rows.length > 0 && checkRes.rows[0].embedding) {
-          skippedCount++;
-          continue;
+          await client.query(
+            `INSERT INTO chunks (source_id, page, section, text, embedding, evidence_level, hash, tsv)
+             VALUES ($1, $2, $3, $4, $5::vector, $6, $7, to_tsvector('english', $4))`,
+            [source.id, sec.page, sec.section, text, await getEmbedding(text), parsed.evidenceLevel, hash],
+          );
+          chunkCount++;
         }
-
-        const embedding = await getEmbedding(chunkContent);
-        const vectorStr = `[${embedding.join(',')}]`;
-
-        await pool.query(
-          `INSERT INTO chunks (source_id, page, section, text, embedding, evidence_level, hash)
-           VALUES ($1, $2, $3, $4, $5::vector, $6, $7)`,
-          [sourceId, sec.page, sec.section, chunkContent, vectorStr, parsed.evidenceLevel, hash]
-        );
-        chunkCount++;
       }
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
-
-    console.log(`  -> Indexed ${chunkCount} new chunks (${skippedCount} already cached by hash).`);
+    console.log(`  -> Indexed ${chunkCount} new chunks (${skippedCount} reused by hash).`);
   }
 
   console.log('Knowledge ingestion finished successfully.');
@@ -198,8 +180,8 @@ export async function runIngestion() {
 if (require.main === module) {
   runIngestion()
     .then(() => pool.end())
-    .catch((err) => {
-      console.error('Ingestion error:', err);
+    .catch(() => {
+      console.error('Ingestion failed. Check the database, schema and optional embedding configuration.');
       pool.end();
       process.exit(1);
     });
