@@ -61,7 +61,16 @@ export async function POST(request: Request) {
     if (user instanceof NextResponse) return user;
 
     const input = caseInput.safeParse(await boundedJson(request));
-    if (!input.success) return NextResponse.json({ error: 'Invalid synthetic case input' }, { status: 400 });
+    if (!input.success) {
+      console.error('[API /api/cases Validation Error]:', input.error.format());
+      return NextResponse.json(
+        {
+          error: 'Invalid synthetic case input',
+          details: input.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '),
+        },
+        { status: 400 }
+      );
+    }
     const { patient_code, structured_input, profile_id, idempotency_key } = input.data;
 
     return await withIdempotency(idempotency_key, '/api/cases', async () => {

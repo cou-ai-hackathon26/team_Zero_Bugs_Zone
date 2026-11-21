@@ -36,7 +36,6 @@ import { DemoBanner } from './DemoBanner';
 import { GlobalSearchCommand } from './GlobalSearchCommand';
 import { EvidenceSheet } from './EvidenceSheet';
 import { Toaster } from '@/components/ui/sonner';
-import { ProductTour, startProductTour } from './ProductTour';
 import {
   LayoutDashboard,
   Users,
@@ -50,7 +49,6 @@ import {
   Stethoscope,
   ShieldAlert,
   Pill,
-  Sparkles,
   GraduationCap,
   FlaskConical,
   HeartPulse,
@@ -68,7 +66,6 @@ export function AppShell({ children }: AppShellProps) {
   const locale = useLocale();
   const t = useTranslations('nav');
   const tCommon = useTranslations('common');
-  const tTour = useTranslations('tour');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -257,21 +254,8 @@ export function AppShell({ children }: AppShellProps) {
             </SidebarContent>
 
             <SidebarFooter className="border-t border-border/60 p-2.5 space-y-2">
-              {/* Utility Tools: Tour, Help, Theme */}
+              {/* Utility Tools: Help, Theme */}
               <div className="flex items-center justify-around group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-1 py-1 px-1 rounded-lg bg-muted/40 border border-border/50">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => startProductTour()}
-                  className="h-8 w-8 text-muted-foreground hover:text-foreground shrink-0"
-                  aria-label={tTour('startTour')}
-                  title={tTour('startTour')}
-                  data-tour="nav-tour-btn"
-                >
-                  <Sparkles className="w-4 h-4 text-primary" />
-                </Button>
-
                 <HelpSheet variant="icon" />
 
                 <div data-tour="nav-theme">
@@ -434,7 +418,6 @@ export function AppShell({ children }: AppShellProps) {
         </div>
         <GlobalSearchCommand role={currentUser?.role} />
         <EvidenceSheet />
-        <ProductTour />
         <Toaster position="top-right" richColors />
       </SidebarProvider>
   );

@@ -334,7 +334,8 @@ export default function NewPatientIntakePage() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to create case');
+        const errorText = data.details ? `${data.error} (${data.details})` : (data.error || 'Failed to create case');
+        throw new Error(errorText);
       }
 
       toast.success(isBn ? 'কেস সফলভাবে তৈরি হয়েছে!' : 'Case created successfully!');

@@ -96,9 +96,17 @@ export function normalizeBangladeshiPhone(input: string): PhoneNormalizationResu
   let digits = english.replace(/[^\d]/g, '');
 
   // 3. Handle prefix variations:
+  // If starts with 00880, strip 0088 to get the 11-digit national number
+  if (digits.startsWith('00880') && digits.length === 15) {
+    digits = digits.slice(4); // '01XXXXXXXXX'
+  }
   // If starts with 880, strip 88 to get the 11-digit national number
   if (digits.startsWith('880') && digits.length === 13) {
     digits = digits.slice(2); // '01XXXXXXXXX'
+  }
+  // If user entered 10 digits starting with 1 (omitted leading 0 e.g. 17XXXXXXXX)
+  if (digits.length === 10 && digits.startsWith('1')) {
+    digits = '0' + digits; // '01XXXXXXXXX'
   }
 
   // 4. Validate national number length (must be exactly 11 digits starting with 01)
