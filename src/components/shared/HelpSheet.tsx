@@ -122,7 +122,7 @@ const HELP_MAP: Record<string, ScreenHelpInfo> = {
       'Test retention with multiple-choice quizzes and save personal clinical pearls.',
     ],
     tipsBn: 'শিক্ষার্থী মোডে বাস্তব কোনো রোগীর তথ্য দৃশ্যমান হয় না—সম্পূর্ণ সিন্থেটিক পরিবেশ।',
-    tipsEn: 'Zero real patient data is accessible in Student mode; cases are 100% synthetic.',
+    tipsEn: 'Zero real patient data is accessible in Student mode; cases are fully synthetic.',
   },
   research: {
     titleBn: 'ক্লিনিকাল রিসার্চ স্যুট',

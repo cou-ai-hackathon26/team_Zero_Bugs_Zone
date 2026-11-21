@@ -47,17 +47,17 @@ export default function ErrorBoundary({
             <RefreshCw className="w-3.5 h-3.5" />
             <span>{isBn ? 'পুনরায় চেষ্টা করুন' : 'Try Again'}</span>
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              window.location.href = `/${locale}/dashboard`;
-            }}
-            className="text-xs flex items-center gap-1.5"
+          <Link
+            href="/dashboard"
+            className={buttonVariants({
+              variant: 'outline',
+              size: 'sm',
+              className: 'text-xs flex items-center gap-1.5',
+            })}
           >
             <Home className="w-3.5 h-3.5" />
             <span>{isBn ? 'হোমে ফিরুন' : 'Go Home'}</span>
-          </Button>
+          </Link>
         </div>
       </Card>
     </div>

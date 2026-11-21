@@ -118,7 +118,7 @@ export function PrivacyVaultIllustration({ className = '', locale = 'bn' }: Priv
           <rect width="130" height="24" rx="12" fill="#0f172a" stroke="#0d9488" strokeWidth="1" opacity="0.95" />
           <circle cx="14" cy="12" r="3.5" fill="#14b8a6" />
           <text x="24" y="15.5" fill="#f8fafc" fontSize="9" fontWeight="600" fontFamily="sans-serif">
-            {isBn ? 'অভ্যন্তরীণ লাইব্রেরি গ্যারান্টি' : '100% Closed Library'}
+            {isBn ? 'অভ্যন্তরীণ লাইব্রেরি গ্যারান্টি' : 'Strict Closed Library'}
           </text>
         </g>
       </svg>
