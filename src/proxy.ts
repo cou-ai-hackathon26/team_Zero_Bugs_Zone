@@ -35,13 +35,20 @@ export default async function proxy(request: NextRequest) {
     subPath === 'library' ||
     subPath === 'ask' ||
     subPath === 'settings' ||
-    subPath.startsWith('settings/');
+    subPath.startsWith('settings/') ||
+    subPath === 'admin' ||
+    subPath.startsWith('admin/');
 
   // 2. Unauthenticated check for protected routes
   if (isProtectedPath && !session) {
     const loginUrl = new URL(`/${locale}/login`, request.url);
     loginUrl.searchParams.set('callbackUrl', pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // 3. Super Admin path check
+  if ((subPath === 'admin' || subPath.startsWith('admin/')) && session?.role !== 'super_admin') {
+    return NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url));
   }
 
   if (

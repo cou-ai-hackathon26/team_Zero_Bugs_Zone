@@ -16,14 +16,33 @@ import {
   FileCheck2,
   Pill,
   HelpCircle,
-  GraduationCap,
-  Microscope,
   UserCheck,
   ArrowRight,
   ChevronRight,
+  Lock,
+  FileLock2,
+  Database,
 } from 'lucide-react';
 import { DoctorAiIllustration } from '@/components/shared/DoctorAiIllustration';
-import { toast } from 'sonner';
+import {
+  HeroAmbientBackground,
+  SectionMedicalPattern,
+  SectionWaveDivider,
+} from '@/components/shared/MedicalBackgroundDecorations';
+import {
+  Step1IntakeIllustration,
+  Step2GuidelineIllustration,
+  Step3SafetyIllustration,
+  Step4DoctorSignsIllustration,
+} from '@/components/shared/LandingStepIllustrations';
+import { PrivacyVaultIllustration } from '@/components/shared/PrivacyVaultIllustration';
+import { LandingCtaBanner } from '@/components/shared/LandingCtaBanner';
+import {
+  DoctorRoleIllustration,
+  StudentRoleIllustration,
+  ResearcherRoleIllustration,
+  AdminRoleIllustration,
+} from '@/components/shared/RoleBadgesIllustrations';
 
 export default function LandingPage() {
   const t = useTranslations('landing');
@@ -33,7 +52,6 @@ export default function LandingPage() {
   const router = useRouter();
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [loggingInRole, setLoggingInRole] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/auth/session', { cache: 'no-store', credentials: 'same-origin' })
@@ -46,32 +64,11 @@ export default function LandingPage() {
       .catch(() => {});
   }, []);
 
-  const handleQuickLogin = async (email: string, targetPath: string, roleName: string) => {
-    setLoggingInRole(roleName);
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: 'demo123' }),
-        cache: 'no-store',
-        credentials: 'same-origin',
-      });
-
-      if (!res.ok) {
-        throw new Error('Quick login failed');
-      }
-
-      toast.success(
-        locale === 'bn'
-          ? `${roleName} হিসেবে সফলভাবে প্রবেশ করা হয়েছে`
-          : `Signed in as ${roleName}`
-      );
-      const targetUrl = `/${locale}${targetPath.startsWith('/') ? targetPath : `/${targetPath}`}`;
-      window.location.replace(targetUrl);
-    } catch {
-      toast.error('Could not authenticate demo user');
-    } finally {
-      setLoggingInRole(null);
+  const handleRoleAction = (targetPath: string) => {
+    if (isLoggedIn) {
+      router.push(targetPath);
+    } else {
+      router.push('/login');
     }
   };
 
@@ -101,7 +98,7 @@ export default function LandingPage() {
             <a href="#standards" className="hover:text-foreground transition-colors">
               {t('navSafety')}
             </a>
-            <a href="#scenarios" className="hover:text-foreground transition-colors">
+            <a href="#privacy" className="hover:text-foreground transition-colors">
               {t('navCases')}
             </a>
             <a href="#roles" className="hover:text-foreground transition-colors">
@@ -139,19 +136,9 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* Hero Section */}
+      {/* Hero Section with Ambient Glows, ECG line, and Vector Doctor AI Illustration */}
       <section className="relative overflow-hidden py-12 lg:py-16 border-b border-border/50 bg-background">
-        {/* Subtle Decorative Vector Grid Background */}
-        <div className="absolute inset-0 -z-10 opacity-15 dark:opacity-10 pointer-events-none">
-          <svg className="w-full h-full" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
-                <path d="M 32 0 L 0 0 0 32" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-muted-foreground/30" />
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#grid)" />
-          </svg>
-        </div>
+        <HeroAmbientBackground />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-12 gap-10 items-center">
@@ -242,8 +229,13 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* How It Works Section (4 Simple Steps) */}
-      <section id="how-it-works" className="py-14 bg-muted/20 border-b border-border/50">
+      {/* Decorative Wave Divider */}
+      <SectionWaveDivider />
+
+      {/* How It Works Section (4 Steps with Vector Visuals) */}
+      <section id="how-it-works" className="py-14 bg-muted/20 border-b border-border/50 relative overflow-hidden">
+        <SectionMedicalPattern />
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
           <div className="text-center max-w-2xl mx-auto space-y-2.5">
             <Badge variant="outline" className="text-xs uppercase tracking-wider font-semibold">
@@ -260,17 +252,22 @@ export default function LandingPage() {
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {/* Step 1 */}
-            <Card className="border-border bg-card shadow-2xs">
-              <CardHeader className="space-y-2 pb-2">
-                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center font-bold text-xs">
-                  1
+            {/* Step 1: Patient Intake */}
+            <Card className="border-border bg-card/95 hover:border-primary/40 transition-all duration-200 shadow-2xs flex flex-col justify-between overflow-hidden">
+              <div className="p-3 bg-muted/30 border-b border-border/40">
+                <Step1IntakeIllustration />
+              </div>
+              <CardHeader className="space-y-1.5 pb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
+                    1
+                  </div>
+                  <CardTitle className="text-sm font-semibold">
+                    {locale === 'bn' ? 'লক্ষণ গ্রহণ' : '1. Patient Intake'}
+                  </CardTitle>
                 </div>
-                <CardTitle className="text-sm font-semibold">
-                  {locale === 'bn' ? 'লক্ষণ গ্রহণ' : '1. Patient Intake'}
-                </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-0">
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   {locale === 'bn'
                     ? 'রোগীর প্রধান লক্ষণ, অতীত ইতিহাস এবং ভাইটাল সাইন নথিভুক্ত করুন।'
@@ -279,17 +276,22 @@ export default function LandingPage() {
               </CardContent>
             </Card>
 
-            {/* Step 2 */}
-            <Card className="border-border bg-card shadow-2xs">
-              <CardHeader className="space-y-2 pb-2">
-                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center font-bold text-xs">
-                  2
+            {/* Step 2: Guideline Match */}
+            <Card className="border-border bg-card/95 hover:border-primary/40 transition-all duration-200 shadow-2xs flex flex-col justify-between overflow-hidden">
+              <div className="p-3 bg-muted/30 border-b border-border/40">
+                <Step2GuidelineIllustration />
+              </div>
+              <CardHeader className="space-y-1.5 pb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
+                    2
+                  </div>
+                  <CardTitle className="text-sm font-semibold">
+                    {locale === 'bn' ? 'গাইডলাইন বিশ্লেষণ' : '2. Guideline Match'}
+                  </CardTitle>
                 </div>
-                <CardTitle className="text-sm font-semibold">
-                  {locale === 'bn' ? 'গাইডলাইন বিশ্লেষণ' : '2. Guideline Match'}
-                </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-0">
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   {locale === 'bn'
                     ? 'মেডিকেল লাইব্রেরি খুঁজে সংশ্লিষ্ট রোগের সম্ভাবনা ও প্রমাণ প্রদর্শন করে।'
@@ -298,17 +300,22 @@ export default function LandingPage() {
               </CardContent>
             </Card>
 
-            {/* Step 3 */}
-            <Card className="border-border bg-card shadow-2xs">
-              <CardHeader className="space-y-2 pb-2">
-                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center font-bold text-xs">
-                  3
+            {/* Step 3: Safety Engine */}
+            <Card className="border-border bg-card/95 hover:border-primary/40 transition-all duration-200 shadow-2xs flex flex-col justify-between overflow-hidden">
+              <div className="p-3 bg-muted/30 border-b border-border/40">
+                <Step3SafetyIllustration />
+              </div>
+              <CardHeader className="space-y-1.5 pb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
+                    3
+                  </div>
+                  <CardTitle className="text-sm font-semibold">
+                    {locale === 'bn' ? 'সেফটি স্ক্রিনিং' : '3. Safety Engine'}
+                  </CardTitle>
                 </div>
-                <CardTitle className="text-sm font-semibold">
-                  {locale === 'bn' ? 'সেফটি স্ক্রিনিং' : '3. Safety Engine'}
-                </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-0">
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   {locale === 'bn'
                     ? 'ওষুধের মাত্রা, অ্যালার্জি এবং ড্রাগ মিথস্ক্রিয়া স্বয়ংক্রিয়ভাবে যাচাই হয়।'
@@ -317,17 +324,22 @@ export default function LandingPage() {
               </CardContent>
             </Card>
 
-            {/* Step 4 */}
-            <Card className="border-border bg-card shadow-2xs">
-              <CardHeader className="space-y-2 pb-2">
-                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center font-bold text-xs">
-                  4
+            {/* Step 4: Doctor Signs */}
+            <Card className="border-border bg-card/95 hover:border-primary/40 transition-all duration-200 shadow-2xs flex flex-col justify-between overflow-hidden">
+              <div className="p-3 bg-muted/30 border-b border-border/40">
+                <Step4DoctorSignsIllustration />
+              </div>
+              <CardHeader className="space-y-1.5 pb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
+                    4
+                  </div>
+                  <CardTitle className="text-sm font-semibold">
+                    {locale === 'bn' ? 'চিকিৎসকের সিদ্ধান্ত' : '4. Doctor Signs'}
+                  </CardTitle>
                 </div>
-                <CardTitle className="text-sm font-semibold">
-                  {locale === 'bn' ? 'চিকিৎসকের সিদ্ধান্ত' : '4. Doctor Signs'}
-                </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-0">
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   {locale === 'bn'
                     ? 'চিকিৎসক চূড়ান্ত সিদ্ধান্ত নেন এবং প্রেসক্রিপশন সামারি প্রিন্ট করেন।'
@@ -339,8 +351,13 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Decorative Wave Divider */}
+      <SectionWaveDivider flip />
+
       {/* Core Safety Standards Section */}
-      <section id="standards" className="py-14 border-b border-border/50 bg-background">
+      <section id="standards" className="py-14 border-b border-border/50 bg-background relative overflow-hidden">
+        <SectionMedicalPattern />
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
           <div className="text-center max-w-2xl mx-auto space-y-2.5">
             <Badge variant="outline" className="text-xs uppercase tracking-wider font-semibold">
@@ -356,9 +373,9 @@ export default function LandingPage() {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {/* Standard 1 */}
-            <Card className="border-border bg-card shadow-2xs">
+            <Card className="border-border bg-card shadow-2xs hover:border-primary/30 transition-colors">
               <CardHeader className="pb-2.5 space-y-2">
-                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
                   <BookOpen className="w-4 h-4 text-primary" />
                 </div>
                 <CardTitle className="text-sm font-semibold">{t('pillar1Title')}</CardTitle>
@@ -371,9 +388,9 @@ export default function LandingPage() {
             </Card>
 
             {/* Standard 2 */}
-            <Card className="border-border bg-card shadow-2xs">
+            <Card className="border-border bg-card shadow-2xs hover:border-primary/30 transition-colors">
               <CardHeader className="pb-2.5 space-y-2">
-                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
                   <FileCheck2 className="w-4 h-4 text-primary" />
                 </div>
                 <CardTitle className="text-sm font-semibold">{t('pillar2Title')}</CardTitle>
@@ -386,9 +403,9 @@ export default function LandingPage() {
             </Card>
 
             {/* Standard 3 */}
-            <Card className="border-border bg-card shadow-2xs">
+            <Card className="border-border bg-card shadow-2xs hover:border-primary/30 transition-colors">
               <CardHeader className="pb-2.5 space-y-2">
-                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
                   <Pill className="w-4 h-4 text-primary" />
                 </div>
                 <CardTitle className="text-sm font-semibold">{t('pillar3Title')}</CardTitle>
@@ -401,9 +418,9 @@ export default function LandingPage() {
             </Card>
 
             {/* Standard 4 */}
-            <Card className="border-border bg-card shadow-2xs">
+            <Card className="border-border bg-card shadow-2xs hover:border-primary/30 transition-colors">
               <CardHeader className="pb-2.5 space-y-2">
-                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
                   <HelpCircle className="w-4 h-4 text-primary" />
                 </div>
                 <CardTitle className="text-sm font-semibold">{t('pillar4Title')}</CardTitle>
@@ -416,9 +433,9 @@ export default function LandingPage() {
             </Card>
 
             {/* Standard 5 */}
-            <Card className="border-border bg-card shadow-2xs sm:col-span-2 lg:col-span-2">
+            <Card className="border-border bg-card shadow-2xs sm:col-span-2 lg:col-span-2 hover:border-primary/30 transition-colors">
               <CardHeader className="pb-2.5 space-y-2">
-                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
                   <UserCheck className="w-4 h-4 text-primary" />
                 </div>
                 <CardTitle className="text-sm font-semibold">{t('pillar5Title')}</CardTitle>
@@ -433,12 +450,18 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Clinical Scenarios Section */}
-      <section id="scenarios" className="py-14 bg-muted/20 border-b border-border/50">
+      {/* Decorative Wave Divider */}
+      <SectionWaveDivider />
+
+      {/* Privacy, Security & Data Protection Section */}
+      <section id="privacy" className="py-14 bg-muted/20 border-b border-border/50 relative overflow-hidden">
+        <SectionMedicalPattern />
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
           <div className="text-center max-w-2xl mx-auto space-y-2.5">
-            <Badge variant="outline" className="text-xs uppercase tracking-wider font-semibold">
-              {locale === 'bn' ? 'ব্যবহারিক উদাহরণ' : 'Clinical Examples'}
+            <Badge variant="outline" className="text-xs uppercase tracking-wider font-semibold gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+              <span>{locale === 'bn' ? 'গোপনীয়তা ও নিরাপত্তা' : 'Privacy & Security'}</span>
             </Badge>
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
               {t('demoCases')}
@@ -448,18 +471,23 @@ export default function LandingPage() {
             </p>
           </div>
 
+          {/* Privacy Vault Visual Centerpiece */}
+          <div className="py-2">
+            <PrivacyVaultIllustration locale={locale} />
+          </div>
+
           <div className="grid md:grid-cols-3 gap-5">
-            {/* Scenario A */}
-            <Card className="border-border bg-card shadow-2xs flex flex-col justify-between">
+            {/* Guarantee 1: Zero-PHI Exposure */}
+            <Card className="border-border bg-card shadow-2xs flex flex-col justify-between hover:border-primary/30 transition-colors">
               <CardHeader className="space-y-2 pb-3">
                 <div className="flex items-center justify-between">
-                  <Badge variant="outline" className="text-[10px] font-medium">
-                    Case P-101
+                  <Badge variant="outline" className="text-[10px] font-medium border-primary/30 text-primary">
+                    {locale === 'bn' ? 'ডেটা গোপনীয়তা' : 'Zero PHI'}
                   </Badge>
-                  <span className="text-[10px] text-muted-foreground">Adult • 54Y</span>
+                  <Lock className="w-4 h-4 text-primary" />
                 </div>
-                <CardTitle className="text-sm font-semibold pt-1">{t('caseA')}</CardTitle>
-                <CardDescription className="text-xs leading-relaxed">
+                <CardTitle className="text-sm font-semibold pt-1 text-foreground">{t('caseA')}</CardTitle>
+                <CardDescription className="text-xs leading-relaxed text-muted-foreground">
                   {t('caseADesc')}
                 </CardDescription>
               </CardHeader>
@@ -467,7 +495,7 @@ export default function LandingPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => router.push('/cases')}
+                  onClick={() => router.push('#standards')}
                   className="w-full text-xs font-medium gap-1.5"
                 >
                   <span>{t('viewCase')}</span>
@@ -476,16 +504,14 @@ export default function LandingPage() {
               </CardFooter>
             </Card>
 
-            {/* Scenario B */}
-            <Card className="border-border bg-card shadow-2xs flex flex-col justify-between">
+            {/* Guarantee 2: Encrypted Records & RBAC */}
+            <Card className="border-border bg-card shadow-2xs flex flex-col justify-between hover:border-primary/30 transition-colors">
               <CardHeader className="space-y-2 pb-3">
                 <div className="flex items-center justify-between">
-                  <Badge variant="outline" className="text-[10px] font-medium">
-                    Case P-102
+                  <Badge variant="outline" className="text-[10px] font-medium border-primary/30 text-primary">
+                    {locale === 'bn' ? 'অনুমোদিত অ্যাক্সেস' : 'RBAC Protection'}
                   </Badge>
-                  <Badge variant="outline" className="border-destructive/40 text-destructive text-[10px] font-medium">
-                    Priority
-                  </Badge>
+                  <FileLock2 className="w-4 h-4 text-primary" />
                 </div>
                 <CardTitle className="text-sm font-semibold pt-1 text-foreground">
                   {t('caseB')}
@@ -498,7 +524,7 @@ export default function LandingPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => router.push('/cases')}
+                  onClick={() => router.push('#standards')}
                   className="w-full text-xs font-medium gap-1.5"
                 >
                   <span>{t('viewCase')}</span>
@@ -507,16 +533,14 @@ export default function LandingPage() {
               </CardFooter>
             </Card>
 
-            {/* Scenario C */}
-            <Card className="border-border bg-card shadow-2xs flex flex-col justify-between">
+            {/* Guarantee 3: Closed-Boundary Library */}
+            <Card className="border-border bg-card shadow-2xs flex flex-col justify-between hover:border-primary/30 transition-colors">
               <CardHeader className="space-y-2 pb-3">
                 <div className="flex items-center justify-between">
-                  <Badge variant="outline" className="text-[10px] font-medium">
-                    Case P-103
+                  <Badge variant="outline" className="text-[10px] font-medium border-primary/30 text-primary">
+                    {locale === 'bn' ? 'অভ্যন্তরীণ লাইব্রেরি' : 'Zero Web Tracking'}
                   </Badge>
-                  <Badge variant="secondary" className="text-[10px] font-medium">
-                    Follow-Up
-                  </Badge>
+                  <Database className="w-4 h-4 text-primary" />
                 </div>
                 <CardTitle className="text-sm font-semibold pt-1 text-foreground">
                   {t('caseC')}
@@ -529,10 +553,10 @@ export default function LandingPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => router.push('/cases')}
+                  onClick={() => router.push('/library')}
                   className="w-full text-xs font-medium gap-1.5"
                 >
-                  <span>{t('viewCase')}</span>
+                  <span>{t('browseLibrary')}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Button>
               </CardFooter>
@@ -541,8 +565,13 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Roles Section */}
-      <section id="roles" className="py-14 border-b border-border/50 bg-background">
+      {/* Decorative Wave Divider */}
+      <SectionWaveDivider flip />
+
+      {/* Roles Section with Visual Badges */}
+      <section id="roles" className="py-14 border-b border-border/50 bg-background relative overflow-hidden">
+        <SectionMedicalPattern />
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
           <div className="text-center max-w-2xl mx-auto space-y-2.5">
             <Badge variant="outline" className="text-xs uppercase tracking-wider font-semibold">
@@ -559,20 +588,19 @@ export default function LandingPage() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {/* Role 1: Doctor */}
             <Card className="border-border bg-card hover:border-primary/40 transition-colors shadow-2xs flex flex-col justify-between">
-              <CardHeader className="space-y-2 pb-3">
-                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center">
-                  <Stethoscope className="w-4 h-4 text-primary" />
+              <CardHeader className="space-y-3 pb-3">
+                <DoctorRoleIllustration />
+                <div>
+                  <CardTitle className="text-sm font-semibold">{tAuth('doctorAccount')}</CardTitle>
+                  <CardDescription className="text-xs pt-1">
+                    {locale === 'bn' ? 'রোগী গ্রহণ, রোগ নির্ণয় ও প্রেসক্রিপশন' : 'Clinical intake, diagnosis, and prescribing'}
+                  </CardDescription>
                 </div>
-                <CardTitle className="text-sm font-semibold">{tAuth('doctorAccount')}</CardTitle>
-                <CardDescription className="text-xs">
-                  {locale === 'bn' ? 'রোগী গ্রহণ, রোগ নির্ণয় ও প্রেসক্রিপশন' : 'Clinical intake, diagnosis, and prescribing'}
-                </CardDescription>
               </CardHeader>
               <CardFooter className="pt-2">
                 <Button
                   size="sm"
-                  disabled={loggingInRole === 'doctor'}
-                  onClick={() => handleQuickLogin('doctor@docmate.ai', '/dashboard', 'doctor')}
+                  onClick={() => handleRoleAction('/dashboard')}
                   className="w-full text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   {t('tryAsDoctor')}
@@ -582,21 +610,20 @@ export default function LandingPage() {
 
             {/* Role 2: Student */}
             <Card className="border-border bg-card hover:border-primary/40 transition-colors shadow-2xs flex flex-col justify-between">
-              <CardHeader className="space-y-2 pb-3">
-                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center">
-                  <GraduationCap className="w-4 h-4 text-primary" />
+              <CardHeader className="space-y-3 pb-3">
+                <StudentRoleIllustration />
+                <div>
+                  <CardTitle className="text-sm font-semibold">{tAuth('studentAccount')}</CardTitle>
+                  <CardDescription className="text-xs pt-1">
+                    {locale === 'bn' ? 'মেডিকেল কেস স্টাডি ও গাইডলাইন শিক্ষা' : 'Trainee learning and guideline exploration'}
+                  </CardDescription>
                 </div>
-                <CardTitle className="text-sm font-semibold">{tAuth('studentAccount')}</CardTitle>
-                <CardDescription className="text-xs">
-                  {locale === 'bn' ? 'মেডিকেল কেস স্টাডি ও গাইডলাইন শিক্ষা' : 'Trainee learning and guideline exploration'}
-                </CardDescription>
               </CardHeader>
               <CardFooter className="pt-2">
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={loggingInRole === 'student'}
-                  onClick={() => handleQuickLogin('student@docmate.ai', '/ask', 'student')}
+                  onClick={() => handleRoleAction('/ask')}
                   className="w-full text-xs font-medium hover:bg-muted"
                 >
                   {t('tryAsStudent')}
@@ -606,21 +633,20 @@ export default function LandingPage() {
 
             {/* Role 3: Researcher */}
             <Card className="border-border bg-card hover:border-primary/40 transition-colors shadow-2xs flex flex-col justify-between">
-              <CardHeader className="space-y-2 pb-3">
-                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center">
-                  <Microscope className="w-4 h-4 text-primary" />
+              <CardHeader className="space-y-3 pb-3">
+                <ResearcherRoleIllustration />
+                <div>
+                  <CardTitle className="text-sm font-semibold">{tAuth('researcherAccount')}</CardTitle>
+                  <CardDescription className="text-xs pt-1">
+                    {locale === 'bn' ? 'চিকিৎসা গবেষণা ও তথ্যের উৎস অনুসন্ধান' : 'Evidence search and literature evaluation'}
+                  </CardDescription>
                 </div>
-                <CardTitle className="text-sm font-semibold">{tAuth('researcherAccount')}</CardTitle>
-                <CardDescription className="text-xs">
-                  {locale === 'bn' ? 'চিকিৎসা গবেষণা ও তথ্যের উৎস অনুসন্ধান' : 'Evidence search and literature evaluation'}
-                </CardDescription>
               </CardHeader>
               <CardFooter className="pt-2">
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={loggingInRole === 'researcher'}
-                  onClick={() => handleQuickLogin('researcher@docmate.ai', '/library', 'researcher')}
+                  onClick={() => handleRoleAction('/library')}
                   className="w-full text-xs font-medium hover:bg-muted"
                 >
                   {t('tryAsResearcher')}
@@ -630,21 +656,20 @@ export default function LandingPage() {
 
             {/* Role 4: Admin */}
             <Card className="border-border bg-card hover:border-primary/40 transition-colors shadow-2xs flex flex-col justify-between">
-              <CardHeader className="space-y-2 pb-3">
-                <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center">
-                  <UserCheck className="w-4 h-4 text-primary" />
+              <CardHeader className="space-y-3 pb-3">
+                <AdminRoleIllustration />
+                <div>
+                  <CardTitle className="text-sm font-semibold">{tAuth('adminAccount')}</CardTitle>
+                  <CardDescription className="text-xs pt-1">
+                    {locale === 'bn' ? 'গাইডলাইন নিবন্ধন ও হাসপাতাল পরিচালনা' : 'Formulary management and system oversight'}
+                  </CardDescription>
                 </div>
-                <CardTitle className="text-sm font-semibold">{tAuth('adminAccount')}</CardTitle>
-                <CardDescription className="text-xs">
-                  {locale === 'bn' ? 'গাইডলাইন নিবন্ধন ও হাসপাতাল পরিচালনা' : 'Formulary management and system oversight'}
-                </CardDescription>
               </CardHeader>
               <CardFooter className="pt-2">
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={loggingInRole === 'admin'}
-                  onClick={() => handleQuickLogin('admin@docmate.ai', '/library', 'admin')}
+                  onClick={() => handleRoleAction('/dashboard')}
                   className="w-full text-xs font-medium hover:bg-muted"
                 >
                   {t('tryAsAdmin')}
@@ -654,6 +679,9 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* Pre-Footer Call to Action Banner */}
+      <LandingCtaBanner locale={locale} />
 
       {/* Persistent Disclaimer Footer */}
       <footer className="border-t border-border bg-card py-6 px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground mt-auto">

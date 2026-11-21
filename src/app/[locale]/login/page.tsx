@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
-import { Stethoscope, ShieldCheck, UserCheck, GraduationCap, Microscope, ShieldAlert, ArrowRight, Loader2, Pill, HeartHandshake } from 'lucide-react';
+import { Stethoscope, ShieldCheck, GraduationCap, Microscope, ShieldAlert, ArrowRight, Loader2, Pill, HeartHandshake } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function LoginPage() {

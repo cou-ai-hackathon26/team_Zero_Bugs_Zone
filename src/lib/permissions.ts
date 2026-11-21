@@ -6,8 +6,9 @@ import {
   systemSettings,
   cases,
 } from '@/db/schema';
-import { FeatureKey } from '@/types';
+import { FeatureKey, User } from '@/types';
 import { recordAuditLog } from '@/lib/audit';
+import { getCurrentUser } from '@/lib/auth';
 
 export interface CanUseResult {
   allowed: boolean;
@@ -398,4 +399,22 @@ export async function requireFeature(
     throw err;
   }
   return result;
+}
+
+export type RequireSuperAdminResult =
+  | { user: User; error: null; status: 200 }
+  | { user: User; error: string; status: 401 | 403 };
+
+/**
+ * Route guard helper requiring active Super Admin authentication.
+ */
+export async function requireSuperAdmin(): Promise<RequireSuperAdminResult> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { error: 'Authentication required', status: 401, user: {} as User };
+  }
+  if (user.role !== 'super_admin') {
+    return { error: 'Super Admin access required', status: 403, user: {} as User };
+  }
+  return { user, error: null, status: 200 };
 }
