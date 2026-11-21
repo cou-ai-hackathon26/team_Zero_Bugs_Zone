@@ -85,10 +85,14 @@ export function isRouteAllowedForRole(subPath: string, role: string): boolean {
 }
 
 /**
- * Helper to create a redirect response while preserving cookies set by next-intl.
+ * Helper to create a redirect response while preserving cookies set by next-intl
+ * and enforcing strict no-cache headers to prevent Safari and browsers from caching 307 redirects.
  */
 function createRedirect(url: URL | string, intlResponse?: NextResponse): NextResponse {
-  const redirectResponse = NextResponse.redirect(url);
+  const redirectResponse = NextResponse.redirect(url, 307);
+  redirectResponse.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  redirectResponse.headers.set('Pragma', 'no-cache');
+  redirectResponse.headers.set('Expires', '0');
   if (intlResponse) {
     intlResponse.cookies.getAll().forEach((c) => {
       redirectResponse.cookies.set(c);
@@ -120,7 +124,8 @@ export default async function proxy(request: NextRequest) {
 
   // 2. Check login page access for already authenticated users
   if (subPath === 'login') {
-    if (session) {
+    const isSwitching = request.nextUrl.searchParams.has('switch') || request.nextUrl.searchParams.has('logout');
+    if (session && !isSwitching) {
       // Redirect already logged in users directly to their designated role panel
       const targetUrl = new URL(`/${locale}${getRoleDefaultPath(session.role)}`, request.url);
       return createRedirect(targetUrl, intlResponse);

@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocale } from 'next-intl';
-import { useRouter } from '@/i18n/routing';
+import { AppShell } from '@/components/shared/AppShell';
+import { PageHeader } from '@/components/shared/PageHeader';
 import {
   Clock,
   FileText,
@@ -12,13 +13,9 @@ import {
   User,
   HeartPulse,
   Plus,
-  HelpCircle,
-  LogOut,
-  Globe,
   Sun,
   Moon,
   Sunset,
-  Compass,
   Eye,
   Check,
   UserPlus,
@@ -30,7 +27,6 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { ProductTour, startProductTour } from '@/components/shared/ProductTour';
 import { OnboardingTourBlock } from '@/components/shared/OnboardingTourBlock';
 
 interface ProfileItem {
@@ -126,7 +122,6 @@ interface HealthSummary {
 }
 
 export default function PatientPortalPage() {
-  const router = useRouter();
   const locale = useLocale();
   const isBn = locale === 'bn';
 
@@ -387,67 +382,17 @@ export default function PatientPortalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground pb-16">
-      {/* Top Header Bar */}
-      <header className="border-b border-border bg-card sticky top-0 z-30 px-4 py-3">
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-              <HeartPulse className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-base text-foreground">
-                  {isBn ? 'রোগী পোর্টাল (DocMate AI)' : 'DocMate Patient Portal'}
-                </span>
-                <Badge variant="outline" className="text-[11px] font-semibold text-primary border-primary/30">
-                  {isBn ? 'রোগী সংস্করণ' : 'Patient View'}
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {isBn ? 'প্রেসক্রিপশন, ওষুধ গ্রহণ ট্র্যাকার ও সম্মতি নিয়ন্ত্রণ' : 'Prescriptions, medication tracker & consent control'}
-              </p>
-            </div>
-          </div>
+    <AppShell>
+      <div className="space-y-6 max-w-5xl mx-auto pb-12">
+        <PageHeader
+          title={isBn ? 'রোগী পোর্টাল' : 'Patient Portal'}
+          subtitle={
+            isBn
+              ? 'প্রেসক্রিপশন, ওষুধ গ্রহণ ট্র্যাকার ও সম্মতি নিয়ন্ত্রণ'
+              : 'Prescriptions, medication tracker & consent control'
+          }
+        />
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => startProductTour('portal')}
-              className="gap-1.5 text-xs h-8 px-2.5 border-border hover:bg-muted text-foreground font-medium"
-              aria-label={isBn ? 'ট্যুর শুরু করুন' : 'Start Tour'}
-            >
-              <Compass className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="hidden sm:inline">{isBn ? 'ট্যুর' : 'Tour'}</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs flex items-center gap-1.5 h-8 px-2.5"
-              onClick={() => router.push('/portal', { locale: isBn ? 'en' : 'bn' })}
-            >
-              <Globe className="w-3.5 h-3.5 text-muted-foreground" />
-              {isBn ? 'English' : 'বাংলা'}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs flex items-center gap-1.5 h-8 px-2.5 text-muted-foreground hover:text-destructive"
-              onClick={async () => {
-                await fetch('/api/auth/logout', { method: 'POST' });
-                router.push('/login');
-              }}
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              {isBn ? 'লগআউট' : 'Log Out'}
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Container */}
-      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
         <OnboardingTourBlock panel="portal" />
 
         {/* Multi-Profile Switcher Bar */}
@@ -1003,14 +948,7 @@ export default function PatientPortalPage() {
           </TabsContent>
         </Tabs>
 
-        {/* Persistent Doctor Decides Disclaimer */}
-        <div className="text-center p-3.5 rounded-xl bg-muted/40 text-xs text-muted-foreground border border-border">
-          <HelpCircle className="w-4 h-4 inline mr-1 text-muted-foreground" />
-          {isBn
-            ? 'শুধুমাত্র ক্লিনিকাল সিদ্ধান্ত সহায়তা। চূড়ান্ত সিদ্ধান্ত আপনার চিকিৎসকের। জরুরি প্রয়োজনে নিকটস্থ হাসপাতালে যান।'
-            : 'Clinical decision support only. The final decision is yours and your physician’s.'}
-        </div>
-      </main>
+
 
       {/* Add Dependent Family Member Modal */}
       {showAddDependent && (
@@ -1177,8 +1115,7 @@ export default function PatientPortalPage() {
           </Card>
         </div>
       )}
-
-      <ProductTour />
-    </div>
+      </div>
+    </AppShell>
   );
 }

@@ -103,10 +103,13 @@ export default function LoginPage() {
     setError('');
 
     try {
+      const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      const callback = params?.get('callbackUrl') || undefined;
+
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, callbackUrl: callback }),
         cache: 'no-store',
         credentials: 'same-origin',
       });
@@ -119,22 +122,14 @@ export default function LoginPage() {
       toast.success(t('signedIn'));
 
       const role = data.user?.role;
-      let defaultPath = data.redirectUrl;
-      if (!defaultPath) {
-        if (role === 'super_admin' || role === 'admin') defaultPath = '/admin';
-        else if (role === 'student') defaultPath = '/study';
-        else if (role === 'researcher') defaultPath = '/research';
-        else if (role === 'medicine_controller') defaultPath = '/controller';
-        else if (role === 'patient') defaultPath = '/portal';
-        else defaultPath = '/dashboard';
-      }
-
-      const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-      const callback = params?.get('callbackUrl');
-
-      let targetPath = defaultPath;
-      if (callback && callback.startsWith('/')) {
-        targetPath = callback;
+      let targetPath = data.redirectUrl;
+      if (!targetPath) {
+        if (role === 'super_admin' || role === 'admin') targetPath = '/admin';
+        else if (role === 'student') targetPath = '/study';
+        else if (role === 'researcher') targetPath = '/research';
+        else if (role === 'medicine_controller') targetPath = '/controller';
+        else if (role === 'patient') targetPath = '/portal';
+        else targetPath = '/dashboard';
       }
 
       const targetUrl = targetPath.startsWith('/en') || targetPath.startsWith('/bn')

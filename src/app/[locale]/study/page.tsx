@@ -3,8 +3,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocale } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
+import { AppShell } from '@/components/shared/AppShell';
+import { PageHeader } from '@/components/shared/PageHeader';
 import {
-  GraduationCap,
   Stethoscope,
   HelpCircle,
   BookOpen,
@@ -13,9 +14,6 @@ import {
   Search,
   Plus,
   Shield,
-  LogOut,
-  Globe,
-  Compass,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,7 +21,6 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { ProductTour, startProductTour } from '@/components/shared/ProductTour';
 import { OnboardingTourBlock } from '@/components/shared/OnboardingTourBlock';
 
 interface StudentCase {
@@ -238,69 +235,16 @@ export default function StudentWorkspacePage() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto px-4 py-6">
-      {/* Workspace Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-5">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-muted text-foreground flex items-center justify-center shrink-0">
-            <GraduationCap className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                {isBn ? 'শিক্ষার্থী কর্মক্ষেত্র' : 'Student Workspace'}
-              </h1>
-              <Badge variant="outline" className="text-xs font-mono text-muted-foreground">
-                {isBn ? 'শিক্ষানবিস মোড' : 'Trainee Mode'}
-              </Badge>
-            </div>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {isBn
-                ? 'সিমুলেটেড রোগী কেস, কুইজ ও স্টাডি নোট'
-                : 'Practice clinical cases, quizzes, and study notes'}
-            </p>
-          </div>
-        </div>
-
-        {/* Action Controls */}
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => startProductTour('study')}
-            className="gap-1.5 text-xs h-8 px-2.5 border-border hover:bg-muted text-foreground font-medium"
-            aria-label={isBn ? 'ট্যুর শুরু করুন' : 'Start Tour'}
-            title={isBn ? 'ট্যুর শুরু করুন' : 'Start Tour'}
-            data-tour="nav-tour-btn"
-          >
-            <Compass className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="hidden sm:inline">{isBn ? 'ট্যুর' : 'Tour'}</span>
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-xs flex items-center gap-1.5 h-8 px-2.5"
-            onClick={() => router.push('/study', { locale: isBn ? 'en' : 'bn' })}
-          >
-            <Globe className="w-3.5 h-3.5 text-muted-foreground" />
-            {isBn ? 'English' : 'বাংলা'}
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs flex items-center gap-1.5 h-8 px-2.5 text-muted-foreground hover:text-destructive"
-            onClick={async () => {
-              await fetch('/api/auth/logout', { method: 'POST' });
-              router.push('/login');
-            }}
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            {isBn ? 'লগআউট' : 'Log Out'}
-          </Button>
-        </div>
-      </div>
+    <AppShell>
+      <div className="space-y-6 max-w-7xl mx-auto pb-12">
+        <PageHeader
+          title={isBn ? 'শিক্ষার্থী কর্মক্ষেত্র' : 'Student Workspace'}
+          subtitle={
+            isBn
+              ? 'সিমুলেটেড রোগী কেস, কুইজ ও স্টাডি নোট (শিক্ষানবিস মোড)'
+              : 'Practice clinical cases, quizzes, and study notes (Trainee Mode)'
+          }
+        />
 
       {/* Safety Notice: Zero Real Patient PHI Access */}
       <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/40 text-xs border border-border text-muted-foreground">
@@ -751,7 +695,7 @@ export default function StudentWorkspacePage() {
           </Card>
         </div>
       )}
-      <ProductTour />
-    </div>
+      </div>
+    </AppShell>
   );
 }

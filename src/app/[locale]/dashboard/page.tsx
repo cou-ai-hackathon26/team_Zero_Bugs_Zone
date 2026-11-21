@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Link } from '@/i18n/routing';
-import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
+import { getFormatter, getLocale } from 'next-intl/server';
 import { db } from '@/db';
 import { patients, prescriptions, sources, drugs, medicineNotices } from '@/db/schema';
 import { desc, eq } from 'drizzle-orm';
@@ -21,12 +21,10 @@ import {
   Stethoscope,
   CheckCircle2,
   Calendar,
-  AlertCircle,
   AlertTriangle,
 } from 'lucide-react';
 
 export default async function DashboardPage() {
-  const tCommon = await getTranslations('common');
   const locale = await getLocale();
   const format = await getFormatter();
 
@@ -59,16 +57,7 @@ export default async function DashboardPage() {
 
   return (
     <AppShell>
-      <div className="space-y-8 max-w-7xl mx-auto pb-12">
-        {/* Persistent Clinical Disclaimer */}
-        <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 text-xs text-primary font-medium flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0 text-primary" />
-            <span>{tCommon('disclaimer')}</span>
-          </div>
-          <span className="text-muted-foreground hidden sm:inline">{tCommon('doctorDecides')}</span>
-        </div>
-
+      <div className="space-y-6 max-w-7xl mx-auto pb-12">
         {/* DGDA Active Safety Notices */}
         {activeNotices.length > 0 && (
           <div className="space-y-2">
