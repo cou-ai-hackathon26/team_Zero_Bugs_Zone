@@ -11,7 +11,8 @@
     "ingest": "node --env-file-if-exists=.env --import tsx scripts/ingest.ts",
     "seed": "node --env-file-if-exists=.env --import tsx scripts/seed.ts",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "eval": "node --env-file-if-exists=.env --import tsx scripts/run-clinical-eval.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

@@ -15,6 +15,7 @@ import {
   Shield,
   LogOut,
   Globe,
+  Sparkles,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { ProductTour, startProductTour } from '@/components/shared/ProductTour';
 
 interface StudentCase {
   id: string;
@@ -264,6 +266,19 @@ export default function StudentWorkspacePage() {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => startProductTour('study')}
+            className="gap-1.5 text-xs h-8 px-2.5 border-border hover:bg-muted text-foreground font-medium"
+            aria-label={isBn ? 'প্রোডাক্ট ট্যুর' : 'Product Tour'}
+            title={isBn ? 'প্রোডাক্ট ট্যুর' : 'Product Tour'}
+            data-tour="nav-tour-btn"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+            <span className="hidden sm:inline">{isBn ? 'প্রোডাক্ট ট্যুর' : 'Product Tour'}</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             className="text-xs flex items-center gap-1.5"
             onClick={() => router.push('/study', { locale: isBn ? 'en' : 'bn' })}
           >
@@ -302,19 +317,19 @@ export default function StudentWorkspacePage() {
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'cases' | 'quizzes' | 'notes' | 'library_qa')} className="w-full">
         <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full bg-muted/60 p-1 rounded-xl">
-          <TabsTrigger value="cases" className="text-xs sm:text-sm py-2">
+          <TabsTrigger value="cases" data-tour="study-cases" className="text-xs sm:text-sm py-2">
             <Stethoscope className="w-4 h-4 mr-1.5" />
             {isBn ? 'কেস প্র্যাকটিস' : 'Clinical Cases'}
           </TabsTrigger>
-          <TabsTrigger value="quizzes" className="text-xs sm:text-sm py-2">
+          <TabsTrigger value="quizzes" data-tour="study-quizzes" className="text-xs sm:text-sm py-2">
             <HelpCircle className="w-4 h-4 mr-1.5" />
             {isBn ? 'মেডিকেল কুইজ' : 'Medical Quizzes'}
           </TabsTrigger>
-          <TabsTrigger value="notes" className="text-xs sm:text-sm py-2">
+          <TabsTrigger value="notes" data-tour="study-notes" className="text-xs sm:text-sm py-2">
             <BookOpen className="w-4 h-4 mr-1.5" />
             {isBn ? 'আমার স্টাডি নোট' : 'Study Notes'}
           </TabsTrigger>
-          <TabsTrigger value="library_qa" className="text-xs sm:text-sm py-2">
+          <TabsTrigger value="library_qa" data-tour="study-library-qa" className="text-xs sm:text-sm py-2">
             <Search className="w-4 h-4 mr-1.5" />
             {isBn ? 'গাইডলাইন সার্চ' : 'Guideline Search'}
           </TabsTrigger>
@@ -732,6 +747,7 @@ export default function StudentWorkspacePage() {
           </Card>
         </div>
       )}
+      <ProductTour />
     </div>
   );
 }

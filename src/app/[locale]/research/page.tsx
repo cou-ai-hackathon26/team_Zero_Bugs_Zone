@@ -17,6 +17,7 @@ import {
   Quote,
   Table,
   Search,
+  Sparkles,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { ProductTour, startProductTour } from '@/components/shared/ProductTour';
 
 interface SearchResult {
   id: string;
@@ -223,6 +225,19 @@ export default function ResearcherWorkspacePage() {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => startProductTour('research')}
+            className="gap-1.5 text-xs h-8 px-2.5 border-border hover:bg-muted text-foreground font-medium"
+            aria-label={isBn ? 'প্রোডাক্ট ট্যুর' : 'Product Tour'}
+            title={isBn ? 'প্রোডাক্ট ট্যুর' : 'Product Tour'}
+            data-tour="nav-tour-btn"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+            <span className="hidden sm:inline">{isBn ? 'প্রোডাক্ট ট্যুর' : 'Product Tour'}</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             className="text-xs flex items-center gap-1.5"
             onClick={() => router.push('/research', { locale: isBn ? 'en' : 'bn' })}
           >
@@ -261,19 +276,19 @@ export default function ResearcherWorkspacePage() {
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'search' | 'compare' | 'collections' | 'export')} className="w-full">
         <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full bg-muted/60 p-1 rounded-xl">
-          <TabsTrigger value="search" className="text-xs sm:text-sm py-2">
+          <TabsTrigger value="search" data-tour="research-search" className="text-xs sm:text-sm py-2">
             <FileSearch className="w-4 h-4 mr-1.5" />
             {isBn ? 'উন্নত ফিল্টারড সার্চ' : 'Faceted Search'}
           </TabsTrigger>
-          <TabsTrigger value="compare" className="text-xs sm:text-sm py-2">
+          <TabsTrigger value="compare" data-tour="research-compare" className="text-xs sm:text-sm py-2">
             <Columns2 className="w-4 h-4 mr-1.5" />
             {isBn ? 'গাইডলাইন তুলনা' : 'Guideline Comparison'}
           </TabsTrigger>
-          <TabsTrigger value="collections" className="text-xs sm:text-sm py-2">
+          <TabsTrigger value="collections" data-tour="research-collections" className="text-xs sm:text-sm py-2">
             <FolderArchive className="w-4 h-4 mr-1.5" />
             {isBn ? 'গবেষণা সংকলন' : 'Collections'}
           </TabsTrigger>
-          <TabsTrigger value="export" className="text-xs sm:text-sm py-2">
+          <TabsTrigger value="export" data-tour="research-export" className="text-xs sm:text-sm py-2">
             <Download className="w-4 h-4 mr-1.5" />
             {isBn ? 'সাইটেশন এক্সপোর্ট' : 'Citation Export'}
           </TabsTrigger>
@@ -701,6 +716,7 @@ export default function ResearcherWorkspacePage() {
           </Card>
         </div>
       )}
+      <ProductTour />
     </div>
   );
 }

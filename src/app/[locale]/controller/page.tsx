@@ -19,6 +19,7 @@ import {
   X,
   LogOut,
   Globe,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +27,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { ProductTour, startProductTour } from '@/components/shared/ProductTour';
 
 interface MedicineBrand {
   id: string;
@@ -457,6 +459,19 @@ export default function ControllerPage() {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => startProductTour('controller')}
+              className="gap-1.5 text-xs h-8 px-2.5 border-border hover:bg-muted text-foreground font-medium"
+              aria-label={isBn ? 'প্রোডাক্ট ট্যুর' : 'Product Tour'}
+              title={isBn ? 'প্রোডাক্ট ট্যুর' : 'Product Tour'}
+              data-tour="nav-tour-btn"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
+              <span className="hidden sm:inline">{isBn ? 'প্রোডাক্ট ট্যুর' : 'Product Tour'}</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
               className="text-xs flex items-center gap-1.5"
               onClick={() => {
                 router.push('/controller', { locale: isBn ? 'en' : 'bn' });
@@ -483,7 +498,7 @@ export default function ControllerPage() {
       </div>
 
       {/* Top Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div data-tour="controller-stats" className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="border border-border">
           <CardHeader className="p-4 pb-2">
             <CardDescription className="text-xs">
@@ -544,11 +559,11 @@ export default function ControllerPage() {
       {/* Main Functional Tabs */}
       <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as typeof activeTab)} className="space-y-4">
         <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full h-auto p-1 bg-muted/60">
-          <TabsTrigger value="formulary" className="py-2.5 text-xs sm:text-sm">
+          <TabsTrigger value="formulary" data-tour="controller-formulary" className="py-2.5 text-xs sm:text-sm">
             <Pill className="w-4 h-4 mr-2" />
             {isBn ? 'অনুমোদিত ফর্মুলারি' : 'Formulary Database'}
           </TabsTrigger>
-          <TabsTrigger value="review_queue" className="py-2.5 text-xs sm:text-sm relative">
+          <TabsTrigger value="review_queue" data-tour="controller-review" className="py-2.5 text-xs sm:text-sm relative">
             <ShieldCheck className="w-4 h-4 mr-2" />
             {isBn ? 'পর্যালোচনা সারি' : 'Review Queue'}
             {pendingQueue.length > 0 && (
@@ -561,7 +576,7 @@ export default function ControllerPage() {
             <UploadCloud className="w-4 h-4 mr-2" />
             {isBn ? 'সিএসভি আমদানি' : 'CSV Bulk Import'}
           </TabsTrigger>
-          <TabsTrigger value="safety_notices" className="py-2.5 text-xs sm:text-sm">
+          <TabsTrigger value="safety_notices" data-tour="controller-notices" className="py-2.5 text-xs sm:text-sm">
             <AlertTriangle className="w-4 h-4 mr-2" />
             {isBn ? 'সুরক্ষা ও প্রত্যাহার নোটিশ' : 'Safety Notices'}
           </TabsTrigger>
@@ -1286,6 +1301,7 @@ export default function ControllerPage() {
           </div>
         </div>
       )}
+      <ProductTour />
     </div>
   );
 }

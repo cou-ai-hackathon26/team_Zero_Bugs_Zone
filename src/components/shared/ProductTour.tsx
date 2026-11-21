@@ -180,6 +180,98 @@ export function ProductTour() {
             descKey: 'adminAuditDesc',
           },
         ];
+      case 'portal':
+        return [
+          {
+            selector: '[data-tour="portal-profile"]',
+            titleKey: 'portalProfileTitle',
+            descKey: 'portalProfileDesc',
+          },
+          {
+            selector: '[data-tour="portal-tabs"]',
+            titleKey: 'portalTabsTitle',
+            descKey: 'portalTabsDesc',
+          },
+          {
+            selector: '[data-tour="portal-schedule"]',
+            titleKey: 'portalScheduleTitle',
+            descKey: 'portalScheduleDesc',
+          },
+          {
+            selector: '[data-tour="portal-consent"]',
+            titleKey: 'portalConsentTitle',
+            descKey: 'portalConsentDesc',
+          },
+        ];
+      case 'study':
+        return [
+          {
+            selector: '[data-tour="study-cases"]',
+            titleKey: 'studyCasesTitle',
+            descKey: 'studyCasesDesc',
+          },
+          {
+            selector: '[data-tour="study-quizzes"]',
+            titleKey: 'studyQuizzesTitle',
+            descKey: 'studyQuizzesDesc',
+          },
+          {
+            selector: '[data-tour="study-notes"]',
+            titleKey: 'studyNotesTitle',
+            descKey: 'studyNotesDesc',
+          },
+          {
+            selector: '[data-tour="study-library-qa"]',
+            titleKey: 'studyLibraryTitle',
+            descKey: 'studyLibraryDesc',
+          },
+        ];
+      case 'research':
+        return [
+          {
+            selector: '[data-tour="research-search"]',
+            titleKey: 'researchSearchTitle',
+            descKey: 'researchSearchDesc',
+          },
+          {
+            selector: '[data-tour="research-compare"]',
+            titleKey: 'researchCompareTitle',
+            descKey: 'researchCompareDesc',
+          },
+          {
+            selector: '[data-tour="research-collections"]',
+            titleKey: 'researchCollectionsTitle',
+            descKey: 'researchCollectionsDesc',
+          },
+          {
+            selector: '[data-tour="research-export"]',
+            titleKey: 'researchExportTitle',
+            descKey: 'researchExportDesc',
+          },
+        ];
+      case 'controller':
+        return [
+          {
+            selector: '[data-tour="controller-stats"]',
+            titleKey: 'controllerStatsTitle',
+            descKey: 'controllerStatsDesc',
+          },
+          {
+            selector: '[data-tour="controller-formulary"]',
+            titleKey: 'controllerFormularyTitle',
+            descKey: 'controllerFormularyDesc',
+          },
+          {
+            selector: '[data-tour="controller-review"]',
+            titleKey: 'controllerReviewTitle',
+            descKey: 'controllerReviewDesc',
+          },
+          {
+            selector: '[data-tour="controller-notices"]',
+            titleKey: 'controllerNoticesTitle',
+            descKey: 'controllerNoticesDesc',
+          },
+        ];
       default:
         return [
           {

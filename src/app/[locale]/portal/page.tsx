@@ -23,6 +23,7 @@ import {
   Sun,
   Moon,
   Sunset,
+  Sparkles,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { ProductTour, startProductTour } from '@/components/shared/ProductTour';
 
 interface ScheduleItem {
   id: string;
@@ -364,6 +366,18 @@ export default function PatientPortalPage() {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => startProductTour('portal')}
+              className="gap-1.5 text-xs h-8 px-2.5 border-border hover:bg-muted text-foreground font-medium"
+              aria-label={isBn ? 'প্রোডাক্ট ট্যুর' : 'Product Tour'}
+              title={isBn ? 'প্রোডাক্ট ট্যুর' : 'Product Tour'}
+              data-tour="nav-tour-btn"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+              <span className="hidden sm:inline">{isBn ? 'প্রোডাক্ট ট্যুর' : 'Product Tour'}</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               className="text-xs flex items-center gap-1.5"
               onClick={() => router.push('/portal', { locale: isBn ? 'en' : 'bn' })}
             >
@@ -390,7 +404,7 @@ export default function PatientPortalPage() {
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
         {/* Patient Profile Card & Consent Notice */}
         {profile && (
-          <Card className="border border-border bg-card shadow-xs">
+          <Card data-tour="portal-profile" className="border border-border bg-card shadow-xs">
             <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center font-bold text-lg text-foreground">
@@ -434,7 +448,7 @@ export default function PatientPortalPage() {
 
         {/* Tab Navigation */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'schedule' | 'prescriptions' | 'reports' | 'pre_visit' | 'consent')} className="w-full">
-          <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full bg-muted/60 p-1 rounded-xl">
+          <TabsList data-tour="portal-tabs" className="grid grid-cols-2 sm:grid-cols-5 w-full bg-muted/60 p-1 rounded-xl">
             <TabsTrigger value="schedule" className="text-xs sm:text-sm py-2">
               <Calendar className="w-4 h-4 mr-1.5 hidden sm:inline" />
               {isBn ? 'ওষুধ সূচি' : 'Schedule'}
@@ -451,14 +465,14 @@ export default function PatientPortalPage() {
               <Send className="w-4 h-4 mr-1.5 hidden sm:inline" />
               {isBn ? 'পূর্ব-ভিজিট' : 'Pre-Visit'}
             </TabsTrigger>
-            <TabsTrigger value="consent" className="text-xs sm:text-sm py-2">
+            <TabsTrigger value="consent" data-tour="portal-consent" className="text-xs sm:text-sm py-2">
               <ShieldCheck className="w-4 h-4 mr-1.5 hidden sm:inline" />
               {isBn ? 'সম্মতি' : 'Consent'}
             </TabsTrigger>
           </TabsList>
 
           {/* Tab 1: Medication Schedule */}
-          <TabsContent value="schedule" className="space-y-6 mt-6">
+          <TabsContent value="schedule" data-tour="portal-schedule" className="space-y-6 mt-6">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-foreground">
@@ -1119,6 +1133,7 @@ export default function PatientPortalPage() {
           </Card>
         </div>
       )}
+      <ProductTour />
     </div>
   );
 }
