@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 
 export interface StorageDriver {
   save(key: string, buffer: Buffer, mime: string): Promise<string>;
@@ -14,9 +15,25 @@ export class LocalStorageDriver implements StorageDriver {
 
   constructor(baseDir?: string) {
     const defaultStorageSegments = ['data', 'storage'];
-    this.baseDir = baseDir || process.env.STORAGE_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), ...defaultStorageSegments);
-    if (!fs.existsSync(this.baseDir)) {
-      fs.mkdirSync(this.baseDir, { recursive: true });
+    const preferredDir = baseDir || process.env.STORAGE_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), ...defaultStorageSegments);
+    try {
+      if (!fs.existsSync(preferredDir)) {
+        fs.mkdirSync(preferredDir, { recursive: true });
+      }
+      this.baseDir = preferredDir;
+    } catch (err) {
+      console.warn(`[LocalStorageDriver] Warning: Could not initialize directory at ${preferredDir}:`, err);
+      const fallbackDir = path.join(os.tmpdir(), 'docmate-storage');
+      try {
+        if (!fs.existsSync(fallbackDir)) {
+          fs.mkdirSync(fallbackDir, { recursive: true });
+        }
+        this.baseDir = fallbackDir;
+        console.warn(`[LocalStorageDriver] Fallback storage directory active at ${fallbackDir}`);
+      } catch (fallbackErr) {
+        console.error(`[LocalStorageDriver] Fatal: Could not create fallback directory at ${fallbackDir}:`, fallbackErr);
+        this.baseDir = fallbackDir;
+      }
     }
   }
 
@@ -31,19 +48,41 @@ export class LocalStorageDriver implements StorageDriver {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async save(key: string, buffer: Buffer, _mime: string): Promise<string> {
-    const filePath = this.resolveSafePath(key);
-    const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    try {
+      const filePath = this.resolveSafePath(key);
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      await fs.promises.writeFile(filePath, buffer);
+      return key;
+    } catch (err) {
+      console.warn(`[LocalStorageDriver] Failed to save in ${this.baseDir}, trying fallback directory:`, err);
+      const fallbackBase = path.join(os.tmpdir(), 'docmate-storage');
+      if (this.baseDir !== fallbackBase) {
+        this.baseDir = fallbackBase;
+        const filePath = this.resolveSafePath(key);
+        const dir = path.dirname(filePath);
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+        await fs.promises.writeFile(filePath, buffer);
+        return key;
+      }
+      throw err;
     }
-    await fs.promises.writeFile(filePath, buffer);
-    return key;
   }
 
   async get(key: string): Promise<Buffer | null> {
     try {
       const filePath = this.resolveSafePath(key);
-      if (!fs.existsSync(filePath)) return null;
+      if (!fs.existsSync(filePath)) {
+        const fallbackPath = path.resolve(path.join(os.tmpdir(), 'docmate-storage'), key.replace(/^[/\\]+/, ''));
+        if (fs.existsSync(fallbackPath)) {
+          return await fs.promises.readFile(fallbackPath);
+        }
+        return null;
+      }
       return await fs.promises.readFile(filePath);
     } catch {
       return null;
@@ -53,7 +92,9 @@ export class LocalStorageDriver implements StorageDriver {
   async exists(key: string): Promise<boolean> {
     try {
       const filePath = this.resolveSafePath(key);
-      return fs.existsSync(filePath);
+      if (fs.existsSync(filePath)) return true;
+      const fallbackPath = path.resolve(path.join(os.tmpdir(), 'docmate-storage'), key.replace(/^[/\\]+/, ''));
+      return fs.existsSync(fallbackPath);
     } catch {
       return false;
     }
@@ -64,6 +105,10 @@ export class LocalStorageDriver implements StorageDriver {
       const filePath = this.resolveSafePath(key);
       if (fs.existsSync(filePath)) {
         await fs.promises.unlink(filePath);
+      }
+      const fallbackPath = path.resolve(path.join(os.tmpdir(), 'docmate-storage'), key.replace(/^[/\\]+/, ''));
+      if (fs.existsSync(fallbackPath)) {
+        await fs.promises.unlink(fallbackPath);
       }
     } catch {
       // Ignored if already gone

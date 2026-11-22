@@ -38,10 +38,6 @@ export default function NewCasePage() {
   const locale = useLocale();
   const router = useRouter();
 
-  useEffect(() => {
-    router.replace('/patients/new');
-  }, [router]);
-
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
@@ -83,13 +79,11 @@ export default function NewCasePage() {
     if (draft) {
       try {
         const parsed = JSON.parse(draft);
-        setTimeout(() => {
-          if (parsed.patientCode) setPatientCode(parsed.patientCode);
-          if (typeof parsed.age === 'number') setAge(parsed.age);
-          if (parsed.gender) setGender(parsed.gender);
-          if (parsed.chiefComplaint) setChiefComplaint(parsed.chiefComplaint);
-          if (parsed.symptomsInput) setSymptomsInput(parsed.symptomsInput);
-        }, 0);
+        if (parsed.patientCode) setPatientCode(parsed.patientCode);
+        if (typeof parsed.age === 'number') setAge(parsed.age);
+        if (parsed.gender) setGender(parsed.gender);
+        if (parsed.chiefComplaint) setChiefComplaint(parsed.chiefComplaint);
+        if (parsed.symptomsInput) setSymptomsInput(parsed.symptomsInput);
       } catch {}
     }
   }, []);

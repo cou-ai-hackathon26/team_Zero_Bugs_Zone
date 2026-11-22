@@ -1,4 +1,5 @@
 import { StructuredPatientInput } from '@/types';
+import { convertBanglaDigitsToAscii } from '@/lib/language/preprocessor';
 
 export interface ProposedUpdate {
   id: string;
@@ -28,12 +29,12 @@ export function extractClinicalFacts(
   currentPatient: StructuredPatientInput,
 ): ProposedUpdate[] {
   const updates: ProposedUpdate[] = [];
-  const normalized = text.trim();
-  if (!normalized) return updates;
+  if (!text || !text.trim()) return updates;
+  const normalized = convertBanglaDigitsToAscii(text).trim();
 
-  // 1. Temperature in Celsius (e.g., "temperature 38.5 C", "temp is 39", "temperature of 38.8 C", "fever of 38.2C")
+  // 1. Temperature in Celsius (e.g., "temperature 38.5 C", "temp is 39", "তাপমাত্রা ৩৮.৫ ডিগ্রি")
   const tempCelsiusMatch = normalized.match(
-    /\b(?:temp(?:erature)?|febrile|fever)(?:\s+of)?\s*(?:is|was|at|:)?\s*([34]\d(?:\.\d)?)\s*(?:°?\s*c|celsius)?\b/i
+    /(?:temp(?:erature)?|febrile|fever|তাপমাত্রা)(?:\s+of)?\s*(?:is|was|at|:)?\s*([34]\d(?:\.\d)?)\s*(?:°?\s*c|celsius|ডিগ্রি|ডিগ্রী)?/iu
   );
   if (tempCelsiusMatch) {
     const val = parseFloat(tempCelsiusMatch[1]);
@@ -70,9 +71,9 @@ export function extractClinicalFacts(
     });
   }
 
-  // 3. Blood Pressure (e.g. "BP 130/85", "blood pressure 140/90 mmHg")
+  // 3. Blood Pressure (e.g. "BP 130/85", "blood pressure 140/90 mmHg", "বিপি ১২০/৮০")
   const bpMatch = normalized.match(
-    /\b(?:bp|blood\s*pressure)\s*(?:is|was|:)?\s*(\d{2,3})\s*[\/x]\s*(\d{2,3})(?:\s*mm\s*hg)?\b/i
+    /(?:bp|blood\s*pressure|প্রেসার|ব্লাড\s*প্রেসার|বিপি|রক্তচাপ)\s*(?:is|was|:)?\s*(\d{2,3})\s*[\/x]\s*(\d{2,3})(?:\s*mm\s*hg)?/iu
   );
   if (bpMatch) {
     const systolic = parseInt(bpMatch[1], 10);
@@ -91,9 +92,9 @@ export function extractClinicalFacts(
     }
   }
 
-  // 4. Heart Rate / Pulse (e.g. "heart rate 98", "pulse 102 bpm", "HR 88")
+  // 4. Heart Rate / Pulse (e.g. "heart rate 98", "pulse 102 bpm", "HR 88", "পালস ৭৬")
   const hrMatch = normalized.match(
-    /\b(?:pulse|heart\s*rate|hr)\s*(?:is|was|:)?\s*(\d{2,3})\s*(?:bpm)?\b/i
+    /(?:pulse|heart\s*rate|hr|পালস|হৃদস্পন্দন)\s*(?:is|was|:)?\s*(\d{2,3})\s*(?:bpm)?/iu
   );
   if (hrMatch) {
     const hr = parseInt(hrMatch[1], 10);

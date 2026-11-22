@@ -32,7 +32,6 @@ const clips: Array<{ filename: string; text: string; voice: string }> = [
 ];
 
 async function main() {
-  console.log(`Generating ${clips.length} vocal reaction audio clips...`);
   for (const clip of clips) {
     const dest = path.join(targetDir, clip.filename);
     try {
@@ -46,12 +45,10 @@ async function main() {
         out.on('error', reject);
         audioStream.on('error', reject);
       });
-      console.log(`Generated: ${clip.filename}`);
     } catch (err) {
       console.error(`Failed ${clip.filename}:`, err);
     }
   }
-  console.log('All vocal reaction clips generated successfully.');
 }
 
 void main();

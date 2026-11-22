@@ -197,5 +197,30 @@ export function structureAwareChunk(
     flushChunk();
   }
 
+  // Fallback: If no chunks were created through normal paragraph flushing
+  // (e.g. short documents or all pages had boilerplate flags), gather all text
+  if (result.length === 0) {
+    const fallbackText = pages
+      .map((p) => p.text.trim())
+      .filter((t) => t.length > 0)
+      .join('\n\n');
+
+    if (fallbackText.length >= 20) {
+      const hash = computeContentHash(fallbackText);
+      result.push({
+        ordinal: 1,
+        headingPath: documentTitle,
+        pageStart: pages[0]?.pageNumber || 1,
+        pageEnd: pages[pages.length - 1]?.pageNumber || 1,
+        kind: 'body',
+        text: fallbackText,
+        embeddingText: `${documentTitle}\n\n${fallbackText}`,
+        contentHash: hash,
+        tokenCount: estimateTokenCount(fallbackText),
+        language: pages[0]?.language || 'en',
+      });
+    }
+  }
+
   return result;
 }

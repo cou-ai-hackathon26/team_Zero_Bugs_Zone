@@ -29,17 +29,24 @@ function isMedicinePayload(data: unknown): boolean {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireFeaturePermission('library.ingest');
-  if (auth.error) {
-    return NextResponse.json({ error: auth.error }, { status: auth.status });
-  }
-
-  const contentType = request.headers.get('content-type') || '';
-  const storage = getStorageDriver();
-  const createdJobIds: string[] = [];
-
   try {
+    const auth = await requireFeaturePermission('library.ingest');
+    if (auth.error) {
+      return NextResponse.json(
+        {
+          error: auth.error,
+          message: auth.error,
+          messageBn: 'রিসোর্স ইনজেশন সম্পন্ন করার প্রয়োজনীয় পারমিশন নেই।',
+        },
+        { status: auth.status }
+      );
+    }
+
+    const contentType = request.headers.get('content-type') || '';
+    const createdJobIds: string[] = [];
+
     if (contentType.includes('multipart/form-data')) {
+      const storage = getStorageDriver();
       const formData = await request.formData();
       const files = formData.getAll('files') as File[];
       const rightsConfirmed = formData.get('rightsConfirmed') === 'true';
@@ -224,8 +231,13 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('[admin/library/ingest] Error enqueuing ingestion:', error);
+    const msg = error instanceof Error ? error.message : 'Failed to enqueue ingestion jobs';
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to enqueue ingestion jobs' },
+      {
+        error: msg,
+        message: msg,
+        messageBn: 'রিসোর্স ইনজেশন প্রসেস শুরু করতে সার্ভারে ত্রুটি হয়েছে।',
+      },
       { status: 500 }
     );
   }
