@@ -112,6 +112,41 @@ export class JsonExtractor implements DocumentExtractor {
       };
     }
 
+    // Try single article / guideline object
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const obj = parsed as Record<string, unknown>;
+      const text = (obj.full_text || obj.content || obj.text || obj.abstract) as string | undefined;
+      if (obj.title && typeof obj.title === 'string' && text && typeof text === 'string') {
+        const pages: ExtractedPage[] = [
+          {
+            pageNumber: 1,
+            text: text.trim(),
+            heading: obj.title,
+          },
+        ];
+        return {
+          title: obj.title.trim(),
+          authors: Array.isArray(obj.authors)
+            ? (obj.authors as string[])
+            : typeof obj.authors === 'string'
+              ? obj.authors.split(',').map((s) => s.trim())
+              : [],
+          year: typeof obj.year === 'number' ? obj.year : new Date().getFullYear(),
+          journalOrPublisher: (obj.journal || obj.publisher) as string | undefined,
+          doi: obj.doi as string | undefined,
+          canonicalUrl: (obj.url || obj.canonicalUrl) as string | undefined,
+          pageCount: 1,
+          pages,
+          fullText: text.trim(),
+          mime: 'application/json',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          sourceType: (obj.sourceType as any) || 'guideline',
+          license: (obj.license as string) || 'Open Access',
+          evidenceLevel: (obj.evidenceLevel as string) || 'Ia',
+        };
+      }
+    }
+
     // Try Shape A: Array of Articles
     if (Array.isArray(parsed)) {
       const articleCheck = z.array(articleItemSchema).safeParse(parsed);

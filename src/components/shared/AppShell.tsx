@@ -56,6 +56,8 @@ import {
   HeartPulse,
   ShieldCheck,
   Cpu,
+  Mic,
+  Sparkles,
   CreditCard,
   History,
 } from 'lucide-react';
@@ -489,7 +491,8 @@ export function AppShell({ children, fullHeight = false }: AppShellProps) {
                   type="button"
                   data-tour="nav-search"
                   onClick={() => {
-                    const event = new KeyboardEvent('keydown', { key: 'k', metaKey: true });
+                    window.dispatchEvent(new CustomEvent('open-global-search'));
+                    const event = new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true });
                     document.dispatchEvent(event);
                   }}
                   aria-label={t('search')}

@@ -18,39 +18,51 @@ export class PdfExtractor implements DocumentExtractor {
     const PDFParseClass = mod.PDFParse || mod.default?.PDFParse;
 
     if (typeof PDFParseClass === 'function') {
-      const parser = new PDFParseClass(new Uint8Array(buffer));
       try {
-        const infoResult = await parser.getInfo().catch(() => null);
-        if (infoResult?.info?.Title && String(infoResult.info.Title).trim().length > 2) {
-          title = String(infoResult.info.Title).trim();
-        }
+        const parser = new PDFParseClass({ data: buffer });
+        try {
+          const infoResult = await parser.getInfo().catch(() => null);
+          if (infoResult?.info?.Title && String(infoResult.info.Title).trim().length > 2) {
+            title = String(infoResult.info.Title).trim();
+          }
 
-        const textResult = await parser.getText().catch(() => null);
-        if (textResult) {
-          pageCount = textResult.total || (textResult.pages ? textResult.pages.length : 1);
-          fullText = textResult.text || '';
+          const textResult = await parser.getText().catch((err: unknown) => {
+            console.warn('[PdfExtractor] getText error:', err);
+            return null;
+          });
 
-          if (Array.isArray(textResult.pages) && textResult.pages.length > 0) {
-            for (const p of textResult.pages) {
-              pageTexts.push({
-                pageNumber: p.num || pageTexts.length + 1,
-                text: (p.text || '').trim(),
-              });
+          if (textResult) {
+            pageCount = textResult.total || (textResult.pages ? textResult.pages.length : 1);
+            fullText = textResult.text || '';
+
+            if (Array.isArray(textResult.pages) && textResult.pages.length > 0) {
+              for (const p of textResult.pages) {
+                if (p && p.text && p.text.trim()) {
+                  pageTexts.push({
+                    pageNumber: p.num || pageTexts.length + 1,
+                    text: p.text.trim(),
+                  });
+                }
+              }
             }
           }
+        } finally {
+          await parser.destroy().catch(() => {});
         }
-      } finally {
-        await parser.destroy().catch(() => {});
+      } catch (err) {
+        console.warn('[PdfExtractor] PDFParseClass initialization error:', err);
       }
-    } else {
-      // Legacy pdf-parse v1 function fallback
+    }
+
+    // If PDFParseClass did not yield any text or was not available, try legacy function
+    if (!fullText.trim()) {
       const parseFn = typeof mod === 'function' ? mod : mod.default;
       if (typeof parseFn === 'function') {
         try {
           const data = await parseFn(buffer);
-          pageCount = data.numpages || 1;
+          pageCount = data.numpages || pageCount || 1;
           fullText = data.text || '';
-          if (data.info?.Title && data.info.Title.trim().length > 2) {
+          if (data.info?.Title && data.info.Title.trim().length > 2 && !title) {
             title = data.info.Title.trim();
           }
           const rawPages = fullText.split(/\x0C/);

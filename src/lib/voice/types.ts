@@ -24,7 +24,7 @@ export type VoiceIntent =
   | 'other';
 
 export type VoiceProviderType = 'browser' | 'openai' | 'custom_stub';
-export type SpeechProviderType = VoiceProviderType | 'maya';
+export type SpeechProviderType = VoiceProviderType | 'maya' | 'edge';
 
 export interface VoiceConfig {
   enabled: boolean;
