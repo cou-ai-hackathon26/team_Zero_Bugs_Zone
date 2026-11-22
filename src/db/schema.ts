@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, integer, timestamp, jsonb, uuid, customType, index, boolean, numeric, unique } from 'drizzle-orm/pg-core';
+import { pgTable, text, varchar, integer, timestamp, jsonb, uuid, customType, index, boolean, numeric, unique, real } from 'drizzle-orm/pg-core';
 import { vector } from 'drizzle-orm/pg-core';
 
 export const tsvector = customType<{ data: string }>({
@@ -247,6 +247,7 @@ export const cases = pgTable('cases', {
   status: varchar('status', { length: 50 }).notNull().default('draft'), // 'draft' | 'analyzed' | 'insufficient_evidence' | 'red_flag' | 'confirmed' | 'treated' | 'closed'
   structuredInput: jsonb('structured_input').notNull(),
   confirmedDiagnosis: text('confirmed_diagnosis'),
+  enteredByVoice: boolean('entered_by_voice').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -610,4 +611,125 @@ export const researcherCollections = pgTable('researcher_collections', {
   tags: jsonb('tags').default([]).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const voiceSessions = pgTable('voice_sessions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  caseId: uuid('case_id').references(() => cases.id, { onDelete: 'set null' }),
+  sttSeconds: numeric('stt_seconds', { precision: 8, scale: 2 }).default('0.00').notNull(),
+  ttsChars: integer('tts_chars').default(0).notNull(),
+  sttProvider: varchar('stt_provider', { length: 50 }).default('browser').notNull(),
+  ttsProvider: varchar('tts_provider', { length: 50 }).default('browser').notNull(),
+  estimatedCost: numeric('estimated_cost', { precision: 8, scale: 4 }).default('0.0000').notNull(),
+  startedAt: timestamp('started_at', { withTimezone: true }).defaultNow().notNull(),
+  endedAt: timestamp('ended_at', { withTimezone: true }),
+});
+
+export const voiceTurns = pgTable('voice_turns', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  sessionId: uuid('session_id').references(() => voiceSessions.id, { onDelete: 'cascade' }).notNull(),
+  intent: varchar('intent', { length: 50 }).notNull(), // 'ask_library' | 'dictate' | 'answer_followup' | 'navigate' | 'read_aloud' | 'blocked_action' | 'other'
+  status: varchar('status', { length: 50 }).notNull(), // 'ok' | 'low_confidence' | 'failed' | 'blocked'
+  latencyMs: integer('latency_ms').default(0).notNull(),
+  errorCode: varchar('error_code', { length: 50 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const termAliases = pgTable('term_aliases', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  canonicalEn: varchar('canonical_en', { length: 150 }).notNull(),
+  category: varchar('category', { length: 50 }).notNull(), // 'symptom' | 'sign' | 'disease' | 'medicine_generic' | 'medicine_brand' | 'body_part' | 'unit' | 'duration' | 'number' | 'negation'
+  variants: jsonb('variants').default({ bn: [], banglish: [], en: [], bn_translit_en: [] }).notNull(),
+  status: varchar('status', { length: 20 }).default('active').notNull(), // 'active' | 'pending'
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('idx_term_aliases_canonical').on(table.canonicalEn),
+  index('idx_term_aliases_category').on(table.category),
+  index('idx_term_aliases_status').on(table.status),
+]);
+
+export const unmatchedTerms = pgTable('unmatched_terms', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  term: varchar('term', { length: 150 }).notNull(),
+  language: varchar('language', { length: 20 }).default('unknown').notNull(),
+  count: integer('count').default(1).notNull(),
+  firstSeen: timestamp('first_seen', { withTimezone: true }).defaultNow().notNull(),
+  lastSeen: timestamp('last_seen', { withTimezone: true }).defaultNow().notNull(),
+  status: varchar('status', { length: 20 }).default('pending').notNull(), // 'pending' | 'reviewed' | 'added' | 'ignored'
+}, (table) => [
+  index('idx_unmatched_terms_status').on(table.status),
+  index('idx_unmatched_terms_count').on(table.count),
+]);
+
+export const userLanguagePrefs = pgTable('user_language_prefs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull().unique(),
+  replyLanguage: varchar('reply_language', { length: 20 }).default('auto').notNull(), // 'auto' | 'bn' | 'en'
+  banglishReply: boolean('banglish_reply').default(false).notNull(),
+  sttMode: varchar('stt_mode', { length: 20 }).default('auto').notNull(), // 'auto' | 'bn' | 'en'
+  showUnderstanding: boolean('show_understanding').default(true).notNull(),
+  phoneticTyping: boolean('phonetic_typing').default(false).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('idx_user_language_prefs_user').on(table.userId),
+]);
+
+export const languageEvalRuns = pgTable('language_eval_runs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  date: timestamp('date', { withTimezone: true }).defaultNow().notNull(),
+  metrics: jsonb('metrics').default({}).notNull(),
+  thresholds: jsonb('thresholds').default({}).notNull(),
+  passed: boolean('passed').default(false).notNull(),
+  notes: text('notes'),
+}, (table) => [
+  index('idx_language_eval_runs_date').on(table.date),
+]);
+
+export const userAssistantPrefs = pgTable('user_assistant_prefs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull().unique(),
+  addressStyle: varchar('address_style', { length: 50 }).default('doctor').notNull(), // 'doctor' | 'doctor_sahib' | 'doctor_madam' | 'name'
+  tonePreset: varchar('tone_preset', { length: 50 }).default('friendly').notNull(), // 'reserved' | 'friendly'
+  verbosity: varchar('verbosity', { length: 50 }).default('normal').notNull(), // 'brief' | 'normal' | 'detailed'
+  soundsEnabled: boolean('sounds_enabled').default(true).notNull(),
+  hintsEnabled: boolean('hints_enabled').default(true).notNull(),
+  avatarEnabled: boolean('avatar_enabled').default(true).notNull(),
+  speechRate: real('speech_rate').default(1.0).notNull(),
+  voiceId: varchar('voice_id', { length: 100 }).default('default'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('idx_user_assistant_prefs_user').on(table.userId),
+]);
+
+export const phrasebankEntries = pgTable('phrasebank_entries', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  category: varchar('category', { length: 100 }).notNull(),
+  locale: varchar('locale', { length: 10 }).default('bn').notNull(), // 'bn' | 'en'
+  preset: varchar('preset', { length: 50 }).default('friendly').notNull(), // 'reserved' | 'friendly' | 'all'
+  text: text('text').notNull(),
+  status: varchar('status', { length: 20 }).default('live').notNull(), // 'draft' | 'reviewed' | 'live'
+  reviewedBy: uuid('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('idx_phrasebank_lookup').on(table.category, table.locale, table.preset, table.status),
+]);
+
+export const assistantFeedback = pgTable('assistant_feedback', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  messageId: varchar('message_id', { length: 100 }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  rating: varchar('rating', { length: 20 }).notNull(), // 'helpful' | 'unhelpful'
+  reason: varchar('reason', { length: 100 }), // 'too_long' | 'too_formal' | 'did_not_understand' | 'wrong_tone' | 'other'
+  preset: varchar('preset', { length: 50 }).default('friendly').notNull(),
+  locale: varchar('locale', { length: 10 }).default('bn').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('idx_assistant_feedback_metrics').on(table.rating, table.reason, table.preset, table.locale, table.createdAt),
+]);
+
+
 

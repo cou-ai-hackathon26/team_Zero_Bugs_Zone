@@ -35,7 +35,48 @@ export type FeatureKey =
   | 'portal.reports'
   | 'portal.medicine_schedule'
   | 'portal.permissions'
-  | 'portal.access_log';
+  | 'portal.access_log'
+  | 'voice.assistant'
+  | 'voice.dictation'
+  | 'voice.avatar'
+  | 'voice.readaloud'
+  | 'language.prefs'
+  | 'language.aliases.manage'
+  | 'language.phonetic_typing'
+  | 'assistant.personalize'
+  | 'assistant.phrasebank.manage';
+
+export type DetectedLanguage = 'bn' | 'en' | 'banglish' | 'mixed';
+
+export type LanguageIntent =
+  | 'ask_library'
+  | 'medicine_lookup'
+  | 'dictate_intake'
+  | 'answer_followup'
+  | 'navigate'
+  | 'ask_capabilities'
+  | 'patient_history'
+  | 'other';
+
+export type TermCategory =
+  | 'symptom'
+  | 'sign'
+  | 'disease'
+  | 'medicine_generic'
+  | 'medicine_brand'
+  | 'body_part'
+  | 'unit'
+  | 'duration'
+  | 'number'
+  | 'negation';
+
+export interface UserLanguagePreferences {
+  replyLanguage: 'auto' | 'bn' | 'en';
+  banglishReply: boolean;
+  sttMode: 'auto' | 'bn' | 'en';
+  showUnderstanding: boolean;
+  phoneticTyping: boolean;
+}
 
 export type UserStatus = 'active' | 'pending_verification' | 'suspended';
 

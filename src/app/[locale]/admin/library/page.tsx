@@ -914,10 +914,17 @@ export default function AdminLibraryPage() {
                                   Awaiting Budget
                                 </Badge>
                               ) : isFailed ? (
-                                <Badge variant="destructive" className="text-[10px] flex items-center gap-1 w-fit">
-                                  <XCircle className="w-2.5 h-2.5" />
-                                  Failed
-                                </Badge>
+                                <div className="space-y-1 max-w-sm">
+                                  <Badge variant="destructive" className="text-[10px] flex items-center gap-1 w-fit">
+                                    <XCircle className="w-2.5 h-2.5" />
+                                    Failed
+                                  </Badge>
+                                  {job.error && (
+                                    <p className="text-[11px] text-destructive/90 font-medium leading-relaxed bg-destructive/10 p-1.5 rounded-md border border-destructive/20 break-words">
+                                      {job.error}
+                                    </p>
+                                  )}
+                                </div>
                               ) : (
                                 <Badge variant="outline" className="text-[10px] w-fit">
                                   {job.status}

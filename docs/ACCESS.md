@@ -58,6 +58,15 @@ Access is evaluated dynamically via the server-side function `canUse(user, featu
 | **`ai.settings`** | **Y** | **view** | **view** | **view** | - | - | Prompt versions, model selection, abstain thresholds |
 | **`audit.read`** | **Y** | - | - | - | - | - | Read cryptographic hash-chain audit ledger |
 | **`system.manage`** | **Y** | - | - | - | - | - | Maintenance mode, backups, kill switches |
+| **`voice.assistant`** | **Y** | **Y** | **library** | **library** | - | - | Talk to DocMate voice assistant (students/researchers: library Q&A only) |
+| **`voice.dictation`** | **Y** | **Y** | - | - | - | - | Dictate clinical intake, observations, and case notes |
+| **`voice.avatar`** | **Y** | **Y** | **Y** | **Y** | - | - | Render animated cartoon doctor character |
+| **`voice.readaloud`** | **Y** | **Y** | - | - | **own** | - | Read prescription schedules and instructions aloud |
+| **`language.prefs`** | **Y** | **Y** | **Y** | **Y** | **Y** | **Y** | Manage personal multilingual preferences and reply modes |
+| **`language.aliases.manage`** | **Y** | - | - | - | - | **drug** | Curate clinical term aliases & Banglish vocabulary (controller: drug only) |
+| **`language.phonetic_typing`** | **Y** | - | - | - | - | - | Enable client-side phonetic Bangla typing in input fields |
+| **`assistant.personalize`** | **Y** | **Y** | **Y** | **Y** | **Y** | **Y** | Personalize assistant tone, address style, verbosity, and voice preferences |
+| **`assistant.phrasebank.manage`** | **Y** | - | - | - | - | - | Manage assistant phrase bank, curate variants, and audit tone review status |
 
 *Legend*:
 - **`Y`**: Fully enabled.

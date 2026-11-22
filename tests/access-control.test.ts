@@ -119,6 +119,19 @@ describe('Fine-Grained Feature RBAC & Data-Scope Enforcement', () => {
 
     const patientAi = await canUse(mockUsers.patient, 'ai.analyze');
     expect(patientAi.allowed).toBe(false);
+
+    // Assistant personalization is available to all signed-in users, but phrasebank management is super_admin only
+    const docPersonalize = await canUse(mockUsers.doctor, 'assistant.personalize');
+    const studentPersonalize = await canUse(mockUsers.student, 'assistant.personalize');
+    const adminPersonalize = await canUse(mockUsers.super_admin, 'assistant.personalize');
+    expect(docPersonalize.allowed).toBe(true);
+    expect(studentPersonalize.allowed).toBe(true);
+    expect(adminPersonalize.allowed).toBe(true);
+
+    const adminPhrasebank = await canUse(mockUsers.super_admin, 'assistant.phrasebank.manage');
+    const docPhrasebank = await canUse(mockUsers.doctor, 'assistant.phrasebank.manage');
+    expect(adminPhrasebank.allowed).toBe(true);
+    expect(docPhrasebank.allowed).toBe(false);
   });
 
   it('2. Denies all capabilities immediately if user is suspended', async () => {
@@ -404,5 +417,65 @@ describe('Fine-Grained Feature RBAC & Data-Scope Enforcement', () => {
     await db.delete(accessGrants).where(eq(accessGrants.profileId, profile.id));
     await db.delete(patientProfiles).where(eq(patientProfiles.id, profile.id));
     await db.delete(patientAccounts).where(eq(patientAccounts.id, account.id));
+  });
+
+  it('9. Enforces Voice Assistant Feature Key Permissions & Role Isolation', async () => {
+    // Super Admin: all voice features enabled
+    expect((await canUse(mockUsers.super_admin, 'voice.assistant')).allowed).toBe(true);
+    expect((await canUse(mockUsers.super_admin, 'voice.dictation')).allowed).toBe(true);
+    expect((await canUse(mockUsers.super_admin, 'voice.avatar')).allowed).toBe(true);
+    expect((await canUse(mockUsers.super_admin, 'voice.readaloud')).allowed).toBe(true);
+
+    // Doctor: all voice features enabled
+    expect((await canUse(mockUsers.doctor, 'voice.assistant')).allowed).toBe(true);
+    expect((await canUse(mockUsers.doctor, 'voice.dictation')).allowed).toBe(true);
+    expect((await canUse(mockUsers.doctor, 'voice.avatar')).allowed).toBe(true);
+    expect((await canUse(mockUsers.doctor, 'voice.readaloud')).allowed).toBe(true);
+
+    // Student: voice assistant (library only) and avatar enabled; dictation and read-aloud denied
+    expect((await canUse(mockUsers.student, 'voice.assistant')).allowed).toBe(true);
+    expect((await canUse(mockUsers.student, 'voice.avatar')).allowed).toBe(true);
+    expect((await canUse(mockUsers.student, 'voice.dictation')).allowed).toBe(false);
+    expect((await canUse(mockUsers.student, 'voice.readaloud')).allowed).toBe(false);
+
+    // Researcher: voice assistant (library only) and avatar enabled; dictation and read-aloud denied
+    expect((await canUse(mockUsers.researcher, 'voice.assistant')).allowed).toBe(true);
+    expect((await canUse(mockUsers.researcher, 'voice.avatar')).allowed).toBe(true);
+    expect((await canUse(mockUsers.researcher, 'voice.dictation')).allowed).toBe(false);
+    expect((await canUse(mockUsers.researcher, 'voice.readaloud')).allowed).toBe(false);
+
+    // Patient: read-aloud only; assistant, dictation, avatar denied
+    expect((await canUse(mockUsers.patient, 'voice.readaloud')).allowed).toBe(true);
+    expect((await canUse(mockUsers.patient, 'voice.assistant')).allowed).toBe(false);
+    expect((await canUse(mockUsers.patient, 'voice.dictation')).allowed).toBe(false);
+    expect((await canUse(mockUsers.patient, 'voice.avatar')).allowed).toBe(false);
+
+    // Medicine Controller: all voice features denied
+    expect((await canUse(mockUsers.medicine_controller, 'voice.assistant')).allowed).toBe(false);
+    expect((await canUse(mockUsers.medicine_controller, 'voice.dictation')).allowed).toBe(false);
+    expect((await canUse(mockUsers.medicine_controller, 'voice.avatar')).allowed).toBe(false);
+    expect((await canUse(mockUsers.medicine_controller, 'voice.readaloud')).allowed).toBe(false);
+  });
+
+  it('10. Enforces Multilingual Language Layer Feature Key Permissions & Role Isolation', async () => {
+    // All signed-in roles can access personal language preferences
+    expect((await canUse(mockUsers.super_admin, 'language.prefs')).allowed).toBe(true);
+    expect((await canUse(mockUsers.doctor, 'language.prefs')).allowed).toBe(true);
+    expect((await canUse(mockUsers.student, 'language.prefs')).allowed).toBe(true);
+    expect((await canUse(mockUsers.researcher, 'language.prefs')).allowed).toBe(true);
+    expect((await canUse(mockUsers.patient, 'language.prefs')).allowed).toBe(true);
+    expect((await canUse(mockUsers.medicine_controller, 'language.prefs')).allowed).toBe(true);
+
+    // Only Super Admin and Medicine Controller can manage term aliases
+    expect((await canUse(mockUsers.super_admin, 'language.aliases.manage')).allowed).toBe(true);
+    expect((await canUse(mockUsers.medicine_controller, 'language.aliases.manage')).allowed).toBe(true);
+    expect((await canUse(mockUsers.doctor, 'language.aliases.manage')).allowed).toBe(false);
+    expect((await canUse(mockUsers.student, 'language.aliases.manage')).allowed).toBe(false);
+    expect((await canUse(mockUsers.researcher, 'language.aliases.manage')).allowed).toBe(false);
+    expect((await canUse(mockUsers.patient, 'language.aliases.manage')).allowed).toBe(false);
+
+    // Phonetic typing flag is enabled for Super Admin, off by default for other roles
+    expect((await canUse(mockUsers.super_admin, 'language.phonetic_typing')).allowed).toBe(true);
+    expect((await canUse(mockUsers.doctor, 'language.phonetic_typing')).allowed).toBe(false);
   });
 });

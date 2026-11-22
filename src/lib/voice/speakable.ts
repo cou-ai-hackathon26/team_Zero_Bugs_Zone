@@ -54,8 +54,8 @@ export function makeSpeakable(
   // 1. Hard check: If the top-level result or claim is marked unverified, NEVER speak it
   if (result.verified === false) {
     return locale === 'bn'
-      ? 'এই দাবির নির্ভরযোগ্য প্রমাণ পাওয়া যায়নি। বিস্তারিত স্ক্রিনে দেখুন।'
-      : 'This claim is unverified by clinical evidence. Details on screen.';
+      ? 'পর্যাপ্ত প্রমাণ নেই। অপ্রমাণিত তথ্য মুখে বলা হয় না।'
+      : 'Insufficient evidence. Unverified claims are not spoken.';
   }
 
   // 2. Insufficient Evidence handling
@@ -94,8 +94,8 @@ export function makeSpeakable(
 
   const proofPhrase =
     locale === 'bn'
-      ? 'বিস্তারিত ও প্রমাণ স্ক্রিনে দেখুন।'
-      : 'Full details and proof are on screen.';
+      ? 'প্রমাণ স্ক্রিনে আছে।'
+      : 'Proof is on screen.';
 
   if (cappedSentences.length > 0) {
     const endPunctuation = locale === 'bn' ? '।' : '.';

@@ -35,6 +35,8 @@ import { HelpSheet } from './HelpSheet';
 import { DemoBanner } from './DemoBanner';
 import { GlobalSearchCommand } from './GlobalSearchCommand';
 import { EvidenceSheet } from './EvidenceSheet';
+import { VoiceFloatingButton } from '@/components/voice/VoiceFloatingButton';
+import { VoicePanel } from '@/components/voice/VoicePanel';
 import { Toaster } from '@/components/ui/sonner';
 import {
   LayoutDashboard,
@@ -592,6 +594,12 @@ export function AppShell({ children, fullHeight = false }: AppShellProps) {
         </div>
         <GlobalSearchCommand role={currentUser?.role} />
         <EvidenceSheet />
+        {currentUser?.role !== 'medicine_controller' && currentUser?.role !== 'patient' && (
+          <>
+            <VoiceFloatingButton />
+            <VoicePanel />
+          </>
+        )}
         <Toaster position="top-right" richColors />
       </SidebarProvider>
   );

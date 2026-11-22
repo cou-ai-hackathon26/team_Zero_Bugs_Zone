@@ -20,7 +20,10 @@ import {
   Check,
   UserPlus,
   Lock,
+  Volume2,
 } from 'lucide-react';
+import { useVoice } from '@/context/VoiceContext';
+import { formatPrescriptionSpeech } from '@/lib/voice/dose-speech';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -123,6 +126,7 @@ interface HealthSummary {
 export default function PatientPortalPage() {
   const locale = useLocale();
   const isBn = locale === 'bn';
+  const { speakText } = useVoice();
 
   const [loading, setLoading] = useState(true);
   const [profiles, setProfiles] = useState<ProfileItem[]>([]);
@@ -243,6 +247,34 @@ export default function PatientPortalPage() {
     } catch {
       toast.error(isBn ? 'নেটওয়ার্ক ত্রুটি' : 'Network error');
     }
+  };
+
+  const handleReadAloudSchedule = () => {
+    if (schedules.length === 0) {
+      toast.info(isBn ? 'বর্তমানে কোনো সক্রিয় ওষুধের তালিকা নেই।' : 'No active medication schedule.');
+      return;
+    }
+    const doseItems = schedules.map((s) => ({
+      brandName: s.medicineName,
+      dosingSchedule: s.dosage || '1+0+1',
+      mealTiming: s.mealRelation,
+    }));
+    const speech = formatPrescriptionSpeech(doseItems, isBn ? 'bn' : 'en');
+    speakText(speech);
+  };
+
+  const handleReadAloudPrescription = (rx: Prescription) => {
+    if (!rx.items || rx.items.length === 0) return;
+    const doseItems = rx.items.map((it) => ({
+      brandName: it.brandName,
+      genericName: it.genericName,
+      strength: it.strength,
+      dosingSchedule: it.dosingSchedule,
+      mealTiming: it.mealTiming,
+      durationText: it.durationText,
+    }));
+    const speech = formatPrescriptionSpeech(doseItems, isBn ? 'bn' : 'en');
+    speakText(speech);
   };
 
   // Add Dependent Profile
@@ -500,7 +532,7 @@ export default function PatientPortalPage() {
 
           {/* TAB 1: Today's Medication Routine with 'খেয়েছি' (Taken) buttons */}
           <TabsContent value="today" className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-bold text-foreground">
                   {isBn ? 'আজকের ওষুধ সেবনের সময়সূচি' : 'Today’s Medication Schedule'}
@@ -511,6 +543,16 @@ export default function PatientPortalPage() {
                     : 'Tap "Taken" after having each dose to keep an accurate medication log'}
                 </p>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleReadAloudSchedule}
+                aria-label={isBn ? 'সময়সূচি শুনুন' : 'Listen to schedule'}
+                className="gap-1.5 text-xs font-semibold text-primary border-primary/30 hover:bg-primary/10 shrink-0"
+              >
+                <Volume2 className="w-3.5 h-3.5" />
+                <span>{isBn ? 'শুনুন' : 'Listen'}</span>
+              </Button>
             </div>
 
             {schedules.length === 0 ? (
@@ -713,11 +755,23 @@ export default function PatientPortalPage() {
                             {rx.doctorName} ({rx.doctorBmdc})
                           </span>
                         </div>
-                        {rx.finalizedAt && (
-                          <span className="text-xs text-muted-foreground font-mono">
-                            {new Date(rx.finalizedAt).toLocaleDateString(isBn ? 'bn-BD' : 'en-US')}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {rx.finalizedAt && (
+                            <span className="text-xs text-muted-foreground font-mono">
+                              {new Date(rx.finalizedAt).toLocaleDateString(isBn ? 'bn-BD' : 'en-US')}
+                            </span>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleReadAloudPrescription(rx)}
+                            aria-label={isBn ? 'প্রেসক্রিপশন শুনুন' : 'Listen to prescription'}
+                            className="h-7 px-2 text-xs font-semibold gap-1 text-primary border-primary/30 hover:bg-primary/10"
+                          >
+                            <Volume2 className="w-3 h-3" />
+                            <span>{isBn ? 'শুনুন' : 'Listen'}</span>
+                          </Button>
+                        </div>
                       </div>
 
                       {rx.diagnosis && (

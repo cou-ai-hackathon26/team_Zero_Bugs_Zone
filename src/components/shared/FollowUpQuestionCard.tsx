@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { MissingInformation } from '@/types';
-import { HelpCircle, Stethoscope, TestTube2, Send, Check } from 'lucide-react';
+import { HelpCircle, Stethoscope, TestTube2, Send, Check, Mic } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useVoice } from '@/context/VoiceContext';
 
 interface FollowUpQuestionCardProps {
   item: MissingInformation;
@@ -22,6 +23,7 @@ export function FollowUpQuestionCard({
   disabled,
   className,
 }: FollowUpQuestionCardProps) {
+  const { openVoicePanel, speakText } = useVoice();
   const [answer, setAnswer] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
@@ -102,6 +104,21 @@ export function FollowUpQuestionCard({
               className="text-xs h-9 bg-background"
               disabled={disabled}
             />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                openVoicePanel();
+                speakText(item.text);
+              }}
+              aria-label="বলে উত্তর দিন (Answer by Voice)"
+              title="বলে উত্তর দিন (Answer by Voice)"
+              className="h-9 px-2.5 gap-1 shrink-0 text-primary border-primary/30 hover:bg-primary/10"
+            >
+              <Mic className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline text-xs font-medium">বলে উত্তর দিন</span>
+            </Button>
             <Button
               type="submit"
               size="sm"

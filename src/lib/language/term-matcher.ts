@@ -1,8 +1,7 @@
 // src/lib/language/term-matcher.ts
 // DocMate AI - Clinical Term Matcher & Canonicalizer
 
-import * as fs from 'fs';
-import * as path from 'path';
+import aliasesSeed from '../../../data/aliases.seed.json';
 import { TermAliasRecord, TermVariantMap } from './types';
 
 export interface MatchedTerm {
@@ -34,16 +33,7 @@ export function initTermMatcher(aliases?: TermAliasRecord[]) {
   if (aliases && aliases.length > 0) {
     ALIASES_CACHE = aliases;
   } else if (ALIASES_CACHE.length === 0) {
-    try {
-      const seedPath = path.join(process.cwd(), 'data', 'aliases.seed.json');
-      if (fs.existsSync(seedPath)) {
-        const raw = fs.readFileSync(seedPath, 'utf-8');
-        ALIASES_CACHE = JSON.parse(raw);
-      }
-    } catch (e) {
-      console.warn('Failed to load aliases.seed.json:', e);
-      ALIASES_CACHE = [];
-    }
+    ALIASES_CACHE = (aliasesSeed as unknown) as TermAliasRecord[];
   }
 
   // Compile regexes for each variant

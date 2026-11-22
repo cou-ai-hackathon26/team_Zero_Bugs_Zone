@@ -2,13 +2,16 @@ import { z } from 'zod';
 import { boundedJson } from '@/lib/api-input';
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { caseTurns, cases, auditLogs } from '@/db/schema';
+import { caseTurns, cases, auditLogs, userLanguagePrefs, userAssistantPrefs } from '@/db/schema';
 import { ownedCase, requirePhysician, validCaseId } from '@/lib/case-access';
 import { extractClinicalFacts } from '@/lib/clinical-extractor';
-import { searchLibraryText } from '@/lib/retrieval';
+import { hybridRetrieve } from '@/lib/retrieval';
 import { libraryExcerpts } from '@/lib/library-excerpts';
-import { Chunk, MissingInformation, SafetyAlert, StructuredPatientInput } from '@/types';
+import { understandText } from '@/lib/language';
+import { MissingInformation, SafetyAlert, StructuredPatientInput } from '@/types';
 import { desc, eq } from 'drizzle-orm';
+import { humanize, UserAssistantPreferences } from '@/lib/persona/humanize';
+import { AddressStyle, TonePreset, Verbosity } from '@/lib/persona/phrasebank';
 import bn from '../../../../../../messages/bn.json';
 import en from '../../../../../../messages/en.json';
 
@@ -21,6 +24,7 @@ const turnSchema = z.union([
     answer: z.string().trim().min(1).max(4000),
     client_draft_id: z.string().max(100).optional(),
     locale: z.enum(['bn', 'en']).default('bn'),
+    reply_language: z.enum(['auto', 'bn', 'en']).optional(),
   }),
   // 2. Clinical observation or evidence review request
   z.object({
@@ -30,6 +34,7 @@ const turnSchema = z.union([
     action: z.enum(['observation', 'evidence_review']).default('observation'),
     client_draft_id: z.string().max(100).optional(),
     locale: z.enum(['bn', 'en']).default('bn'),
+    reply_language: z.enum(['auto', 'bn', 'en']).optional(),
   }),
   // 3. Simple note
   z.object({
@@ -37,6 +42,7 @@ const turnSchema = z.union([
     note: z.string().trim().min(1).max(4000),
     client_draft_id: z.string().max(100).optional(),
     locale: z.enum(['bn', 'en']).default('bn'),
+    reply_language: z.enum(['auto', 'bn', 'en']).optional(),
   }),
 ]);
 
@@ -133,7 +139,21 @@ export async function POST(
 
       const action = 'action' in data ? data.action : 'observation';
 
-      // 1. Insert doctor turn
+      // 0. Language Layer Understanding & Entity Canonicalization
+      const userPref = await tx.query.userLanguagePrefs.findFirst({
+        where: eq(userLanguagePrefs.userId, user.id),
+      });
+
+      const languageResult = await understandText(observationText, {
+        userPrefs: {
+          replyLanguage: (data.reply_language || (userPref?.replyLanguage as 'auto' | 'bn' | 'en' | undefined) || 'auto') as 'auto' | 'bn' | 'en',
+          banglishReply: userPref?.banglishReply ?? false,
+        },
+      });
+
+      const effectiveLocale = languageResult.replyLanguage === 'en' ? 'en' : 'bn';
+
+      // 1. Insert doctor turn (Original text strictly preserved for audit)
       const [doctorTurn] = await tx
         .insert(caseTurns)
         .values({
@@ -144,6 +164,15 @@ export async function POST(
             text: observationText,
             action,
             client_draft_id: data.client_draft_id,
+            language_metadata: {
+              detected_lang: languageResult.detectedLang,
+              dominant_lang: languageResult.dominantLang,
+              canonical_query: languageResult.canonicalEnglishQuery,
+              bangla_query: languageResult.banglaQuery,
+              intent: languageResult.intent,
+              entities: languageResult.entities,
+              ambiguity: languageResult.ambiguity,
+            },
           },
         })
         .returning();
@@ -224,36 +253,50 @@ export async function POST(
         });
       }
 
-      // 4. Evidence retrieval and citations if requested, question asked, or symptoms present
+      // 4. Multi-query hybrid retrieval using language layer canonical queries
       let citations: ReturnType<typeof libraryExcerpts> = [];
-      const isQuestion = /\?|কী|কি|কোন|কখন|কত|কেন|উপায়|চিকিৎসা|ওষুধ|পরীক্ষা|what|which|how|when|why|where|should|can|could|dose|dosage|guideline|protocol|recommend|suggest|differential|curb|antibiotic/i.test(
-        observationText
-      );
+      const isQuestion =
+        languageResult.intent === 'ask_library' ||
+        languageResult.intent === 'medicine_lookup' ||
+        /\?|কী|কি|কোন|কখন|কত|কেন|উপায়|চিকিৎসা|ওষুধ|পরীক্ষা|what|which|how|when|why|where|should|can|could|dose|dosage|guideline|protocol|recommend|suggest|differential|curb|antibiotic/i.test(
+          observationText
+        );
 
       if (action === 'evidence_review' || isQuestion || observationText.length > 5) {
         try {
-          const candidates: Chunk[] = [];
-          const queryTerms = [
-            ...(patientInput.symptoms || []),
-            patientInput.chief_complaint?.split(/[,.\s]+/).find((w) => w.length > 4),
-            observationText?.split(/[,.\s]+/).find((w) => w.length > 4 && !/review|request|please|patient|doctor/i.test(w)),
-          ].filter(Boolean) as string[];
+          const retrievalQueries =
+            languageResult.retrievalQueries && languageResult.retrievalQueries.length > 0
+              ? languageResult.retrievalQueries
+              : [observationText];
 
-          for (const term of queryTerms.slice(0, 3)) {
-            const hits = await searchLibraryText(term, 2);
-            candidates.push(...hits);
-          }
-
-          if (candidates.length === 0) {
-            const fallback = await searchLibraryText('pneumonia', 2);
-            candidates.push(...fallback);
-          }
-
-          const uniqueChunks = Array.from(new Map(candidates.map((c) => [c.id, c])).values());
-          citations = libraryExcerpts(uniqueChunks.slice(0, 3));
+          const hits = await hybridRetrieve(retrievalQueries, 6);
+          citations = libraryExcerpts(hits.slice(0, 3));
         } catch {
           citations = [];
         }
+      }
+
+      // 4b. Inject Ambiguity Clarification if detected by language layer
+      if (
+        languageResult.ambiguity.isAmbiguous &&
+        (languageResult.ambiguity.clarifyingQuestionBn || languageResult.ambiguity.clarifyingQuestionEn)
+      ) {
+        missingInfo.unshift({
+          id: `ambiguity-clarify-${Date.now()}`,
+          type: 'question',
+          text:
+            effectiveLocale === 'bn'
+              ? languageResult.ambiguity.clarifyingQuestionBn!
+              : languageResult.ambiguity.clarifyingQuestionEn || languageResult.ambiguity.clarifyingQuestionBn!,
+          why_it_helps:
+            effectiveLocale === 'bn'
+              ? 'চিকিৎসা বা নির্দেশিকা সুনির্দিষ্ট করতে'
+              : 'To clarify targeted clinical subject',
+          which_diagnoses_it_separates: [],
+          quick_answers: (languageResult.ambiguity.quickChips || []).map((c) =>
+            effectiveLocale === 'bn' ? c.labelBn : c.labelEn
+          ),
+        });
       }
 
       // 5. Red-flag clinical safety triggers
@@ -277,58 +320,82 @@ export async function POST(
         });
       }
 
-      // 6. Build smart, empathetic, human-friendly assistant reply
-      let assistantText = '';
-      if (isQuestion && citations.length > 0) {
+      // 6. Build smart, empathetic, human-friendly assistant reply via humanize layer
+      const [prefsRow] = await tx
+        .select()
+        .from(userAssistantPrefs)
+        .where(eq(userAssistantPrefs.userId, user.id))
+        .limit(1);
+
+      const userPrefs: UserAssistantPreferences = {
+        address_style: (prefsRow?.addressStyle as AddressStyle) || 'doctor',
+        tone_preset: (prefsRow?.tonePreset as TonePreset) || 'friendly',
+        verbosity: (prefsRow?.verbosity as Verbosity) || 'normal',
+        sounds_enabled: prefsRow?.soundsEnabled ?? true,
+        hints_enabled: prefsRow?.hintsEnabled ?? true,
+        avatar_enabled: prefsRow?.avatarEnabled ?? true,
+        speech_rate: prefsRow?.speechRate || 1.0,
+        voice_id: prefsRow?.voiceId || 'default',
+      };
+
+      let baseClinicalAnswer = '';
+      if (languageResult.intent === 'ask_capabilities') {
+        baseClinicalAnswer =
+          effectiveLocale === 'bn'
+            ? 'আমি শুধুমাত্র এই মুহূর্তে খোলা রোগীর কেস এবং আমাদের অভ্যন্তরীণ ভেরিফাইড ক্লিনিক্যাল লাইব্রেরির রেফারেন্স দেখতে পারি। আমি আপনার স্ক্রিন, ক্যামেরা বা ইন্টারনেট দেখতে পারি না।'
+            : 'I can only see the currently open patient case and our internal verified clinical library references. I cannot see your broader screen, camera, or the internet.';
+      } else if (isQuestion && citations.length > 0) {
         const topCitation = citations[0];
         const excerptSnippet = topCitation.quote
           ? `"${topCitation.quote.slice(0, 180)}..."`
           : '';
 
-        assistantText =
-          locale === 'bn'
-            ? `ডাক্তার, আপনার ক্লিনিকাল জিজ্ঞাসার প্রেক্ষিতে আমাদের অভ্যন্তরীণ মেডিকেল লাইব্রেরি থেকে সংশ্লিষ্ট প্রমাণ পর্যালোচনা করা হয়েছে:\n\n• **লাইব্রেরি প্রমাণ**: ${excerptSnippet || 'সংশ্লিষ্ট ক্লিনিকাল গাইডলাইনে উপযুক্ত প্রটোকল উল্লেখিত রয়েছে।'}\n\nরোগীর বর্তমান ডেটা ও প্রমাণের ওপর ভিত্তি করে প্রস্তাবিত পদক্ষেপ নিচে উল্লেখ করা হলো। বিস্তারিত দেখতে নিচের উদ্ধৃতি চিপে ক্লিক করুন।`
-            : `Doctor, regarding your clinical inquiry, relevant evidence from the internal medical guideline library has been retrieved:\n\n• **Guideline Evidence**: ${excerptSnippet || 'Appropriate clinical management protocols are documented in the approved references.'}\n\nPlease review the citations and follow-up guidance below to support your diagnostic decision.`;
+        baseClinicalAnswer =
+          effectiveLocale === 'bn'
+            ? `অভ্যন্তরীণ মেডিকেল লাইব্রেরি থেকে সংশ্লিষ্ট প্রমাণ:\n\n• **লাইব্রেরি প্রমাণ**: ${excerptSnippet || 'সংশ্লিষ্ট ক্লিনিকাল গাইডলাইনে উপযুক্ত প্রটোকল উল্লেখিত রয়েছে।'}\n\nরোগীর বর্তমান ডেটা ও প্রমাণের ওপর ভিত্তি করে সিদ্ধান্ত সহায়তা প্রস্তুত।`
+            : `Verified evidence from internal medical library:\n\n• **Guideline Evidence**: ${excerptSnippet || 'Approved management protocols documented in reference library.'}\n\nPlease review citations below to support your clinical decision.`;
       } else if (action === 'evidence_review') {
-        assistantText =
-          locale === 'bn'
-            ? 'ডাক্তার, অভ্যন্তরীণ মেডিকেল লাইব্রেরি থেকে রোগীর বর্তমান লক্ষণ ও ডেটার সমন্বিত প্রমাণ পর্যালোচনা সম্পন্ন হয়েছে। চূড়ান্ত ডিফারেনশিয়াল রোগ নির্ণয়ের আগে শারীরিক পরীক্ষার কিছু গুরুত্বপূর্ণ তথ্য বা ল্যাব রেজাল্ট নিশ্চিত করা আবশ্যক (Insufficient Evidence)।'
-            : 'Doctor, comprehensive medical library evidence review has been completed for this patient. Additional objective examination findings or targeted tests are required before finalizing the working differential (Insufficient Evidence).';
+        baseClinicalAnswer =
+          effectiveLocale === 'bn'
+            ? 'রোগীর বর্তমান লক্ষণ ও ডেটার অভ্যন্তরীণ লাইব্রেরি প্রমাণ পর্যালোচনা সম্পন্ন হয়েছে। চূড়ান্ত ডিফারেনশিয়াল রোগ নির্ণয়ের আগে শারীরিক পরীক্ষা বা ল্যাব রেজাল্ট নিশ্চিত করা আবশ্যক।'
+            : 'Medical library evidence review completed for this patient. Additional examination findings or lab results are required before finalizing differentials.';
       } else if (proposedUpdates.length > 0) {
         const factNames = proposedUpdates
-          .map((u) => (locale === 'bn' ? u.label_bn : u.label_en))
+          .map((u) => (effectiveLocale === 'bn' ? u.label_bn : u.label_en))
           .join(', ');
 
-        assistantText =
-          locale === 'bn'
-            ? `ডাক্তার, আপনার পর্যবেক্ষণ থেকে **${proposedUpdates.length}টি ক্লিনিকাল তথ্য** (${factNames}) সফলভাবে নিষ্কাশন করা হয়েছে। রোগীর নথিতে এই তথ্যগুলো অন্তর্ভুক্ত করার জন্য অনুগ্রহ করে নিচের প্রস্তাবিত কার্ডগুলো নিশ্চিত করুন।`
-            : `Doctor, successfully identified **${proposedUpdates.length} clinical fact(s)** (${factNames}) from your observation. Please review and confirm the proposed structured updates below to apply them directly to the patient record.`;
+        baseClinicalAnswer =
+          effectiveLocale === 'bn'
+            ? `পর্যবেক্ষণ থেকে **${proposedUpdates.length}টি ক্লিনিকাল তথ্য** (${factNames}) পেয়েছি। রোগীর ফাইলে যোগ করতে নিচে নিশ্চিত করুন।`
+            : `Identified **${proposedUpdates.length} clinical fact(s)** (${factNames}) from your observation. Review and confirm below to update the patient record.`;
       } else {
-        assistantText =
-          locale === 'bn'
-            ? 'ডাক্তার, আপনার ক্লিনিকাল পর্যবেক্ষণ কেস হিস্ট্রিতে লিপিবদ্ধ করা হয়েছে। রোগীর নির্ভরযোগ্য মূল্যায়ন নিশ্চিত করতে পরবর্তী প্রাসঙ্গিক প্রশ্নসমূহ নিচে দেওয়া হলো।'
-            : 'Doctor, your clinical findings have been recorded in the case consultation history. Suggested next diagnostic steps and clarifications are outlined below.';
+        baseClinicalAnswer =
+          effectiveLocale === 'bn'
+            ? 'ক্লিনিকাল পর্যবেক্ষণ কেস হিস্ট্রিতে লিপিবদ্ধ করা হয়েছে।'
+            : 'Clinical observation has been recorded in the case consultation history.';
       }
 
-      // ChatGPT-style natural conversational questions integration
-      if (missingInfo.length > 0) {
-        const questionsList = missingInfo
-          .map((q, idx) => {
-            const separatorHint = q.which_diagnoses_it_separates?.length
-              ? ` [${q.which_diagnoses_it_separates.join(' vs ')}]`
-              : '';
-            const whyText = q.why_it_helps ? ` — *${q.why_it_helps}*` : '';
-            return `${idx + 1}. **${q.text}**${whyText}${separatorHint}`;
-          })
-          .join('\n\n');
+      const humanized = humanize(
+        {
+          found: citations.length > 0 || proposedUpdates.length > 0,
+          status: 'insufficient_evidence',
+          answer: baseClinicalAnswer,
+          citations,
+          missing_information: missingInfo,
+        },
+        undefined,
+        userPrefs,
+        {
+          sessionId: `case-${id}`,
+          userName: user.name,
+          turnCount: 1,
+        },
+        effectiveLocale,
+        observationText,
+        safetyAlerts
+      );
 
-        const questionsPrompt =
-          locale === 'bn'
-            ? `\n\n💬 **রোগ নির্ণয় সুনির্দিষ্ট করতে কয়েকটি প্রশ্ন (Follow-up Questions):**\n${questionsList}\n\n*সরাসরি নিচে মেসেজ লিখে জানাতে পারেন অথবা সাজেস্টেড অপশনে ক্লিক করুন।*`
-            : `\n\n💬 **To help narrow down the diagnosis (Follow-up Questions):**\n${questionsList}\n\n*Feel free to reply naturally in the chat or tap a suggested reply below.*`;
-
-        assistantText += questionsPrompt;
-      }
+      const assistantText = humanized.displayText;
 
       // 7. Insert assistant reply turn
       const [assistantTurn] = await tx
@@ -339,11 +406,25 @@ export async function POST(
           content: {
             type: 'assistant_response',
             text: assistantText,
+            speech_text: humanized.speechText,
+            reactions: humanized.reactions,
+            next_steps: humanized.nextSteps,
             proposed_updates: proposedUpdates,
             follow_ups: missingInfo,
             citations,
             safety_alerts: safetyAlerts,
             status: 'insufficient_evidence',
+            language_metadata: {
+              reply_language: effectiveLocale,
+              understanding: {
+                detected_lang: languageResult.detectedLang,
+                dominant_lang: languageResult.dominantLang,
+                canonical_query: languageResult.canonicalEnglishQuery,
+                bangla_query: languageResult.banglaQuery,
+                entities: languageResult.entities,
+                ambiguity: languageResult.ambiguity,
+              },
+            },
           },
         })
         .returning();
@@ -358,7 +439,15 @@ export async function POST(
         userId: user.id,
         event: 'case_turn_recorded',
         payload: {
+          doctor_turn_id: doctorTurn.id,
+          assistant_turn_id: assistantTurn?.id,
           action,
+          original_text: observationText,
+          detected_lang: languageResult.detectedLang,
+          canonical_query: languageResult.canonicalEnglishQuery,
+          entities: languageResult.entities,
+          ambiguity: languageResult.ambiguity,
+          reply_language: effectiveLocale,
           proposed_facts_count: proposedUpdates.length,
           citations_count: citations.length,
         },

@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { TextSizeControl } from '@/components/shared/TextSizeControl';
+import { AssistantSettingsCard } from '@/components/settings/AssistantSettingsCard';
 import { Link } from '@/i18n/routing';
 import { getCurrentUser } from '@/lib/auth';
 import { ShieldCheck, UserCheck, Database, Globe } from 'lucide-react';
@@ -124,6 +125,9 @@ export default async function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Assistant Personalization & Persona Controls */}
+          <AssistantSettingsCard userName={user?.name} />
 
           {/* Engine Status (Clinicians/Admins) or Privacy Safeguards (Patients) */}
           {isPatient ? (

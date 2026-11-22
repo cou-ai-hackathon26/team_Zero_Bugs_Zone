@@ -18,7 +18,9 @@
     "seed": "node --env-file-if-exists=.env --import tsx scripts/seed.ts",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "eval": "node --env-file-if-exists=.env --import tsx scripts/run-clinical-eval.ts"
+    "eval": "node --env-file-if-exists=.env --import tsx scripts/run-clinical-eval.ts",
+    "eval:voice": "node --env-file-if-exists=.env --import tsx scripts/eval-voice.ts",
+    "eval:language": "node --env-file-if-exists=.env --import tsx scripts/eval-language.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

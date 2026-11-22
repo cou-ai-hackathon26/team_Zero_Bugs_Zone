@@ -5,6 +5,7 @@ import { ThemeProvider } from 'next-themes';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { EvidenceSheetProvider } from '@/context/EvidenceSheetContext';
 import { TextSizeProvider } from '@/context/TextSizeContext';
+import { VoiceProvider } from '@/context/VoiceContext';
 
 export const metadata: Metadata = {
   title: 'DocMate AI - Clinical Decision Support Assistant',
@@ -26,7 +27,9 @@ export default async function LocaleLayout({
       <NextIntlClientProvider messages={messages} locale={locale}>
         <TextSizeProvider>
           <TooltipProvider delay={200}>
-            <EvidenceSheetProvider>{children}</EvidenceSheetProvider>
+            <EvidenceSheetProvider>
+              <VoiceProvider>{children}</VoiceProvider>
+            </EvidenceSheetProvider>
           </TooltipProvider>
         </TextSizeProvider>
       </NextIntlClientProvider>

@@ -184,12 +184,24 @@ export async function hybridRetrieve(queries: string[], maxChunks = 12): Promise
   }
 
   const sorted = Array.from(merged.values())
-    .sort((a, b) => b.rrfScore - a.rrfScore)
-    .slice(0, maxChunks);
+    .sort((a, b) => b.rrfScore - a.rrfScore);
+
+  // Collapse duplicate chunks across versions/queries by contentHash
+  const deduped: ScoredChunk[] = [];
+  const seenHashes = new Set<string>();
+
+  for (const chunk of sorted) {
+    if (chunk.contentHash) {
+      if (seenHashes.has(chunk.contentHash)) continue;
+      seenHashes.add(chunk.contentHash);
+    }
+    deduped.push(chunk);
+    if (deduped.length >= maxChunks) break;
+  }
 
   if (retrievalCache.size >= 256) retrievalCache.delete(retrievalCache.keys().next().value!);
-  retrievalCache.set(cacheKey, { timestamp: Date.now(), chunks: sorted });
-  return sorted;
+  retrievalCache.set(cacheKey, { timestamp: Date.now(), chunks: deduped });
+  return deduped;
 }
 
 /**
