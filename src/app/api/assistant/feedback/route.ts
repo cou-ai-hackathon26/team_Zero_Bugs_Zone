@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { assistantFeedback } from '@/db/schema';
+import { assistantFeedback, caseTurns, cases } from '@/db/schema';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth';
 import { z } from 'zod';
 import { boundedJson } from '@/lib/api-input';
@@ -32,6 +33,20 @@ export async function POST(request: Request) {
       preset,
       locale,
     });
+
+    // Remember the rating on the case turn itself so it survives a reload.
+    // Only turns from cases owned by the current doctor are updated.
+    if (user && z.uuid().safeParse(message_id).success) {
+      await db
+        .update(caseTurns)
+        .set({ content: sql`${caseTurns.content} || ${JSON.stringify({ feedback: rating })}::jsonb` })
+        .where(
+          and(
+            eq(caseTurns.id, message_id),
+            inArray(caseTurns.caseId, db.select({ id: cases.id }).from(cases).where(eq(cases.doctorId, user.id))),
+          ),
+        );
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {

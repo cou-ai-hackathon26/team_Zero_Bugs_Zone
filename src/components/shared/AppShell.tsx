@@ -60,8 +60,6 @@ import {
   Sparkles,
   CreditCard,
   History,
-  Mic,
-  Sparkles,
 } from 'lucide-react';
 import { User } from '@/types';
 import { cn } from '@/lib/utils';

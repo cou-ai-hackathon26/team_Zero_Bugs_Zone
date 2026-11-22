@@ -110,6 +110,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         patient: StructuredPatientInput;
         history: StoredTurn[];
         replacedAssistantId?: string;
+        replacedIds?: string[];
       };
 
   let prepared: Prepared;
@@ -130,14 +131,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
       const patient = caseRecord.structuredInput as StructuredPatientInput;
 
-      // Regenerate: re-run the doctor turn that precedes the given assistant turn.
+      // Regenerate: re-run a doctor turn. The target is either an assistant turn
+      // (re-run the doctor turn before it) or a doctor turn whose reply failed.
       if (body.regenerate_of) {
-        const index = turns.findIndex((turn) => turn.id === body.regenerate_of && turn.role === 'system');
-        const doctor = index > 0 ? [...turns.slice(0, index)].reverse().find((turn) => turn.role === 'doctor') : undefined;
-        if (index === -1 || !doctor) return { error: 'bad_target' };
-        await tx.update(caseTurns).set({ content: supersede }).where(eq(caseTurns.id, body.regenerate_of));
-        const source = doctorTextOf(doctor);
+        const index = turns.findIndex((turn) => turn.id === body.regenerate_of);
+        if (index === -1) return { error: 'bad_target' };
+        const target = turns[index];
+        const doctor =
+          target.role === 'doctor' ? target : [...turns.slice(0, index)].reverse().find((turn) => turn.role === 'doctor');
+        if (!doctor || contentOf(doctor).superseded === true) return { error: 'bad_target' };
         const doctorIndex = turns.indexOf(doctor);
+        const nextDoctor = turns.findIndex((turn, i) => i > doctorIndex && turn.role === 'doctor');
+        const replies = turns
+          .slice(doctorIndex + 1, nextDoctor === -1 ? undefined : nextDoctor)
+          .filter((turn) => turn.role !== 'doctor' && contentOf(turn).superseded !== true);
+        for (const reply of replies) {
+          await tx.update(caseTurns).set({ content: supersede }).where(and(eq(caseTurns.id, reply.id), eq(caseTurns.caseId, id)));
+        }
+        const source = doctorTextOf(doctor);
         return {
           doctorTurn: null,
           doctorTurnId: doctor.id,
@@ -146,7 +157,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           question: source.questionId ? { id: source.questionId, text: source.question ?? '' } : undefined,
           patient,
           history: turns.slice(0, doctorIndex),
-          replacedAssistantId: body.regenerate_of,
+          replacedAssistantId: replies[replies.length - 1]?.id,
+          replacedIds: replies.map((reply) => reply.id),
         };
       }
 
@@ -237,7 +249,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         }
       };
 
-      send({ type: 'doctor_turn', turn: ready.doctorTurn, doctor_turn_id: ready.doctorTurnId, replaced: ready.replacedAssistantId });
+      send({ type: 'doctor_turn', turn: ready.doctorTurn, doctor_turn_id: ready.doctorTurnId, replaced: ready.replacedIds });
 
       let reply: AssistantReply;
       try {
