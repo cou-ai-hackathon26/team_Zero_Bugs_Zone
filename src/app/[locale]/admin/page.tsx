@@ -27,6 +27,7 @@ import {
   ShieldAlert,
   UserCheck,
   CheckCircle2,
+  Mic,
 } from 'lucide-react';
 
 export default async function AdminDashboardPage() {
@@ -221,7 +222,33 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* Control Plane Quick Links Section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Voice & Neural Assistant */}
+        <Card className="border-border bg-card shadow-2xs flex flex-col justify-between">
+          <CardHeader>
+            <div className="w-8 h-8 rounded-lg bg-muted text-foreground flex items-center justify-center mb-2">
+              <Mic className="w-4 h-4 text-primary" />
+            </div>
+            <CardTitle className="text-sm font-semibold">
+              {locale === 'bn' ? 'ভয়েস ও নিউরাল সহকারী' : 'Voice & Neural TTS'}
+            </CardTitle>
+            <CardDescription className="text-xs leading-normal">
+              {locale === 'bn'
+                ? 'স্থায়ী ফ্রি এজ নিউরাল ভয়েস, ০-সেকেন্ডের মানবিক রিঅ্যাকশন ও ক্যারেক্টার পরিচালনা করুন।'
+                : 'Configure permanent free Edge Neural TTS, 0ms human vocal reactions, and avatar.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <Link
+              href={`/${locale}/admin/voice`}
+              className={buttonVariants({ variant: 'outline', size: 'sm', className: 'w-full text-xs font-medium' })}
+            >
+              <span>{locale === 'bn' ? 'ভয়েস পরিচালনা' : 'Manage Voice'}</span>
+              <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+            </Link>
+          </CardContent>
+        </Card>
+
         {/* Users */}
         <Card className="border-border bg-card shadow-2xs flex flex-col justify-between">
           <CardHeader>

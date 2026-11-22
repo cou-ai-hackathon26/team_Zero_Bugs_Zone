@@ -221,6 +221,30 @@ export default function AdminAiPage() {
         </Button>
       </div>
 
+      {/* Voice Assistant & Edge Neural TTS Quick Navigation Banner */}
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <div className="text-sm font-semibold flex items-center gap-2 text-foreground">
+              <Mic className="w-4 h-4 text-primary" />
+              <span>{locale === 'bn' ? 'ভয়েস সহকারী, স্থায়ী ফ্রি নিউরাল কণ্ঠ ও রিঅ্যাকশন সেটিংস' : 'Voice Assistant, Edge Neural TTS & Vocal Reactions'}</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {locale === 'bn'
+                ? 'মাইক্রোসফট এজ নিউরাল ভয়েস (বাংলা/ইংরেজি), ০-মিলি-সেকেন্ডের হিউম্যান ফিলার রিঅ্যাকশন ও ক্যারেক্টার পরিচালনা করতে ভয়েস কন্ট্রোল প্যানেল খুলুন।'
+                : 'Configure permanent free Edge Neural TTS (Bangla & English), 0ms instant human vocal reactions, and avatar governance.'}
+            </p>
+          </div>
+          <Link
+            href="/admin/voice"
+            className="inline-flex items-center justify-center rounded-md text-xs font-semibold ring-offset-background transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-8 px-3 shrink-0 gap-1.5 shadow-xs"
+          >
+            <Mic className="w-3.5 h-3.5" />
+            <span>{locale === 'bn' ? 'ভয়েস সেটিংস খুলুন' : 'Open Voice Settings'}</span>
+          </Link>
+        </CardContent>
+      </Card>
+
       {/* Emergency Feature Kill Switches Section */}
       <Card className="border-destructive/30 bg-card shadow-2xs">
         <CardHeader className="pb-3">
