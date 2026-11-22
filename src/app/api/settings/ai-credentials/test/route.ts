@@ -16,9 +16,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Only doctors and super_admins can test AI connections
-  if (user.role !== 'doctor' && user.role !== 'super_admin') {
-    return NextResponse.json({ error: 'Forbidden: Insufficient privileges to test AI credentials' }, { status: 403 });
+  // Only super_admins can test AI connections
+  if (user.role !== 'super_admin') {
+    return NextResponse.json({ error: 'Forbidden: Admin privileges required to test AI credentials' }, { status: 403 });
   }
 
   try {

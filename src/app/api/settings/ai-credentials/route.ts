@@ -18,9 +18,9 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Only doctors and super_admins can view AI credentials
-  if (user.role !== 'doctor' && user.role !== 'super_admin') {
-    return NextResponse.json({ error: 'Forbidden: Insufficient privileges to view AI credentials' }, { status: 403 });
+  // Only super_admins can view AI credentials
+  if (user.role !== 'super_admin') {
+    return NextResponse.json({ error: 'Forbidden: Admin privileges required to view AI credentials' }, { status: 403 });
   }
 
   try {
@@ -38,9 +38,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Only doctors, super_admins, and authorized clinicians can alter AI credentials
-  if (user.role !== 'doctor' && user.role !== 'super_admin') {
-    return NextResponse.json({ error: 'Forbidden: Insufficient privileges to update AI credentials' }, { status: 403 });
+  // Only super_admins can alter AI credentials
+  if (user.role !== 'super_admin') {
+    return NextResponse.json({ error: 'Forbidden: Admin privileges required to update AI credentials' }, { status: 403 });
   }
 
   try {

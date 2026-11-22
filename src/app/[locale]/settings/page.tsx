@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { TextSizeControl } from '@/components/shared/TextSizeControl';
-import { AiCredentialsCard } from '@/components/settings/AiCredentialsCard';
+import { Link } from '@/i18n/routing';
 import { getCurrentUser } from '@/lib/auth';
 import { ShieldCheck, UserCheck, Database, Globe } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +16,7 @@ export default async function SettingsPage() {
   const t = await getTranslations('settings');
 
   const isPatient = user?.role === 'patient';
-  const canConfigureAi = user?.role === 'doctor' || user?.role === 'super_admin';
+  const isSuperAdmin = user?.role === 'super_admin';
 
   return (
     <AppShell>
@@ -26,8 +26,28 @@ export default async function SettingsPage() {
           subtitle={isPatient ? t('patientSubtitle') : t('subtitle')}
         />
 
-        {/* 1. AI Credentials & Model Configuration (Doctors & Super Admins only) */}
-        {canConfigureAi && <AiCredentialsCard />}
+        {/* Super Admin Notice: AI Credentials & Configuration lives exclusively in the Admin Control Plane */}
+        {isSuperAdmin && (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <div className="text-sm font-semibold flex items-center gap-2 text-foreground">
+                  <ShieldCheck className="w-4 h-4 text-primary" />
+                  <span>{t('aiCredentialsAdminNoticeTitle')}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t('aiCredentialsAdminNoticeDesc')}
+                </p>
+              </div>
+              <Link
+                href="/admin/ai"
+                className="inline-flex items-center justify-center rounded-md text-xs font-semibold ring-offset-background transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-8 px-3 shrink-0"
+              >
+                {t('openAdminAiPanel')}
+              </Link>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Preferences */}

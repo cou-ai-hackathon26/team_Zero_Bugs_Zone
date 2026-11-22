@@ -542,8 +542,11 @@
   },
   "settings": {
     "title": "Settings & System Status",
-    "subtitle": "Configure language, visual theme, and AI model credentials.",
+    "subtitle": "Configure interface language, visual theme, and workspace preferences.",
     "patientSubtitle": "Configure interface language, font scaling, and visual theme preferences.",
+    "aiCredentialsAdminNoticeTitle": "AI Credentials & Model Governance",
+    "aiCredentialsAdminNoticeDesc": "AI provider credentials, API keys, and model calibrations are managed securely in the Admin Panel.",
+    "openAdminAiPanel": "Open Admin AI Panel",
     "localizationTitle": "Localization & Appearance",
     "localizationDesc": "Switch language between Bengali and English, and toggle themes.",
     "language": "Interface Language",
