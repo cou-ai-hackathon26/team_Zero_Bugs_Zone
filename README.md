@@ -73,12 +73,12 @@ In Settings, use **Sample Voice** to compare the Friendly and Reserved presets a
 The Maya option includes short, pre-rendered Bangla and English greetings with the Friendly female voice. Select **Maya neural voice (local)** in **Engine & Routing** to hear them. Settings previews use clips generated from DocMate’s public greeting text using Maya’s Jahnavi preset. They play without downloading a model. To synthesize the other replies and voice presets locally, use [Maya 2 Native](https://huggingface.co/maya-research/maya2-native). On Apple Silicon install the [MLX port](https://github.com/AkashKhamkar/maya2-mlx) in a separate Python environment. The first startup downloads about 5 GB of model weights plus the codec. No API key is required.
 
 ```sh
-python3.12 -m venv data/storage/voice-runtime/venv
-data/storage/voice-runtime/venv/bin/pip install 'maya2-mlx @ git+https://github.com/AkashKhamkar/maya2-mlx.git@b722de398cec5c51e78190017971d18fa0c90726'
-HF_HOME="$PWD/data/storage/voice-runtime/hf" data/storage/voice-runtime/venv/bin/maya2 serve --host 127.0.0.1 --port 8319
+python3.12 -m venv .maya-local/venv
+.maya-local/venv/bin/pip install 'maya2-mlx @ git+https://github.com/AkashKhamkar/maya2-mlx.git@b722de398cec5c51e78190017971d18fa0c90726'
+HF_HOME="$PWD/.maya-local/hf" .maya-local/venv/bin/maya2 --quantize 4 serve --host 127.0.0.1 --port 8319
 ```
 
-Set `DOCMATE_MAYA_PORT=8319` in `.env.local` and restart DocMate. In **Engine & Routing** on `/en/admin/voice`, select **Maya neural voice (local)**, click **Test Audio**, then save. DocMate sends scripted assistant speech to the loopback engine. The live greeting and replies use the same Maya speaker. If Maya is unavailable before a message starts playing, DocMate uses the installed voice for each language for the rest of the conversation. Reload the page to let Maya try again. The reply stays visible if playback is unavailable. Speech is labelled AI-generated.
+Set `DOCMATE_MAYA_PORT=8319` in `.env.local` and restart DocMate. In **Engine & Routing** on `/en/admin/voice`, select **Maya neural voice (local)**, click **Test Audio** to check live synthesis, then save. The personal **Sample Voice** preview can play from the bundled clips. DocMate sends scripted assistant speech to the loopback engine. The live greeting and replies use the same Maya speaker. If Maya is unavailable before a message starts playing, DocMate uses the installed voice for each language for the rest of the conversation. Reload the page to let Maya try again. The reply stays visible if playback is unavailable. Speech is labelled AI-generated.
 
 
 ## 5. System architecture

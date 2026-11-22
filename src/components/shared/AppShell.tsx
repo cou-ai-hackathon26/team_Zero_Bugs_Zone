@@ -94,6 +94,11 @@ export function AppShell({ children, fullHeight = false }: AppShellProps) {
 
   const role = currentUser?.role;
   const isAdminRoute = pathname.startsWith('/admin');
+  const isCaseWorkspace = Boolean(
+    pathname &&
+    (/^\/cases\/[^/]+$/i.test(pathname) || /^\/[a-z]{2,5}\/cases\/[^/]+$/i.test(pathname)) &&
+    !pathname.endsWith('/cases/new')
+  );
 
   // Dedicated admin navigation when in the admin control plane
   const adminNavItems = [
@@ -594,7 +599,7 @@ export function AppShell({ children, fullHeight = false }: AppShellProps) {
         </div>
         <GlobalSearchCommand role={currentUser?.role} />
         <EvidenceSheet />
-        {currentUser?.role !== 'medicine_controller' && currentUser?.role !== 'patient' && (
+        {isCaseWorkspace && currentUser?.role !== 'medicine_controller' && currentUser?.role !== 'patient' && (
           <>
             <VoiceFloatingButton />
             <VoicePanel />

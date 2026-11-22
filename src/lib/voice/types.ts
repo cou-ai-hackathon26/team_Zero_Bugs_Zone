@@ -86,6 +86,7 @@ export interface TtsSpeakOptions {
   style?: SpeechStyle;
   voiceGender?: 'male' | 'female';
   conversationTone?: 'warm' | 'neutral';
+  requireLiveProvider?: boolean;
   onDeviceFallback?: () => void;
   onBoundary?: (charIndex: number, word: string) => void;
   onStart?: () => void;

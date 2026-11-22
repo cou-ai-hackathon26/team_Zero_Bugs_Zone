@@ -641,6 +641,7 @@
     "saveSettings": "সেটিংস সংরক্ষণ করুন"
   },
   "voice": {
+    "mayaLiveVoiceUnavailable": "মায়ার লাইভ অডিও এখন চালু নেই। লোকাল মায়া ইঞ্জিন চলছে এবং মডেল লোড হয়েছে কি না দেখুন।",
     "conversationLanguage": "কথোপকথনের ভাষা",
     "conversationAuto": "স্বয়ংক্রিয়",
     "conversationBangla": "বাংলা",

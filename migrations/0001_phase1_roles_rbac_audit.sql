@@ -33,6 +33,22 @@ CREATE TABLE IF NOT EXISTS role_features (
   CONSTRAINT uq_role_feature UNIQUE (role, feature_key)
 );
 
+-- Ensure unique constraint exists even if table pre-existed without it
+DELETE FROM role_features a USING role_features b
+WHERE a.id < b.id AND a.role = b.role AND a.feature_key = b.feature_key;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'uq_role_feature'
+  ) THEN
+    ALTER TABLE role_features ADD CONSTRAINT uq_role_feature UNIQUE (role, feature_key);
+  END IF;
+EXCEPTION
+  WHEN OTHERS THEN
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_role_features_role_key ON role_features (role, feature_key);
+END $$;
+
 -- 5. User Feature Overrides Table
 CREATE TABLE IF NOT EXISTS user_feature_overrides (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -46,6 +62,22 @@ CREATE TABLE IF NOT EXISTS user_feature_overrides (
   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
   CONSTRAINT uq_user_feature_override UNIQUE (user_id, feature_key)
 );
+
+-- Ensure unique constraint exists even if table pre-existed without it
+DELETE FROM user_feature_overrides a USING user_feature_overrides b
+WHERE a.id < b.id AND a.user_id = b.user_id AND a.feature_key = b.feature_key;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'uq_user_feature_override'
+  ) THEN
+    ALTER TABLE user_feature_overrides ADD CONSTRAINT uq_user_feature_override UNIQUE (user_id, feature_key);
+  END IF;
+EXCEPTION
+  WHEN OTHERS THEN
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_user_feature_overrides_user_key ON user_feature_overrides (user_id, feature_key);
+END $$;
 
 -- 6. Verification Tables
 CREATE TABLE IF NOT EXISTS doctor_verifications (

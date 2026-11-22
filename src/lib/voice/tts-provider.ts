@@ -165,6 +165,8 @@ class ServerSpeechTTS implements TtsProvider {
       this.stop();
       if (started) {
         options.onError?.('playback_failed');
+      } else if (options.requireLiveProvider) {
+        options.onError?.('live_voice_unavailable');
       } else {
         options.onDeviceFallback?.();
         await this.local.speak(options);

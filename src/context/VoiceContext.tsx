@@ -12,11 +12,12 @@ import { extractClinicalFacts } from '@/lib/clinical-extractor';
 import { useEvidenceSheet } from '@/context/EvidenceSheetContext';
 import { earconManager } from '@/lib/voice/earcons';
 import { useLocale, useTranslations } from 'next-intl';
-import { useRouter } from '@/i18n/routing';
+import { useRouter, usePathname } from '@/i18n/routing';
 
 type SpeechOverrides = Partial<Pick<TtsSpeakOptions, 'rate' | 'voiceGender' | 'style' | 'locale'>> & {
   provider?: VoiceConfig['tts_provider'];
   preview?: boolean;
+  requireLiveProvider?: boolean;
   scripted?: boolean;
 };
 
@@ -89,7 +90,14 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   const locale = useLocale() as 'bn' | 'en';
   const t = useTranslations('voice');
   const router = useRouter();
+  const pathname = usePathname();
   const { openEvidence } = useEvidenceSheet();
+
+  const isCaseWorkspace = Boolean(
+    pathname &&
+    (/^\/cases\/[^/]+$/i.test(pathname) || /^\/[a-z]{2,5}\/cases\/[^/]+$/i.test(pathname)) &&
+    !pathname.endsWith('/cases/new')
+  );
 
   const [isOpen, setIsOpen] = useState(false);
   const [state, setState] = useState<VoiceState>('idle');
@@ -262,7 +270,8 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           locale: playback.locale,
           rate: overrides?.rate ?? config.default_speed,
           voiceGender: overrides?.voiceGender ?? config.default_voice_gender,
-          conversationTone: conversation ? preferredTone : undefined,
+          conversationTone: conversation ? preferredTone : overrides?.requireLiveProvider ? (overrides.style === 'neutral' ? 'neutral' : 'warm') : undefined,
+          requireLiveProvider: overrides?.requireLiveProvider,
           onDeviceFallback: () => {
             if (conversation && providerType === 'maya') mayaFallbackRef.current = true;
           },
@@ -273,7 +282,8 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           },
           onEnd: () => finish(),
           onError: (code) => {
-            const key = code === 'local_voice_unavailable' ? 'localVoiceUnavailable' : 'speechPlaybackFailed';
+            const key = code === 'live_voice_unavailable' ? 'mayaLiveVoiceUnavailable'
+              : code === 'local_voice_unavailable' ? 'localVoiceUnavailable' : 'speechPlaybackFailed';
             finish(t(key));
           },
         });
@@ -327,9 +337,20 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     return () => { active = false; };
   }, [isOpen, voiceSettingsLoaded, introduceAssistantIfNeeded]);
 
+  // Auto-dismiss voice assistant when navigating away from a specific case workspace
+  useEffect(() => {
+    if (!isCaseWorkspace && isOpen) {
+      stopSpeech();
+      sttRef.current?.abortListening();
+      clearTimeout(pendingSubmitRef.current);
+      setIsOpen(false);
+    }
+  }, [isCaseWorkspace, isOpen, stopSpeech]);
+
   const openVoicePanel = useCallback(() => {
+    if (!isCaseWorkspace) return;
     setIsOpen(true);
-  }, []);
+  }, [isCaseWorkspace]);
 
   const closeVoicePanel = useCallback(() => {
     stopSpeech();
@@ -344,6 +365,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   }, [isOpen, openVoicePanel, closeVoicePanel]);
 
   const startPushToTalk = useCallback(async () => {
+    if (!isCaseWorkspace) return;
     if (interruptionPromptTimerRef.current) {
       clearTimeout(interruptionPromptTimerRef.current);
       interruptionPromptTimerRef.current = null;

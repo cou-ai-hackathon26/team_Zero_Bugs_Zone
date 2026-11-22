@@ -47,6 +47,18 @@ CREATE TABLE IF NOT EXISTS profile_health_summary (
 );
 CREATE INDEX IF NOT EXISTS idx_profile_health_summary_profile ON profile_health_summary (profile_id);
 
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'profile_health_summary_profile_version_key'
+  ) THEN
+    ALTER TABLE profile_health_summary ADD CONSTRAINT profile_health_summary_profile_version_key UNIQUE (profile_id, version);
+  END IF;
+EXCEPTION
+  WHEN OTHERS THEN
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_profile_health_summary_profile_version ON profile_health_summary (profile_id, version);
+END $$;
+
 -- 4. Access Grants Table
 CREATE TABLE IF NOT EXISTS access_grants (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

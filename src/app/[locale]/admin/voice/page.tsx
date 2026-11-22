@@ -238,6 +238,7 @@ export default function AdminVoiceSettingsPage() {
       if (error) toast.error(error);
     }, {
       preview: true,
+      requireLiveProvider: config.tts_provider === 'maya',
       provider: config.tts_provider,
       rate: config.default_speed,
       voiceGender: config.default_voice_gender,

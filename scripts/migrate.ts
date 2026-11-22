@@ -27,13 +27,48 @@ export async function runMigrations() {
       );
     `);
 
-    // 2. Query already applied migrations
+    // 2. Pre-flight repair: ensure existing tables have required unique constraints before migration scripts run
+    await client.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='role_features') THEN
+          DELETE FROM role_features a USING role_features b
+          WHERE a.id < b.id AND a.role = b.role AND a.feature_key = b.feature_key;
+
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_role_feature') THEN
+            BEGIN
+              ALTER TABLE role_features ADD CONSTRAINT uq_role_feature UNIQUE (role, feature_key);
+            EXCEPTION WHEN OTHERS THEN
+              CREATE UNIQUE INDEX IF NOT EXISTS idx_role_features_role_key ON role_features (role, feature_key);
+            END;
+          END IF;
+        END IF;
+
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='user_feature_overrides') THEN
+          DELETE FROM user_feature_overrides a USING user_feature_overrides b
+          WHERE a.id < b.id AND a.user_id = b.user_id AND a.feature_key = b.feature_key;
+
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_user_feature_override') THEN
+            BEGIN
+              ALTER TABLE user_feature_overrides ADD CONSTRAINT uq_user_feature_override UNIQUE (user_id, feature_key);
+            EXCEPTION WHEN OTHERS THEN
+              CREATE UNIQUE INDEX IF NOT EXISTS idx_user_feature_overrides_user_key ON user_feature_overrides (user_id, feature_key);
+            END;
+          END IF;
+        END IF;
+      EXCEPTION
+        WHEN OTHERS THEN
+          NULL;
+      END $$;
+    `);
+
+    // 3. Query already applied migrations
     const { rows: appliedRows } = await client.query<{ id: string }>(
       'SELECT id FROM schema_migrations'
     );
     const appliedSet = new Set(appliedRows.map((r) => r.id));
 
-    // 3. Read all .sql files in migrations/ directory
+    // 4. Read all .sql files in migrations/ directory
     const migrationsDir = path.join(process.cwd(), 'migrations');
     if (!fs.existsSync(migrationsDir)) {
       console.warn(`⚠️ Migrations directory not found at: ${migrationsDir}`);

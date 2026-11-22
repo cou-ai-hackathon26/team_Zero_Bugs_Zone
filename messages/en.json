@@ -641,6 +641,7 @@
     "saveSettings": "Save Settings"
   },
   "voice": {
+    "mayaLiveVoiceUnavailable": "Live Maya audio is unavailable. Check that the local Maya engine is running and its model has loaded.",
     "conversationLanguage": "Conversation language",
     "conversationAuto": "Auto",
     "conversationBangla": "বাংলা",

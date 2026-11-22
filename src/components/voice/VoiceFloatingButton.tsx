@@ -4,13 +4,21 @@ import React from 'react';
 import { useVoice } from '@/context/VoiceContext';
 import { DocMateAvatar } from './DocMateAvatar';
 import { useLocale } from 'next-intl';
+import { usePathname } from '@/i18n/routing';
 import { Mic, Volume2 } from 'lucide-react';
 
 export function VoiceFloatingButton() {
   const { isOpen, toggleVoicePanel, state, amplitude, avatarVisible } = useVoice();
   const locale = useLocale();
+  const pathname = usePathname();
 
-  if (isOpen) return null; // Hidden while panel is open
+  const isCaseWorkspace = Boolean(
+    pathname &&
+    (/^\/cases\/[^/]+$/i.test(pathname) || /^\/[a-z]{2,5}\/cases\/[^/]+$/i.test(pathname)) &&
+    !pathname.endsWith('/cases/new')
+  );
+
+  if (!isCaseWorkspace || isOpen) return null; // Only available inside specific case workspace; hidden while panel is open
 
   return (
     <div

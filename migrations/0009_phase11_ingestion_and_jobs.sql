@@ -43,6 +43,22 @@ CREATE TABLE IF NOT EXISTS source_versions (
   CONSTRAINT source_versions_source_version_unique UNIQUE (source_id, version_no)
 );
 
+-- Ensure unique constraint exists even if table pre-existed without it
+DELETE FROM source_versions a USING source_versions b
+WHERE a.id < b.id AND a.source_id = b.source_id AND a.version_no = b.version_no;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'source_versions_source_version_unique'
+  ) THEN
+    ALTER TABLE source_versions ADD CONSTRAINT source_versions_source_version_unique UNIQUE (source_id, version_no);
+  END IF;
+EXCEPTION
+  WHEN OTHERS THEN
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_source_versions_source_version ON source_versions (source_id, version_no);
+END $$;
+
 DO $$
 BEGIN
   IF NOT EXISTS (

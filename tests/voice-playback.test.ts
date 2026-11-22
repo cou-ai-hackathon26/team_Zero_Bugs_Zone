@@ -106,6 +106,26 @@ describe('voice playback', () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
+  it('reports a failed live Maya test without playing fallback audio', async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 502 }));
+    vi.stubGlobal('fetch', request);
+    const onError = vi.fn();
+
+    await createTtsProvider('maya').speak({
+      text: 'Hi! I’m here. What would you like to look up?',
+      locale: 'en',
+      conversationTone: 'warm',
+      requireLiveProvider: true,
+      onError,
+    });
+
+    expect(JSON.parse(request.mock.calls[0][1]?.body as string)).toMatchObject({
+      provider: 'maya', conversationTone: 'warm',
+    });
+    expect(onError).toHaveBeenCalledWith('live_voice_unavailable');
+    expect(synth.speak).not.toHaveBeenCalled();
+  });
+
   it.each([401, 403, 429])('honors HTTP %s without speaking through the device', async (status) => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status })));
     const onError = vi.fn();

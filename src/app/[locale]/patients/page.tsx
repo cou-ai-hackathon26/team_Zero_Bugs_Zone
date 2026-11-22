@@ -91,6 +91,31 @@ export default function PatientsListPage() {
           </span>
         </div>
 
+        {/* Page Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+              {locale === 'bn' ? 'রোগীর তালিকা' : 'Patient List'}
+            </h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+              {locale === 'bn'
+                ? 'চিকিৎসাধীন রোগীর তালিকা ও রেকর্ড'
+                : 'Registered patients and consultation records'}
+            </p>
+          </div>
+          <Link
+            href="/patients/new"
+            data-tour="patients-new-btn"
+            className={buttonVariants({
+              size: 'sm',
+              className: 'h-8 sm:h-9 px-3.5 text-xs sm:text-sm font-semibold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs shrink-0 self-start sm:self-auto',
+            })}
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>{locale === 'bn' ? 'নতুন রোগী' : 'New Patient'}</span>
+          </Link>
+        </div>
+
         {/* Compact, Narrow Filter and Expandable Search Bar */}
         <div
           data-tour="patients-search"
@@ -158,8 +183,8 @@ export default function PatientsListPage() {
                   type="text"
                   placeholder={
                     locale === 'bn'
-                      ? 'নাম, কোড বা ফোন দিয়ে খুঁজুন...'
-                      : 'Search name, code, phone...'
+                      ? 'রোগীর নাম, কোড (P-101) বা ফোন নম্বর দিয়ে খুঁজুন...'
+                      : 'Search name, code (P-101), phone...'
                   }
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -174,7 +199,7 @@ export default function PatientsListPage() {
                       setIsSearchOpen(false);
                     }
                   }}
-                  className="h-8 pl-8 pr-7 text-xs w-48 sm:w-64 md:w-72 bg-background font-medium focus-visible:ring-1"
+                  className="h-8 pl-8 pr-7 text-xs w-56 sm:w-72 md:w-80 bg-background font-medium focus-visible:ring-1"
                 />
                 <button
                   type="button"
@@ -220,19 +245,6 @@ export default function PatientsListPage() {
               <option value="male">{locale === 'bn' ? 'পুরুষ (Male)' : 'Male'}</option>
               <option value="other">{locale === 'bn' ? 'অন্যান্য' : 'Other'}</option>
             </select>
-
-            {/* Add New Patient Button placed right side of all gender filtering options */}
-            <Link
-              href="/patients/new"
-              data-tour="patients-new-btn"
-              className={buttonVariants({
-                size: 'sm',
-                className: 'h-8 px-3 text-xs font-semibold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs shrink-0',
-              })}
-            >
-              <PlusCircle className="w-3.5 h-3.5" />
-              <span>{locale === 'bn' ? 'নতুন রোগী' : 'New Patient'}</span>
-            </Link>
           </div>
         </div>
 
