@@ -27,7 +27,6 @@ import {
   Link2,
   FileCode,
   RefreshCw,
-  AlertTriangle,
   CheckCircle2,
   XCircle,
   ExternalLink,
@@ -107,7 +106,6 @@ export default function AdminLibraryPage() {
 
   // Load sources
   const loadSources = () => {
-    setLoadingSources(true);
     fetch('/api/admin/library')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -119,7 +117,6 @@ export default function AdminLibraryPage() {
 
   // Load jobs queue
   const loadJobs = () => {
-    setLoadingJobs(true);
     fetch('/api/admin/library/queue')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -146,9 +143,12 @@ export default function AdminLibraryPage() {
   };
 
   useEffect(() => {
-    loadSources();
-    loadJobs();
-    loadSettings();
+    const timer = setTimeout(() => {
+      loadSources();
+      loadJobs();
+      loadSettings();
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   // Poll jobs queue periodically when on queue tab

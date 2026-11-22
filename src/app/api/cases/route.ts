@@ -19,14 +19,30 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Invalid case filters' }, { status: 400 });
     }
 
+    const doctorFilter = user.role === 'super_admin'
+      ? undefined
+      : eq(cases.doctorId, user.id);
+
     const all = await db.query.cases.findMany({
-      where: eq(cases.doctorId, user.id),
+      where: doctorFilter,
       orderBy: [desc(cases.updatedAt)],
     });
 
+    const RUNNING_STATUSES = ['draft', 'analyzed', 'insufficient_evidence', 'red_flag'];
+    const SOLVED_STATUSES = ['confirmed', 'treated', 'closed'];
+
+    const runningCount = all.filter((c) => RUNNING_STATUSES.includes(c.status)).length;
+    const solvedCount = all.filter((c) => SOLVED_STATUSES.includes(c.status)).length;
+
     let filtered = all;
     if (status && status !== 'all') {
-      filtered = filtered.filter((c) => c.status === status);
+      if (status === 'running') {
+        filtered = filtered.filter((c) => RUNNING_STATUSES.includes(c.status));
+      } else if (status === 'solved') {
+        filtered = filtered.filter((c) => SOLVED_STATUSES.includes(c.status));
+      } else {
+        filtered = filtered.filter((c) => c.status === status);
+      }
     }
     if (search && search.trim().length > 0) {
       const q = search.toLowerCase();
@@ -47,9 +63,18 @@ export async function GET(request: Request) {
       doctor_id: c.doctorId,
       created_at: c.createdAt,
       updated_at: c.updatedAt,
+      is_running: RUNNING_STATUSES.includes(c.status),
+      is_solved: SOLVED_STATUSES.includes(c.status),
     }));
 
-    return NextResponse.json({ cases: mapped });
+    return NextResponse.json({
+      cases: mapped,
+      counts: {
+        all: all.length,
+        running: runningCount,
+        solved: solvedCount,
+      },
+    });
   } catch {
     return NextResponse.json({ error: 'Failed to fetch cases' }, { status: 500 });
   }

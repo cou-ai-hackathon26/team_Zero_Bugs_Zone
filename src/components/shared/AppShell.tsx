@@ -167,13 +167,18 @@ export function AppShell({ children }: AppShellProps) {
             icon: LayoutDashboard,
           },
           {
+            title: t('cases'),
+            href: '/cases',
+            icon: Stethoscope,
+          },
+          {
             title: t('patients'),
             href: '/patients',
             icon: Users,
           },
           {
             title: t('newCase'),
-            href: '/patients/new',
+            href: '/cases/new',
             icon: PlusCircle,
           },
           {

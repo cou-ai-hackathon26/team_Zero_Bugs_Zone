@@ -25,18 +25,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  BookOpen,
   ArrowLeft,
   PlusCircle,
   FileText,
   AlertTriangle,
   Ban,
-  CheckCircle2,
-  ExternalLink,
-  Download,
   History,
-  Layers,
-  Sparkles,
   Loader2,
   Check,
 } from 'lucide-react';
