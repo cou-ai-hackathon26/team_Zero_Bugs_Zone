@@ -1,4 +1,6 @@
-import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
+// @ts-expect-error msedge-tts lacks bundled type definitions
+import msedgeTts from 'msedge-tts';
+const { MsEdgeTTS, OUTPUT_FORMAT } = msedgeTts;
 import fs from 'fs';
 import path from 'path';
 

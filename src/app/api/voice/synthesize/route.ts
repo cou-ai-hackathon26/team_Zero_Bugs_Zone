@@ -8,6 +8,7 @@ import { systemSettings } from '@/db/schema';
 import { getCurrentUser } from '@/lib/auth';
 import { canUse } from '@/lib/permissions';
 import { boundedJson, rateLimit } from '@/lib/api-input';
+import { getRawAiCredentials } from '@/lib/ai-credentials';
 
 // These transcripts are tied to the bundled recordings. An edited translation
 // uses live synthesis instead of playing an outdated recording.
@@ -142,7 +143,8 @@ export async function POST(request: Request) {
       });
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    const aiCreds = await getRawAiCredentials();
+    const apiKey = aiCreds?.apiKey || process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: 'Cloud speech synthesis unavailable' }, { status: 503 });
     }

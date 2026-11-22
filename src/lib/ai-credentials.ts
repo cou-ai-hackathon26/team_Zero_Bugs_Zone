@@ -2,6 +2,34 @@ import { db } from '@/db';
 import { systemSettings } from '@/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import OpenAI from 'openai';
+import fs from 'fs';
+import path from 'path';
+
+export function syncKeyToEnvFile(key: string, model?: string) {
+  if (!key) return;
+  process.env.OPENAI_API_KEY = key;
+  if (model) process.env.OPENAI_CHAT_MODEL = model;
+
+  try {
+    const envLocalPath = path.join(process.cwd(), '.env.local');
+    let content = fs.existsSync(envLocalPath) ? fs.readFileSync(envLocalPath, 'utf8') : '';
+    if (content.includes('OPENAI_API_KEY=')) {
+      content = content.replace(/OPENAI_API_KEY=.*/g, `OPENAI_API_KEY=${key}`);
+    } else {
+      content += `\nOPENAI_API_KEY=${key}\n`;
+    }
+    if (model) {
+      if (content.includes('OPENAI_CHAT_MODEL=')) {
+        content = content.replace(/OPENAI_CHAT_MODEL=.*/g, `OPENAI_CHAT_MODEL=${model}`);
+      } else {
+        content += `OPENAI_CHAT_MODEL=${model}\n`;
+      }
+    }
+    fs.writeFileSync(envLocalPath, content, 'utf8');
+  } catch (err) {
+    console.error('[syncKeyToEnvFile] Failed to sync .env.local:', err);
+  }
+}
 
 export interface AiCredentialsConfig {
   provider: 'openai' | 'gemini' | 'anthropic' | 'custom';
@@ -130,6 +158,9 @@ export async function saveAiCredentials(
         updatedAt: new Date(),
       },
     });
+
+  // Automatically sync to .env.local so environment variables match DB immediately
+  syncKeyToEnvFile(finalApiKey, payload.model);
 }
 
 export async function testAiConnection(params: {
@@ -274,6 +305,9 @@ export async function getRawAiCredentials(): Promise<AiCredentialsConfig | null>
 
     const data = row?.value as AiCredentialsConfig | undefined;
     if (data && data.apiKey) {
+      if (!process.env.OPENAI_API_KEY) {
+        process.env.OPENAI_API_KEY = data.apiKey;
+      }
       return data;
     }
   } catch (err) {
