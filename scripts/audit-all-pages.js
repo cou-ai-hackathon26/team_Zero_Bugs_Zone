@@ -138,25 +138,39 @@ async function getSessionCookie(email, password) {
 async function runAudit() {
   console.log('--- Starting Next.js Production Server for Audit ---');
 
-  // Spawn Next.js server child process
-  const nextServer = spawn('./node_modules/.bin/next', ['start', '-p', String(PORT)], {
-    stdio: 'pipe',
-  });
+  // Check if Next.js server is already running on port
+  let nextServer = null;
+  let isRunning = false;
+  try {
+    const res = await fetch(`${BASE_URL}/bn/login`);
+    if (res.status < 500) isRunning = true;
+  } catch {}
 
-  nextServer.stderr.on('data', (d) => process.stderr.write(d));
-  nextServer.on('error', (err) => console.error('Next server error:', err));
+  if (!isRunning) {
+    console.log('Spawning Next.js server child process on port', PORT);
+    nextServer = spawn('./node_modules/.bin/next', ['start', '-p', String(PORT)], {
+      stdio: 'pipe',
+    });
+
+    nextServer.stderr.on('data', (d) => process.stderr.write(d));
+    nextServer.on('error', (err) => console.error('Next server error:', err));
+
+    console.log('Waiting for Next.js server to be ready on port', PORT);
+    await waitForServer(`${BASE_URL}/bn/login`);
+    console.log('✓ Next.js server is ready!');
+  } else {
+    console.log('✓ Next.js server is already running on port', PORT);
+  }
 
   const cleanup = () => {
-    try {
-      nextServer.kill('SIGTERM');
-    } catch {}
+    if (nextServer) {
+      try {
+        nextServer.kill('SIGTERM');
+      } catch {}
+    }
   };
   process.on('exit', cleanup);
   process.on('SIGINT', () => { cleanup(); process.exit(1); });
-
-  console.log('Waiting for Next.js server to be ready on port', PORT);
-  await waitForServer(`${BASE_URL}/bn/login`);
-  console.log('✓ Next.js server is ready!');
 
   const browser = await chromium.launch({ headless: true });
   const allIssues = [];

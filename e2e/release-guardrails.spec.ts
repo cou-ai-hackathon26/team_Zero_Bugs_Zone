@@ -93,7 +93,7 @@ test.describe('Offline synthetic release guardrails', () => {
     await expect(page.getByText('P-103', { exact: true })).toHaveCount(0);
     expect(await dashboard?.text()).not.toContain('P-103');
     await page.goto('/en/cases');
-    await expect(page).toHaveURL(/\/en\/library$/);
+    await expect(page).toHaveURL(/\/en\/study$/);
 
     const admin = await browser.newContext();
     try {
