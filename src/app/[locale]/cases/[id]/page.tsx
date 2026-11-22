@@ -506,8 +506,6 @@ function CaseWorkspaceContent({ params }: CaseWorkspacePageProps) {
                     turns={turns}
                     onTurnsUpdate={setTurns}
                     onCaseUpdate={setCaseData}
-                    onOpenPatientDetail={() => setPatientDetailOpen(true)}
-                    onSwitchTab={handleTabChange}
                   />
                 </TabsContent>
 

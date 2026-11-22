@@ -15,7 +15,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  User,
   Bot,
   Send,
   BookOpen,
@@ -34,9 +33,11 @@ import {
   Pill,
   AlertTriangle,
   Loader2,
+  Mic,
 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
+import { useVoice } from '@/context/VoiceContext';
 
 function generateClientDraftId(): string {
   return `draft-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -48,9 +49,6 @@ interface CaseConversationTabProps {
   turns: CaseTurn[];
   onTurnsUpdate: (turns: CaseTurn[]) => void;
   onCaseUpdate: (updatedCase: PatientCase) => void;
-  onOpenMobileSummary?: () => void;
-  onOpenPatientDetail?: () => void;
-  onSwitchTab?: (tab: string) => void;
 }
 
 export function CaseConversationTab({
@@ -58,9 +56,6 @@ export function CaseConversationTab({
   turns,
   onTurnsUpdate,
   onCaseUpdate,
-  onOpenMobileSummary,
-  onOpenPatientDetail,
-  onSwitchTab,
 }: CaseConversationTabProps) {
   const locale = useLocale();
   const t = useTranslations('workspace');
@@ -75,6 +70,7 @@ export function CaseConversationTab({
   });
   const [submitting, setSubmitting] = useState(false);
   const [requestingReview, setRequestingReview] = useState(false);
+  const { openVoicePanel } = useVoice();
   const [inlineAnswers, setInlineAnswers] = useState<Record<string, string>>({});
   const [answeringQuestionId, setAnsweringQuestionId] = useState<string | null>(null);
   const [expandedUpdates, setExpandedUpdates] = useState<Record<string, boolean>>({});
@@ -276,14 +272,6 @@ export function CaseConversationTab({
     }));
   };
 
-  const handlePatientSummaryTrigger = () => {
-    if (onOpenPatientDetail) {
-      onOpenPatientDetail();
-    } else if (onOpenMobileSummary) {
-      onOpenMobileSummary();
-    }
-  };
-
   // Quick Action Prompt Chips for doctors
   const promptChips = [
     {
@@ -322,47 +310,6 @@ export function CaseConversationTab({
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-background rounded-lg border border-border/80 shadow-2xs overflow-hidden">
-      {/* Clean Chat Header */}
-      <div className="flex items-center justify-between px-3 py-1.5 shrink-0 border-b border-border/60 bg-card/60 backdrop-blur-xs">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold shrink-0">
-            <Bot className="w-3.5 h-3.5" />
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-bold text-foreground">DocMate AI</span>
-            <Badge variant="outline" className="text-[9px] font-semibold bg-primary/5 text-primary border-primary/20 py-0 px-1">
-              {locale === 'bn' ? 'যাচাইকৃত লাইব্রেরি' : 'Verified Library'}
-            </Badge>
-          </div>
-        </div>
-
-        {/* Quick Drawer/Sheet Action Buttons */}
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handlePatientSummaryTrigger}
-            className="h-7 px-2 text-xs font-semibold gap-1 text-muted-foreground hover:text-foreground"
-            aria-label={t('viewPatientSummary')}
-          >
-            <User className="w-3 h-3 text-primary" />
-            <span className="hidden sm:inline">{t('viewPatientSummary')}</span>
-          </Button>
-
-          {onSwitchTab && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onSwitchTab('differentials')}
-              className="h-7 px-2 text-xs font-semibold gap-1 text-muted-foreground hover:text-foreground"
-            >
-              <Stethoscope className="w-3 h-3 text-primary" />
-              <span className="hidden sm:inline">{t('tabDifferentials')}</span>
-            </Button>
-          )}
-        </div>
-      </div>
-
       {/* Message Stream */}
       <div
         ref={scrollRef}
@@ -371,9 +318,9 @@ export function CaseConversationTab({
         className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-3.5 focus:outline-none"
       >
         {turns.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-xs">
-              <Sparkles className="w-6 h-6" />
+          <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-3">
+            <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-xs">
+              <Sparkles className="w-5 h-5" />
             </div>
             <div className="space-y-1">
               <h4 className="text-sm font-bold text-foreground">
@@ -384,25 +331,6 @@ export function CaseConversationTab({
                   ? 'রোগীর শারীরিক লক্ষণ, ভাইটালস বা পরীক্ষা লিখুন। অভ্যন্তরীণ মেডিকেল লাইব্রেরি থেকে যাচাইকৃত প্রমাণসহ সহায়তা পাবেন।'
                   : 'Enter patient symptoms, physical exam, or clinical questions. The system retrieves verified proofs from closed internal medical guidelines.'}
               </p>
-            </div>
-
-            <div className="pt-2 flex flex-wrap gap-2 justify-center max-w-md">
-              {promptChips.map((chip, idx) => {
-                const IconComponent = chip.icon;
-                return (
-                  <Button
-                    key={idx}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void handleSend('observation', chip.query)}
-                    disabled={submitting || requestingReview}
-                    className="gap-1.5 text-xs border-primary/20 hover:border-primary/50 text-foreground hover:bg-primary/5"
-                  >
-                    <IconComponent className="w-3.5 h-3.5 text-primary" />
-                    <span>{chip.label}</span>
-                  </Button>
-                );
-              })}
             </div>
           </div>
         ) : (
@@ -770,6 +698,16 @@ export function CaseConversationTab({
             aria-label="Clinical observation input"
           />
           <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={openVoicePanel}
+            aria-label={locale === 'bn' ? 'মুখে বলুন' : 'Speak observation'}
+            className="h-[38px] w-[38px] p-0 border-border hover:border-primary/40 text-primary hover:bg-primary/10 shrink-0"
+          >
+            <Mic className="w-4 h-4" />
+          </Button>
+          <Button
             size="sm"
             onClick={() => void handleSend('observation')}
             disabled={submitting || requestingReview || !inputObservation.trim()}
@@ -781,9 +719,8 @@ export function CaseConversationTab({
           </Button>
         </div>
 
-        <div className="flex items-center justify-between text-[10px] text-muted-foreground px-1">
-          <span>{locale === 'bn' ? '💡 এআই চিকিৎসকের সিদ্ধান্ত সহায়তাকারী হিসেবে কাজ করে।' : '💡 AI acts as clinical decision support. The physician retains final authority.'}</span>
-          <span className="hidden sm:inline">Enter ↵ পাঠাবে • Shift+Enter ↵ নতুন লাইন</span>
+        <div className="flex items-center justify-end text-[10px] text-muted-foreground px-1">
+          <span className="hidden sm:inline">Enter ↵ {t('send')} • Shift+Enter ↵ {locale === 'bn' ? 'নতুন লাইন' : 'New line'}</span>
         </div>
       </div>
     </div>
