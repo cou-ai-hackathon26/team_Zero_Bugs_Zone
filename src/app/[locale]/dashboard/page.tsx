@@ -23,6 +23,14 @@ import {
   Calendar,
   AlertTriangle,
 } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 export default async function DashboardPage() {
   const locale = await getLocale();
@@ -207,38 +215,93 @@ export default async function DashboardPage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {decryptedRecentPatients.map((p) => (
-                  <Link key={p.id} href={`/patients/${p.id}`} className="block group">
-                    <Card className="h-full border-border hover:border-primary/50 transition-all hover:shadow-xs bg-card">
-                      <CardHeader className="p-5 pb-3">
-                        <div className="flex items-center justify-between">
-                          <span className="font-mono text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">
-                            {p.patientCode}
-                          </span>
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Calendar className="w-3.5 h-3.5" />
-                            {new Date(p.updatedAt).toLocaleDateString(locale === 'bn' ? 'bn-BD' : 'en-US')}
-                          </span>
-                        </div>
-                        <CardTitle className="text-lg font-bold text-foreground group-hover:text-primary transition-colors pt-2">
-                          {p.name}
-                        </CardTitle>
-                        <CardDescription className="text-xs text-muted-foreground">
-                          {p.age} {locale === 'bn' ? 'বছর' : 'yrs'} · {p.gender === 'female' ? (locale === 'bn' ? 'মহিলা' : 'Female') : (locale === 'bn' ? 'পুরুষ' : 'Male')} {p.bloodGroup ? `· রক্ত: ${p.bloodGroup}` : ''}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="p-5 pt-0 flex items-center justify-between text-xs text-muted-foreground border-t border-border/50 mt-2">
-                        <span>{p.phone || (locale === 'bn' ? 'ফোন নম্বর নেই' : 'No phone')}</span>
-                        <span className="font-semibold text-primary flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                          {locale === 'bn' ? 'প্রোফাইল' : 'Profile'}
-                          <ArrowRight className="w-3 h-3" />
-                        </span>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                ))}
-              </div>
+              <Card className="border-border shadow-xs overflow-hidden">
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent bg-muted/40">
+                        <TableHead className="w-28 font-semibold">
+                          {locale === 'bn' ? 'কোড' : 'Code'}
+                        </TableHead>
+                        <TableHead className="font-semibold">
+                          {locale === 'bn' ? 'রোগীর নাম' : 'Patient Name'}
+                        </TableHead>
+                        <TableHead className="w-32 font-semibold">
+                          {locale === 'bn' ? 'বয়স ও লিঙ্গ' : 'Age & Gender'}
+                        </TableHead>
+                        <TableHead className="w-28 font-semibold">
+                          {locale === 'bn' ? 'রক্তের গ্রুপ' : 'Blood'}
+                        </TableHead>
+                        <TableHead className="w-36 font-semibold">
+                          {locale === 'bn' ? 'যোগাযোগ' : 'Phone'}
+                        </TableHead>
+                        <TableHead className="w-32 font-semibold">
+                          {locale === 'bn' ? 'তারিখ' : 'Date'}
+                        </TableHead>
+                        <TableHead className="w-28 text-right font-semibold">
+                          {locale === 'bn' ? 'অ্যাকশন' : 'Action'}
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {decryptedRecentPatients.map((p) => (
+                        <TableRow
+                          key={p.id}
+                          className="hover:bg-muted/50 transition-colors"
+                        >
+                          <TableCell className="font-mono font-bold text-xs">
+                            <span className="bg-primary/10 text-primary px-2 py-0.5 rounded">
+                              {p.patientCode}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Link
+                              href={`/patients/${p.id}`}
+                              className="font-bold text-sm text-foreground hover:text-primary transition-colors"
+                            >
+                              {p.name}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {p.age} {locale === 'bn' ? 'বছর' : 'yrs'} · {p.gender === 'female' ? (locale === 'bn' ? 'মহিলা' : 'Female') : (locale === 'bn' ? 'পুরুষ' : 'Male')}
+                          </TableCell>
+                          <TableCell>
+                            {p.bloodGroup ? (
+                              <Badge variant="outline" className="text-xs font-bold text-destructive border-destructive/30">
+                                {p.bloodGroup}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground font-mono">
+                            {p.phone || '—'}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3 text-muted-foreground/70" />
+                              {new Date(p.updatedAt).toLocaleDateString(locale === 'bn' ? 'bn-BD' : 'en-US')}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Link
+                              href={`/patients/${p.id}`}
+                              className={buttonVariants({
+                                variant: 'ghost',
+                                size: 'sm',
+                                className: 'h-8 px-2 text-xs font-semibold text-primary hover:text-primary gap-1',
+                              })}
+                            >
+                              <span>{locale === 'bn' ? 'প্রোফাইল' : 'Profile'}</span>
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </Link>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
             )}
           </div>
         )}

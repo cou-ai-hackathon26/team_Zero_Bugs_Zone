@@ -210,6 +210,7 @@ async function runAudit() {
     for (const route of user.routes) {
       const pageErrors = [];
       const consoleErrors = [];
+      const failedRequests = [];
 
       const pageErrorHandler = (err) => pageErrors.push(err.message || String(err));
       const consoleHandler = (msg) => {
@@ -220,9 +221,15 @@ async function runAudit() {
           }
         }
       };
+      const responseHandler = (res) => {
+        if (res.status() >= 500 || (res.status() === 404 && res.url().includes('_next/static'))) {
+          failedRequests.push(`${res.status()} ${res.url()}`);
+        }
+      };
 
       page.on('pageerror', pageErrorHandler);
       page.on('console', consoleHandler);
+      page.on('response', responseHandler);
 
       try {
         const fullUrl = `${BASE_URL}${route}`;
@@ -236,13 +243,14 @@ async function runAudit() {
                                 bodyText.includes('Reload to try again') ||
                                 bodyText.includes('পৃষ্ঠাটি লোড হতে সমস্যা হয়েছে');
 
-        if (hasCouldNotLoad || status >= 500) {
-          console.error(`  ❌ FAILED: ${route} [status: ${status}] shows "This page couldn’t load" or Error Boundary!`);
+        if (hasCouldNotLoad || status >= 500 || failedRequests.length > 0) {
+          console.error(`  ❌ FAILED: ${route} [status: ${status}] shows "This page couldn’t load" or failed requests: ${failedRequests.join(', ')}`);
           allIssues.push({
             role: user.role,
             url: route,
             status,
-            error: 'Shows "This page couldn’t load"',
+            error: 'Shows "This page couldn’t load" or asset failure',
+            failedRequests: [...failedRequests],
             pageErrors: [...pageErrors],
             consoleErrors: [...consoleErrors],
           });
@@ -267,6 +275,7 @@ async function runAudit() {
       } finally {
         page.off('pageerror', pageErrorHandler);
         page.off('console', consoleHandler);
+        page.off('response', responseHandler);
       }
     }
 

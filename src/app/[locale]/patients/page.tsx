@@ -16,7 +16,18 @@ import {
   Phone,
   FileText,
   AlertCircle,
+  Droplet,
+  User,
+  Loader2,
 } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface PatientItem {
   id: string;
@@ -129,12 +140,15 @@ export default function PatientsListPage() {
           </CardContent>
         </Card>
 
-        {/* Patient Cards / Table List */}
+        {/* Patient Table List */}
         <div data-tour="patients-list">
           {loading ? (
-            <div className="p-12 text-center text-muted-foreground animate-pulse text-base">
-              {locale === 'bn' ? 'রোগীর তালিকা লোড হচ্ছে...' : 'Loading patient records...'}
-            </div>
+            <Card className="border-border shadow-xs">
+              <CardContent className="p-12 text-center text-muted-foreground flex items-center justify-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                <span>{locale === 'bn' ? 'রোগীর তালিকা লোড হচ্ছে...' : 'Loading patient records...'}</span>
+              </CardContent>
+            </Card>
           ) : filtered.length === 0 ? (
             <Card className="p-12 text-center border-dashed">
               <CardContent className="p-0 space-y-4">
@@ -154,76 +168,122 @@ export default function PatientsListPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filtered.map((patient) => (
-              <Card
-                key={patient.id}
-                className="border-border hover:border-primary/50 transition-all hover:shadow-sm bg-card flex flex-col justify-between"
-              >
-                <div className="p-5 pb-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-mono text-xs font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-md">
-                      {patient.patient_code}
-                    </span>
-                    <Badge variant="outline" className="text-xs font-semibold">
-                      {patient.gender === 'female'
-                        ? locale === 'bn'
-                          ? 'মহিলা'
-                          : 'Female'
-                        : locale === 'bn'
-                          ? 'পুরুষ'
-                          : 'Male'}
-                      , {patient.age} {locale === 'bn' ? 'বছর' : 'yrs'}
-                    </Badge>
-                  </div>
-
-                  <h3 className="text-xl font-bold text-foreground hover:text-primary transition-colors">
-                    <Link href={`/patients/${patient.id}`}>{patient.name}</Link>
-                  </h3>
-
-                  <div className="mt-3 space-y-1.5 text-xs text-muted-foreground">
-                    {patient.blood_group && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-foreground">
-                          {locale === 'bn' ? 'রক্তের গ্রুপ:' : 'Blood Group:'}
-                        </span>
-                        <span className="text-destructive font-bold">{patient.blood_group}</span>
-                      </div>
-                    )}
-                    {patient.phone && (
-                      <div className="flex items-center gap-1.5">
-                        <Phone className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span>{patient.phone}</span>
-                      </div>
-                    )}
-                    {patient.emergency_contact && (
-                      <div className="truncate text-[11px] text-muted-foreground/80">
-                        {patient.emergency_contact}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="p-4 pt-3 border-t border-border/50 bg-muted/20 rounded-b-xl flex items-center justify-between gap-2">
-                  <Link
-                    href={`/patients/${patient.id}`}
-                    className={buttonVariants({ variant: 'outline', size: 'sm', className: 'text-xs min-h-10' })}
-                  >
-                    <span>{locale === 'bn' ? 'প্রোফাইল দেখুন' : 'View Profile'}</span>
-                  </Link>
-
-                  <Link
-                    href={`/prescriptions/new?patientId=${patient.id}`}
-                    className={buttonVariants({ size: 'sm', className: 'text-xs min-h-10 bg-primary font-semibold' })}
-                  >
-                    <FileText className="w-3.5 h-3.5 mr-1" />
-                    <span>{locale === 'bn' ? 'প্রেসক্রিপশন' : 'Prescribe'}</span>
-                  </Link>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
+            <Card className="border-border shadow-xs overflow-hidden">
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent bg-muted/40">
+                      <TableHead className="w-32 font-semibold">
+                        {locale === 'bn' ? 'রোগী কোড' : 'Patient Code'}
+                      </TableHead>
+                      <TableHead className="font-semibold">
+                        {locale === 'bn' ? 'রোগীর নাম' : 'Patient Name'}
+                      </TableHead>
+                      <TableHead className="w-36 font-semibold">
+                        {locale === 'bn' ? 'বয়স ও লিঙ্গ' : 'Age & Gender'}
+                      </TableHead>
+                      <TableHead className="w-28 font-semibold">
+                        {locale === 'bn' ? 'রক্তের গ্রুপ' : 'Blood Group'}
+                      </TableHead>
+                      <TableHead className="w-44 font-semibold">
+                        {locale === 'bn' ? 'যোগাযোগ' : 'Contact'}
+                      </TableHead>
+                      <TableHead className="w-44 text-right font-semibold">
+                        {locale === 'bn' ? 'অ্যাকশন' : 'Actions'}
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((patient) => (
+                      <TableRow
+                        key={patient.id}
+                        className="hover:bg-muted/50 transition-colors"
+                      >
+                        <TableCell className="font-mono font-bold text-xs">
+                          <span className="bg-primary/10 text-primary px-2.5 py-1 rounded-md inline-block">
+                            {patient.patient_code}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Link
+                            href={`/patients/${patient.id}`}
+                            className="font-bold text-sm text-foreground hover:text-primary transition-colors block"
+                          >
+                            {patient.name}
+                          </Link>
+                          {patient.emergency_contact && (
+                            <div className="text-[11px] text-muted-foreground truncate max-w-xs mt-0.5">
+                              {patient.emergency_contact}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          <Badge variant="outline" className="text-xs font-medium">
+                            {patient.gender === 'female'
+                              ? locale === 'bn'
+                                ? 'মহিলা'
+                                : 'Female'
+                              : locale === 'bn'
+                                ? 'পুরুষ'
+                                : 'Male'}
+                            , {patient.age} {locale === 'bn' ? 'বছর' : 'yrs'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {patient.blood_group ? (
+                            <Badge
+                              variant="outline"
+                              className="font-bold text-destructive border-destructive/30 bg-destructive/5 text-xs inline-flex items-center gap-1"
+                            >
+                              <Droplet className="w-3 h-3 fill-destructive/20 text-destructive" />
+                              {patient.blood_group}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {patient.phone ? (
+                            <div className="flex items-center gap-1.5 font-mono">
+                              <Phone className="w-3.5 h-3.5 text-muted-foreground/70" />
+                              <span>{patient.phone}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground/60">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Link
+                              href={`/patients/${patient.id}`}
+                              className={buttonVariants({
+                                variant: 'outline',
+                                size: 'sm',
+                                className: 'h-8 px-2.5 text-xs font-medium gap-1',
+                              })}
+                            >
+                              <User className="w-3.5 h-3.5" />
+                              <span>{locale === 'bn' ? 'প্রোফাইল' : 'Profile'}</span>
+                            </Link>
+                            <Link
+                              href={`/prescriptions/new?patientId=${patient.id}`}
+                              className={buttonVariants({
+                                size: 'sm',
+                                className: 'h-8 px-2.5 text-xs bg-primary hover:bg-primary/90 font-semibold gap-1',
+                              })}
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              <span>{locale === 'bn' ? 'প্রেসক্রাইব' : 'Prescribe'}</span>
+                            </Link>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </AppShell>

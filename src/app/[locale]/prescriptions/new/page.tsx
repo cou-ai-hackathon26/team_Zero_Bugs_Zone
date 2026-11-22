@@ -35,6 +35,18 @@ interface MedicineRow {
   instructions: string;
 }
 
+interface MedicineBrandMatch {
+  id: string;
+  brandName: string;
+  genericName: string;
+  manufacturer: string;
+  form: string;
+  strength: string;
+  packSize: string;
+  priceBdt: string;
+  dgdaRegNum?: string;
+}
+
 const COMMON_DRUG_PRESETS = [
   { brand: 'Napa', generic: 'Paracetamol', strength: '500 mg', form: 'Tab', schedule: '১+০+১', meal: 'খাবারের পর', days: 5, text: '৫ দিন' },
   { brand: 'Napa Extend', generic: 'Paracetamol', strength: '665 mg', form: 'Tab', schedule: '১+০+১', meal: 'খাবারের পর', days: 7, text: '৭ দিন' },
@@ -101,6 +113,44 @@ function NewPrescriptionContent() {
   const [checkingSafety, setCheckingSafety] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  // DGDA Brand Autocomplete search state
+  const [activeSearchIdx, setActiveSearchIdx] = useState<number | null>(null);
+  const [brandSuggestions, setBrandSuggestions] = useState<MedicineBrandMatch[]>([]);
+
+  const handleBrandChange = (idx: number, query: string) => {
+    updateItem(idx, 'brandName', query);
+    if (!query || query.trim().length < 2) {
+      setBrandSuggestions([]);
+      setActiveSearchIdx(null);
+      return;
+    }
+    setActiveSearchIdx(idx);
+
+    fetch(`/api/medicines/search?q=${encodeURIComponent(query.trim())}`, { credentials: 'same-origin' })
+      .then((res) => (res.ok ? res.json() : { medicines: [] }))
+      .then((data) => {
+        setBrandSuggestions(data.medicines || []);
+      })
+      .catch(() => {
+        setBrandSuggestions([]);
+      });
+  };
+
+  const selectBrandSuggestion = (idx: number, brand: MedicineBrandMatch) => {
+    const updated = [...items];
+    updated[idx] = {
+      ...updated[idx],
+      brandName: brand.brandName,
+      genericName: brand.genericName,
+      strength: brand.strength,
+      form: brand.form || updated[idx].form,
+    };
+    setItems(updated);
+    setActiveSearchIdx(null);
+    setBrandSuggestions([]);
+    setSafetyChecked(false);
+  };
 
   // Pre-select patient if provided in query param and load active notices
   useEffect(() => {
@@ -448,16 +498,52 @@ function NewPrescriptionContent() {
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div>
+                  <div className="relative">
                     <label className="block text-xs font-bold text-foreground mb-1">
                       {locale === 'bn' ? 'ব্র্যান্ড নাম (Brand) *' : 'Brand Name *'}
                     </label>
                     <Input
                       placeholder="e.g. Napa Extend"
                       value={item.brandName}
-                      onChange={(e) => updateItem(idx, 'brandName', e.target.value)}
+                      onChange={(e) => handleBrandChange(idx, e.target.value)}
+                      onFocus={() => {
+                        if (item.brandName.trim().length >= 2) {
+                          handleBrandChange(idx, item.brandName);
+                        }
+                      }}
                       className="h-10 text-sm font-bold"
                     />
+                    {activeSearchIdx === idx && brandSuggestions.length > 0 && (
+                      <div className="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto rounded-lg border border-border bg-popover shadow-xl p-1 text-left">
+                        <div className="px-2 py-1 text-[11px] font-semibold text-muted-foreground border-b border-border/50 flex items-center justify-between">
+                          <span>{locale === 'bn' ? 'ডিজিডিএ অনুমোদিত ঔষধসমূহ:' : 'DGDA Approved Medicines:'}</span>
+                          <span className="font-mono text-[10px]">{brandSuggestions.length} {locale === 'bn' ? 'টি' : 'found'}</span>
+                        </div>
+                        {brandSuggestions.map((b) => (
+                          <button
+                            key={b.id}
+                            type="button"
+                            onMouseDown={() => selectBrandSuggestion(idx, b)}
+                            className="w-full text-left px-2.5 py-1.5 hover:bg-accent rounded-md transition-colors flex flex-col gap-0.5 border-b border-border/30 last:border-0"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-xs text-foreground">{b.brandName}</span>
+                              <span className="text-[11px] font-mono font-semibold text-primary">৳ {b.priceBdt}</span>
+                            </div>
+                            <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                              <span className="text-foreground/90 font-medium">{b.genericName}</span>
+                              <span>•</span>
+                              <span>{b.strength}</span>
+                              <span>•</span>
+                              <Badge variant="outline" className="text-[9px] px-1 py-0">{b.form}</Badge>
+                            </div>
+                            <div className="text-[10px] text-muted-foreground/70 truncate">
+                              {b.manufacturer}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div>
