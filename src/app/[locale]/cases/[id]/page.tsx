@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { LoadingState } from '@/components/shared/LoadingState';
 import { ErrorState } from '@/components/shared/ErrorState';
-import { PatientSummaryPanel } from './components/PatientSummaryPanel';
 import { PatientDetailSheet } from './components/PatientDetailSheet';
 import { CaseConversationTab } from './components/CaseConversationTab';
 import { DifferentialsTab } from './components/DifferentialsTab';
@@ -34,8 +33,6 @@ import {
   ArrowLeft,
   MessagesSquare,
   User,
-  Columns,
-  Maximize2,
   CheckCircle2,
 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
@@ -66,7 +63,6 @@ function CaseWorkspaceContent({ params }: CaseWorkspacePageProps) {
 
   // Overlay states: Sheet & Drawer
   const [patientDetailOpen, setPatientDetailOpen] = useState(false);
-  const [dockSidebar, setDockSidebar] = useState(false);
 
   // Case & Clinical State
   const [caseData, setCaseData] = useState<PatientCase | null>(null);
@@ -408,17 +404,6 @@ function CaseWorkspaceContent({ params }: CaseWorkspacePageProps) {
               <User className="w-3 h-3" />
               <span className="hidden sm:inline">{t('viewPatientSummary')}</span>
             </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setDockSidebar((prev) => !prev)}
-              className="hidden lg:flex h-7 px-1.5 text-xs font-medium text-muted-foreground hover:text-foreground gap-1"
-              title={dockSidebar ? 'Focus workspace' : 'Split view'}
-            >
-              {dockSidebar ? <Maximize2 className="w-3 h-3" /> : <Columns className="w-3 h-3" />}
-              <span className="text-[11px]">{dockSidebar ? 'Focus' : 'Split'}</span>
-            </Button>
           </div>
         </div>
 
@@ -430,17 +415,9 @@ function CaseWorkspaceContent({ params }: CaseWorkspacePageProps) {
           turns={turns}
         />
 
-        {/* Workspace Body: Flexible Focus / Split Grid */}
-        <div className={`flex-1 min-h-0 overflow-hidden grid gap-2.5 items-stretch ${dockSidebar ? 'lg:grid-cols-12' : 'grid-cols-1'}`}>
-          {/* Optional Docked Sidebar (Only visible if physician toggles Split mode) */}
-          {dockSidebar && (
-            <div className="hidden lg:block lg:col-span-4 h-full min-h-0 overflow-hidden">
-              <PatientSummaryPanel caseData={caseData} turns={turns} />
-            </div>
-          )}
-
-          {/* Main Tabbed Clinical Workspace */}
-          <div className={`w-full h-full min-h-0 overflow-hidden flex flex-col bg-card rounded-xl border border-border/80 shadow-xs p-2 sm:p-2.5 ${dockSidebar ? 'lg:col-span-8' : 'col-span-1'}`}>
+        {/* Workspace Body: Full Width Tabbed Clinical Workspace */}
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col items-stretch">
+          <div className="w-full h-full min-h-0 overflow-hidden flex flex-col bg-card rounded-xl border border-border/80 shadow-xs p-2 sm:p-2.5">
             <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full h-full min-h-0 flex flex-col overflow-hidden">
               {/* Tab Navigation List */}
               <div className="shrink-0 border-b border-border/60 pb-2 mb-2 overflow-x-auto scrollbar-none">
