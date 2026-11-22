@@ -256,11 +256,11 @@ export default function PatientPortalPage() {
     }
     const doseItems = schedules.map((s) => ({
       brandName: s.medicineName,
-      dosingSchedule: s.dosage || '1+0+1',
+      dosingSchedule: s.dosage ?? '',
       mealTiming: s.mealRelation,
     }));
     const speech = formatPrescriptionSpeech(doseItems, isBn ? 'bn' : 'en');
-    speakText(speech);
+    speakText(speech, undefined, { style: 'number_reading' });
   };
 
   const handleReadAloudPrescription = (rx: Prescription) => {
@@ -274,7 +274,7 @@ export default function PatientPortalPage() {
       durationText: it.durationText,
     }));
     const speech = formatPrescriptionSpeech(doseItems, isBn ? 'bn' : 'en');
-    speakText(speech);
+    speakText(speech, undefined, { style: 'number_reading' });
   };
 
   // Add Dependent Profile

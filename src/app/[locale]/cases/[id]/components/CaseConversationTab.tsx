@@ -36,7 +36,6 @@ import {
   ThumbsUp,
   ThumbsDown,
   Pencil,
-  RotateCcw,
 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';

@@ -1,98 +1,33 @@
-// src/lib/language/speech-segmenter.ts
-// DocMate AI - Bilingual Speech Segmenter for Text-To-Speech (TTS)
-
 export interface SpeechSegment {
   text: string;
   lang: 'bn' | 'en';
 }
 
-const BANGLA_CHAR_REGEX = /[\u0980-\u09FF]/;
-const LATIN_CHAR_REGEX = /[a-zA-Z]/;
-
-/**
- * Splits a bilingual medical string into clean spoken segments for TTS engines.
- * Segments predominantly containing Bengali script use 'bn-BD' voice.
- * Pure English phrases (e.g. drug names, medical terms in brackets) use 'en-US' voice.
- */
-export function segmentForSpeech(text: string): SpeechSegment[] {
-  if (!text || !text.trim()) return [];
-
-  // Remove markdown formatting like bold, italics, citations
+export function segmentForSpeech(text: string, locale: SpeechSegment['lang'] = 'bn'): SpeechSegment[] {
   const cleanText = text
-    .replace(/\[\^chunk_[a-zA-Z0-9_-]+\]/g, '') // remove citation marks
+    .replace(/\[\^chunk_[a-zA-Z0-9_-]+\]/g, '')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/\*([^*]+)\*/g, '$1')
     .replace(/`([^`]+)`/g, '$1')
     .trim();
+  if (!cleanText) return [];
 
-  // Pattern matching parenthesized English terms: "নিউমোনিয়া (Pneumonia)" -> "Pneumonia"
-  // or multi-word English sentences
+  // Keep parenthetical terms and units with their sentence. A decimal point is
+  // not a sentence boundary, and Bangla danda belongs to the preceding text.
+  const sentences = cleanText.split(/(?<=[।!?])\s*|(?<=\.)\s+(?=[\p{L}“"‘'])|\n+/u);
   const segments: SpeechSegment[] = [];
-
-  // Tokenize by sentence or clause boundaries
-  const clauses = cleanText.split(/([।!?\n]+)/);
-
-  for (const clause of clauses) {
-    if (!clause.trim()) continue;
-
-    // Split words and check script
-    const words = clause.trim().split(/\s+/);
-    let currentLang: 'bn' | 'en' | null = null;
-    let currentBuffer: string[] = [];
-
-    for (const word of words) {
-      const hasBangla = BANGLA_CHAR_REGEX.test(word);
-      const hasLatin = LATIN_CHAR_REGEX.test(word);
-
-      let wordLang: 'bn' | 'en' = 'bn';
-      if (hasLatin && !hasBangla) {
-        wordLang = 'en';
-      } else {
-        wordLang = 'bn';
-      }
-
-      if (currentLang === null) {
-        currentLang = wordLang;
-        currentBuffer.push(word);
-      } else if (currentLang === wordLang) {
-        currentBuffer.push(word);
-      } else {
-        segments.push({
-          text: currentBuffer.join(' '),
-          lang: currentLang,
-        });
-        currentLang = wordLang;
-        currentBuffer = [word];
-      }
-    }
-
-    if (currentBuffer.length > 0 && currentLang !== null) {
-      segments.push({
-        text: currentBuffer.join(' '),
-        lang: currentLang,
-      });
-    }
-  }
-
-  // Merge consecutive segments of the same language
-  if (segments.length <= 1) return segments;
-
-  const merged: SpeechSegment[] = [];
-  let current = segments[0];
-
-  for (let i = 1; i < segments.length; i++) {
-    const next = segments[i];
-    if (next.lang === current.lang) {
-      current = {
-        text: `${current.text} ${next.text}`.trim(),
-        lang: current.lang,
-      };
+  for (const sentence of sentences) {
+    const value = sentence.trim();
+    if (!value) continue;
+    const previous = segments.at(-1);
+    const bangla = value.match(/[\u0985-\u09B9\u09CE\u09DC-\u09E1]/g)?.length ?? 0;
+    const english = value.match(/[a-z]/gi)?.length ?? 0;
+    const lang = bangla === english ? previous?.lang ?? locale : bangla > english ? 'bn' : 'en';
+    if (previous?.lang === lang) {
+      previous.text += /^[।!?]/.test(value) ? value : ` ${value}`;
     } else {
-      merged.push(current);
-      current = next;
+      segments.push({ text: value, lang });
     }
   }
-  merged.push(current);
-
-  return merged;
+  return segments;
 }

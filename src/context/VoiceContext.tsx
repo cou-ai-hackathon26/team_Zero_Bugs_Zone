@@ -1,16 +1,29 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-import { VoiceState, VoiceConfig, VoiceMessage, SttProvider, TtsProvider } from '@/lib/voice/types';
+import { VoiceState, VoiceConfig, VoiceMessage, SttProvider, TtsProvider, TtsSpeakOptions } from '@/lib/voice/types';
 import { createSttProvider } from '@/lib/voice/stt-provider';
 import { createTtsProvider } from '@/lib/voice/tts-provider';
 import { routeVoiceIntent } from '@/lib/voice/intent-router';
-import { makeSpeakable } from '@/lib/voice/speakable';
 import { extractClinicalFacts } from '@/lib/clinical-extractor';
 import { useEvidenceSheet } from '@/context/EvidenceSheetContext';
 import { earconManager } from '@/lib/voice/earcons';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
+
+type SpeechOverrides = Pick<TtsSpeakOptions, 'rate' | 'voiceGender' | 'style'> & {
+  provider?: VoiceConfig['tts_provider'];
+  preview?: boolean;
+  scripted?: boolean;
+};
+
+type SpeechPreferences = {
+  tone_preset: 'friendly' | 'reserved';
+  speech_rate: number;
+  voice_id: string;
+  avatar_enabled: boolean;
+  sounds_enabled: boolean;
+};
 
 interface VoiceContextType {
   // State
@@ -33,12 +46,14 @@ interface VoiceContextType {
   toggleVoicePanel: () => void;
   startPushToTalk: () => Promise<void>;
   stopPushToTalk: () => Promise<void>;
-  speakText: (text: string, onEnd?: () => void) => Promise<void>;
+  speakText: (text: string, onEnd?: (error?: string) => void, overrides?: SpeechOverrides) => Promise<void>;
   stopSpeech: () => void;
   setTranscript: (text: string) => void;
   submitTranscript: (textToSubmit?: string) => Promise<void>;
   setPrivateMode: (enabled: boolean) => void;
   setAvatarVisible: (visible: boolean) => void;
+  applySystemVoiceConfig: (config: Partial<VoiceConfig>) => void;
+  applySpeechPreferences: (preferences: SpeechPreferences) => void;
   setSpeechSpeed: (speed: number) => void;
   resetSession: () => void;
   clearMessages: () => void;
@@ -64,6 +79,7 @@ const VoiceContext = createContext<VoiceContextType | undefined>(undefined);
 
 export function VoiceProvider({ children }: { children: React.ReactNode }) {
   const locale = useLocale() as 'bn' | 'en';
+  const t = useTranslations('voice');
   const router = useRouter();
   const { openEvidence } = useEvidenceSheet();
 
@@ -73,7 +89,18 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   const [transcript, setTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
   const [messages, setMessages] = useState<VoiceMessage[]>([]);
-  const [config, setConfig] = useState<VoiceConfig>(DEFAULT_CONFIG);
+  const [systemConfig, setSystemConfig] = useState<VoiceConfig>(DEFAULT_CONFIG);
+  const [speechPreferences, setSpeechPreferences] = useState<SpeechPreferences | null>(null);
+  const [speedOverride, setSpeedOverride] = useState<number>();
+  const config: VoiceConfig = {
+    ...systemConfig,
+    default_speed: speedOverride ?? speechPreferences?.speech_rate ?? systemConfig.default_speed,
+    default_voice_gender: speechPreferences?.voice_id === 'male' || speechPreferences?.voice_id === 'female'
+      ? speechPreferences.voice_id
+      : systemConfig.default_voice_gender,
+    sounds_enabled: speechPreferences?.sounds_enabled ?? systemConfig.sounds_enabled,
+  };
+  const tone = speechPreferences?.tone_preset ?? systemConfig.persona_preset;
   const [privateMode, setPrivateMode] = useState(true);
   const [avatarVisible, setAvatarVisible] = useState(true);
   const [dailyMinutesRemaining] = useState(60);
@@ -81,76 +108,91 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   const [errorText, setErrorText] = useState<string | null>(null);
 
   const sttRef = useRef<SttProvider | null>(null);
-  const ttsRef = useRef<TtsProvider | null>(null);
+  const capturedTranscriptRef = useRef('');
+  const pendingSubmitRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const playbackRef = useRef<{
+    provider: TtsProvider;
+    interval?: ReturnType<typeof setInterval>;
+    complete?: (error?: string) => void;
+    preview?: boolean;
+  } | null>(null);
   const sessionIntroducedRef = useRef(false);
   const reassuranceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutTimerRef = useRef<NodeJS.Timeout | null>(null);
   const interruptionPromptTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const wasSpeakingRef = useRef<boolean>(false);
-  const speakTextRef = useRef<((text: string, onEnd?: () => void) => Promise<void>) | null>(null);
+  const speakTextRef = useRef<VoiceContextType['speakText'] | null>(null);
 
   // Initialize providers
   useEffect(() => {
     sttRef.current = createSttProvider(config.stt_provider);
-    ttsRef.current = createTtsProvider(config.tts_provider);
 
     return () => {
       sttRef.current?.abortListening();
-      ttsRef.current?.stop();
+      clearTimeout(pendingSubmitRef.current);
       if (reassuranceTimerRef.current) clearTimeout(reassuranceTimerRef.current);
       if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
       if (interruptionPromptTimerRef.current) clearTimeout(interruptionPromptTimerRef.current);
     };
-  }, [config.stt_provider, config.tts_provider]);
+  }, [config.stt_provider]);
+
+  const releaseSpeech = useCallback(() => {
+    const playback = playbackRef.current;
+    playbackRef.current = null;
+    if (!playback) return;
+    clearInterval(playback.interval);
+    playback.provider.stop();
+    return playback;
+  }, []);
+
+  useEffect(() => () => { releaseSpeech(); }, [releaseSpeech]);
+
+  const applySpeechPreferences = useCallback((preferences: SpeechPreferences) => {
+    setSpeechPreferences(preferences);
+    setAvatarVisible(preferences.avatar_enabled);
+    setSpeedOverride(undefined);
+  }, []);
+
+  const applySystemVoiceConfig = useCallback((voice: Partial<VoiceConfig>) => {
+    setSystemConfig((previous) => ({ ...previous, ...voice }));
+  }, []);
 
   // Load global voice settings and doctor persona preferences if available
   useEffect(() => {
-    fetch('/api/settings/voice')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.config) {
-          setConfig((prev) => ({ ...prev, ...data.config }));
-          setPrivateMode(data.config.private_mode_default ?? true);
-          setAvatarVisible(data.config.avatar_enabled_default ?? true);
+    const load = async (path: string) => {
+      const response = await fetch(path);
+      return response.ok ? response.json() : null;
+    };
+    let active = true;
+    void Promise.allSettled([load('/api/settings/voice'), load('/api/settings/assistant')])
+      .then(([global, personal]) => {
+        if (!active) return;
+        const voice = global.status === 'fulfilled' ? global.value?.config : null;
+        if (voice) {
+          setSystemConfig((previous) => ({ ...previous, ...voice }));
+          setPrivateMode(voice.private_mode_default ?? true);
+          setAvatarVisible(voice.avatar_enabled_default ?? true);
         }
-      })
-      .catch(() => {});
-
-    fetch('/api/settings/assistant')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.prefs) {
-          if (data.prefs.avatar_enabled !== undefined) {
-            setAvatarVisible(Boolean(data.prefs.avatar_enabled));
-          }
-          if (data.prefs.sounds_enabled !== undefined) {
-            setConfig((prev) => ({ ...prev, sounds_enabled: Boolean(data.prefs.sounds_enabled) }));
-          }
+        if (personal.status === 'fulfilled' && personal.value?.persisted) {
+          applySpeechPreferences(personal.value.preferences);
         }
-      })
-      .catch(() => {});
-  }, []);
+      });
+    return () => { active = false; };
+  }, [applySpeechPreferences]);
 
   const stopSpeech = useCallback((isUserInterruption = false) => {
-    if (state === 'speaking') {
-      wasSpeakingRef.current = true;
-    }
-    ttsRef.current?.stop();
+    if (interruptionPromptTimerRef.current) clearTimeout(interruptionPromptTimerRef.current);
+    const playback = releaseSpeech();
     setState('idle');
     setAmplitude(0);
+    playback?.complete?.();
 
-    // If doctor interrupted without speaking, offer "Shall I continue?" after 1.2s
-    if (isUserInterruption) {
-      if (interruptionPromptTimerRef.current) clearTimeout(interruptionPromptTimerRef.current);
+    // Offer to continue when a live voice turn is interrupted with Escape.
+    if (isUserInterruption && playback && !playback.preview) {
       interruptionPromptTimerRef.current = setTimeout(() => {
-        if (wasSpeakingRef.current) {
-          const continueText = locale === 'bn' ? 'চালিয়ে যাব?' : 'Shall I continue?';
-          void speakTextRef.current?.(continueText);
-          wasSpeakingRef.current = false;
-        }
+        void speakTextRef.current?.(t('continueSpeaking'), undefined, { scripted: true });
       }, 1200);
     }
-  }, [state, locale]);
+  }, [releaseSpeech, t]);
 
   // Barge-in keyboard shortcut: Esc key stops ongoing speech immediately (< 200ms)
   useEffect(() => {
@@ -163,52 +205,57 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [state, stopSpeech]);
 
-  const speakText = useCallback(
-    async (text: string, onEnd?: () => void) => {
-      if (!text || !config.enabled || config.kill_switch) {
-        onEnd?.();
+  const speakText = useCallback<VoiceContextType['speakText']>(
+    async (text, onEnd, overrides) => {
+      if (!text.trim() || !config.enabled || config.kill_switch) {
+        onEnd?.(text.trim() ? t('speechDisabled') : undefined);
         return;
       }
-
-      stopSpeech(false);
+      stopSpeech();
       setState('speaking');
+      setErrorText(null);
+      // Only scripted messages use an expressive cloud model. Readback of
+      // case text, doses and library excerpts stays on the device.
+      const providerType = overrides?.preview || overrides?.scripted
+        ? overrides?.provider ?? config.tts_provider
+        : 'browser';
+      const provider = createTtsProvider(providerType === 'custom_stub' ? 'browser' : providerType);
+      const playback: NonNullable<typeof playbackRef.current> = {
+        provider,
+        complete: onEnd,
+        preview: overrides?.preview,
+      };
+      playbackRef.current = playback;
 
-      // Add speech boundary simulator for amplitude if browser doesn't report it
-      const synthInterval = setInterval(() => {
-        setAmplitude(0.3 + Math.random() * 0.5);
-      }, 120);
-
-      try {
-        await ttsRef.current?.speak({
-          text,
-          locale,
-          rate: config.default_speed,
-          voiceGender: config.default_voice_gender,
-          onStart: () => {
-            setState('speaking');
-          },
-          onEnd: () => {
-            clearInterval(synthInterval);
-            setAmplitude(0);
-            setState('idle');
-            onEnd?.();
-          },
-          onError: (err) => {
-            clearInterval(synthInterval);
-            setAmplitude(0);
-            setState('idle');
-            console.warn('[VoiceTTS Error]:', err);
-            onEnd?.();
-          },
-        });
-      } catch {
-        clearInterval(synthInterval);
+      const finish = (error?: string) => {
+        if (playbackRef.current !== playback) return;
+        releaseSpeech();
         setAmplitude(0);
         setState('idle');
-        onEnd?.();
+        if (error && !overrides?.preview) setErrorText(error);
+        onEnd?.(error);
+      };
+
+      try {
+        await provider.speak({
+          text,
+          locale,
+          rate: overrides?.rate ?? config.default_speed,
+          voiceGender: overrides?.voiceGender ?? config.default_voice_gender,
+          style: overrides?.style ?? (tone === 'reserved' ? 'neutral' : 'warm'),
+          onStart: () => {
+            if (playbackRef.current !== playback || playback.interval) return;
+            playback.interval = setInterval(() => setAmplitude(0.3 + Math.random() * 0.5), 120);
+          },
+          onEnd: () => finish(),
+          onError: (code) => finish(t(code === 'local_voice_unavailable' ? 'localVoiceUnavailable' : 'speechPlaybackFailed')),
+        });
+      } catch {
+        finish(t('speechPlaybackFailed'));
       }
     },
-    [config.enabled, config.kill_switch, config.default_speed, config.default_voice_gender, locale, stopSpeech]
+    [config.enabled, config.kill_switch, config.tts_provider, config.default_speed,
+      config.default_voice_gender, tone, locale, releaseSpeech, stopSpeech, t]
   );
 
   useEffect(() => {
@@ -220,8 +267,8 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     if (sessionIntroducedRef.current) return;
     sessionIntroducedRef.current = true;
 
-    const greeting = locale === 'bn' ? config.persona_greeting_bn : config.persona_greeting_en;
-    const intro = locale === 'bn' ? config.intro_disclaimer_bn : config.intro_disclaimer_en;
+    const greeting = locale === 'bn' ? systemConfig.persona_greeting_bn : systemConfig.persona_greeting_en;
+    const intro = locale === 'bn' ? systemConfig.intro_disclaimer_bn : systemConfig.intro_disclaimer_en;
     const fullIntro = `${greeting} ${intro}`;
 
     setMessages((prev) => [
@@ -235,8 +282,8 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
       },
     ]);
 
-    await speakText(fullIntro);
-  }, [config, locale, speakText]);
+    await speakText(fullIntro, undefined, { scripted: true });
+  }, [systemConfig, locale, speakText]);
 
   const openVoicePanel = useCallback(() => {
     setIsOpen(true);
@@ -246,6 +293,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   const closeVoicePanel = useCallback(() => {
     stopSpeech();
     sttRef.current?.abortListening();
+    clearTimeout(pendingSubmitRef.current);
     setIsOpen(false);
   }, [stopSpeech]);
 
@@ -259,7 +307,6 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(interruptionPromptTimerRef.current);
       interruptionPromptTimerRef.current = null;
     }
-    wasSpeakingRef.current = false;
 
     if (dailyMinutesRemaining <= 0) {
       const limitText =
@@ -275,6 +322,8 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     earconManager.playStart(config.sounds_enabled ?? true);
     setErrorText(null);
     setState('listening');
+    clearTimeout(pendingSubmitRef.current);
+    capturedTranscriptRef.current = '';
     setTranscript('');
     setInterimTranscript('');
 
@@ -288,6 +337,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         onResult: (res) => {
           setHasPermission(true);
           if (res.isFinal) {
+            capturedTranscriptRef.current = res.text;
             setTranscript(res.text);
             setInterimTranscript('');
           } else {
@@ -312,15 +362,13 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           }
         },
         onEnd: () => {
-          if (state === 'listening') {
-            setState('idle');
-          }
+          setState((current) => current === 'listening' ? 'idle' : current);
         },
       });
     } catch {
       setState('error');
     }
-  }, [dailyMinutesRemaining, locale, speakText, state, stopSpeech, config.sounds_enabled]);
+  }, [dailyMinutesRemaining, locale, speakText, stopSpeech, config.sounds_enabled]);
 
   const submitTranscript = useCallback(
     async (textToSubmit?: string) => {
@@ -328,9 +376,8 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         clearTimeout(interruptionPromptTimerRef.current);
         interruptionPromptTimerRef.current = null;
       }
-      wasSpeakingRef.current = false;
-
-      const query = (textToSubmit ?? transcript ?? interimTranscript).trim();
+  
+      const query = (textToSubmit ?? transcript).trim();
       if (!query) {
         setState('idle');
         return;
@@ -356,7 +403,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
       // 6-second reassurance timer
       reassuranceTimerRef.current = setTimeout(() => {
         const reassureMsg = locale === 'bn' ? 'আর একটু সময় লাগছে।' : 'Taking a bit more time.';
-        void speakText(reassureMsg);
+        void speakText(reassureMsg, undefined, { scripted: true });
       }, 6000);
 
       // 15-second switch-to-typing advisory
@@ -397,23 +444,29 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
             verified: true,
           },
         ]);
-        await speakText(alertMsg);
+        await speakText(alertMsg, undefined, { style: 'calm_urgent', scripted: true });
         return;
       }
 
       // 2. Navigation Actions
       if (routing.intent === 'navigate') {
         clearThinkingTimers();
+        let navText = routing.speakableResponse ?? '';
         if (routing.targetRoute === 'action:open_evidence') {
-          openEvidence({
-            chunk_id: 'default',
-            source_title: 'Clinical Guideline Library',
-            quote: query,
-          });
-        } else if (routing.targetRoute) {
+          const recentResult = [...messages].reverse().find((message) => message.intent === 'ask_library');
+          const citation = recentResult?.citations?.find((item) => item.chunk_id && item.quote);
+          if (citation) {
+            openEvidence(citation);
+          } else {
+            navText = t('noEvidenceToOpen');
+          }
+        } else if (routing.targetRoute === 'action:go_back') {
+          router.back();
+        } else if (routing.targetRoute?.startsWith('/')) {
           router.push(routing.targetRoute);
+        } else {
+          navText = t('useScreenControls');
         }
-        const navText = routing.speakableResponse || (locale === 'bn' ? 'স্ক্রিনে দেখাচ্ছি...' : 'Navigating...');
         setMessages((prev) => [
           ...prev,
           {
@@ -425,7 +478,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
             verified: true,
           },
         ]);
-        await speakText(navText);
+        await speakText(navText, undefined, { scripted: true });
         return;
       }
 
@@ -460,7 +513,11 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
             draftUpdate: extracted,
           },
         ]);
-        await speakText(dictateMsg);
+        if (privateMode) {
+          await speakText(t('reviewDictation'), undefined, { scripted: true });
+        } else {
+          await speakText(dictateMsg);
+        }
         return;
       }
 
@@ -476,12 +533,14 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
 
         if (!res.ok) {
           const failMsg = locale === 'bn' ? 'লাইব্রেরি অনুসন্ধানে সমস্যা হয়েছে।' : 'Library query failed.';
-          await speakText(failMsg);
+          await speakText(failMsg, undefined, { scripted: true });
           return;
         }
 
         const data = await res.json();
-        const speakable = makeSpeakable(data, locale);
+        const speakable = data.found === true && data.citations?.length
+          ? t('reviewLibraryEvidence')
+          : t('libraryAbstained');
 
         setMessages((prev) => [
           ...prev,
@@ -497,7 +556,10 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           },
         ]);
 
-        await speakText(speakable);
+        await speakText(speakable, undefined, {
+          // Ask returns fixed status text alongside the on-screen verbatim excerpts.
+          scripted: true,
+        });
       } catch {
         clearThinkingTimers();
         setState('error');
@@ -506,7 +568,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         await speakText(errMsg);
       }
     },
-    [transcript, interimTranscript, locale, speakText, openEvidence, router]
+    [transcript, locale, messages, privateMode, speakText, openEvidence, router, t]
   );
 
   const stopPushToTalk = useCallback(async () => {
@@ -514,8 +576,13 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     setState('transcribing');
     await sttRef.current?.stopListening();
     // Submit after short debounce for speech finalization
-    setTimeout(() => {
-      submitTranscript();
+    clearTimeout(pendingSubmitRef.current);
+    pendingSubmitRef.current = setTimeout(() => {
+      if (capturedTranscriptRef.current) {
+        void submitTranscript(capturedTranscriptRef.current);
+      } else {
+        setState((current) => current === 'transcribing' ? 'idle' : current);
+      }
     }, 250);
   }, [submitTranscript, config.sounds_enabled]);
 
@@ -523,6 +590,8 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     stopSpeech();
     sttRef.current?.abortListening();
     setState('idle');
+    clearTimeout(pendingSubmitRef.current);
+    capturedTranscriptRef.current = '';
     setTranscript('');
     setInterimTranscript('');
     setErrorText(null);
@@ -533,7 +602,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setSpeechSpeed = useCallback((speed: number) => {
-    setConfig((prev) => ({ ...prev, default_speed: Math.min(1.2, Math.max(0.8, speed)) }));
+    setSpeedOverride(Math.min(1.2, Math.max(0.8, speed)));
   }, []);
 
   return (
@@ -562,6 +631,8 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         submitTranscript,
         setPrivateMode,
         setAvatarVisible,
+        applySystemVoiceConfig,
+        applySpeechPreferences,
         setSpeechSpeed,
         resetSession,
         clearMessages,

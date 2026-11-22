@@ -1,4 +1,3 @@
-import { VerifiedClinicalResult } from '@/lib/voice/speakable';
 import { TonePreset, AddressStyle, Verbosity } from '../phrasebank/types';
 
 export interface AssistantPersonaConfig {

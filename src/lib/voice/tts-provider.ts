@@ -1,32 +1,21 @@
-import { TtsProvider, TtsSpeakOptions, TtsCapabilities, SpeechStyle } from './types';
-import { audioCache } from './audio-cache';
-import { segmentForSpeech } from '../language/speech-segmenter';
+import { TtsProvider, TtsSpeakOptions, TtsCapabilities } from './types';
+import { segmentForSpeech, type SpeechSegment } from '../language/speech-segmenter';
 
-/**
- * Injects gentle breathing pauses (250-400ms) around sentences and numerical doses
- * to improve clinical comprehension on speech synthesis.
- */
-export function formatSpeechWithPauses(text: string, style?: SpeechStyle): string {
-  if (!text) return '';
-  let formatted = text;
+const voiceNames = {
+  bn: { female: /piya|female/i, male: /male voice|\bmale\b/i },
+  en: { female: /samantha|zira|karen|serena|female/i, male: /daniel|alex|oliver|david|guy|\bmale\b/i },
+};
 
-  // Insert small pause around numbers and doses if style is number_reading or warm
-  if (style === 'number_reading' || style === 'warm' || !style) {
-    // Add comma/ellipsis spacing around multi-digit numbers like "500", "120/80"
-    formatted = formatted.replace(/([০-৯0-9]+)\s+(মিলিগ্রাম|মিগ্রা|mg|ml|কেজি|দিন)/gi, '$1 ... $2');
-  }
-
-  // Add pauses before warnings / alerts
-  if (style === 'calm_urgent') {
-    formatted = formatted.replace(/(সতর্কতা:|জরুরি:|warning:|alert:)/gi, '... $1 ... ');
-  }
-
-  return formatted;
+function selectVoice(voices: SpeechSynthesisVoice[], lang: SpeechSegment['lang'], gender: 'male' | 'female') {
+  const matching = voices.filter((voice) => voice.localService && voice.lang.split(/[-_]/)[0] === lang);
+  const preferred = matching.filter((voice) => voiceNames[lang][gender].test(voice.name));
+  const candidates = preferred.length > 0 ? preferred : matching;
+  const region = lang === 'bn' ? 'bn-BD' : 'en-US';
+  return candidates.find((voice) => voice.lang.replace('_', '-') === region)
+    ?? candidates.find((voice) => voice.default)
+    ?? candidates[0];
 }
 
-/**
- * Browser Speech Synthesis API implementation of TtsProvider
- */
 export class BrowserSpeechSynthesisTTS implements TtsProvider {
   public name = 'browser_speech_synthesis';
   public capabilities: TtsCapabilities = {
@@ -37,165 +26,107 @@ export class BrowserSpeechSynthesisTTS implements TtsProvider {
     supports_pause_control: false,
   };
   private currentUtterance: SpeechSynthesisUtterance | null = null;
+  private cancelVoiceWait: (() => void) | null = null;
+  private generation = 0;
 
   public isAvailable(): boolean {
     return typeof window !== 'undefined' && 'speechSynthesis' in window;
   }
 
   public async speak(options: TtsSpeakOptions): Promise<void> {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    if (!this.isAvailable()) {
       options.onError?.('browser_unsupported');
       return;
     }
-
-    // Stop any ongoing speech (barge-in support)
     this.stop();
-
-    const cleanText = options.text.trim();
-    if (!cleanText) {
+    const generation = this.generation;
+    const synth = window.speechSynthesis;
+    const segments = segmentForSpeech(options.text, options.locale);
+    if (!segments.length) {
       options.onEnd?.();
       return;
     }
 
-    // Check audio cache
-    const cachedUri = await audioCache.get(cleanText, options.locale, options.voiceGender, options.rate);
-    if (cachedUri) {
-      const audio = new Audio(cachedUri);
-      audio.playbackRate = options.rate || 1.0;
-      audio.onplay = () => options.onStart?.();
-      audio.onended = () => options.onEnd?.();
-      audio.onerror = () => options.onError?.('cached_audio_playback_failed');
-      try {
-        await audio.play();
-        return;
-      } catch {
-        // Fall back to synthesis if autoplay blocked
-      }
+    const voiceFor = (lang: SpeechSegment['lang']) => selectVoice(synth.getVoices(), lang, options.voiceGender ?? 'female');
+    if (segments.some(({ lang }) => !voiceFor(lang))) {
+      await new Promise<void>((resolve) => {
+        const finish = () => {
+          clearTimeout(timer);
+          synth.removeEventListener('voiceschanged', onVoicesChanged);
+          this.cancelVoiceWait = null;
+          resolve();
+        };
+        const onVoicesChanged = () => {
+          if (segments.every(({ lang }) => voiceFor(lang))) finish();
+        };
+        const timer = setTimeout(finish, 750);
+        this.cancelVoiceWait = finish;
+        synth.addEventListener('voiceschanged', onVoicesChanged);
+      });
+    }
+    if (this.generation !== generation) return;
+
+    const voices = segments.map(({ lang }) => voiceFor(lang));
+    if (voices.some((voice) => !voice)) {
+      options.onError?.('local_voice_unavailable');
+      return;
     }
 
-    const segments = segmentForSpeech(cleanText);
-    const voices = window.speechSynthesis.getVoices();
-
-    const getVoiceForLang = (lang: 'bn' | 'en') => {
-      if (lang === 'bn') {
-        return (
-          voices.find((v) => v.lang === 'bn-BD' || v.lang === 'bn_BD') ||
-          voices.find((v) => v.lang === 'bn-IN' || v.lang === 'bn_IN') ||
-          voices.find((v) => v.lang.startsWith('bn'))
-        );
+    const speakSegment = (index: number) => {
+      if (this.generation !== generation) return;
+      const segment = segments[index];
+      if (!segment) {
+        this.currentUtterance = null;
+        options.onEnd?.();
+        return;
       }
-      return (
-        voices.find(
-          (v) =>
-            v.lang === 'en-US' &&
-            (options.voiceGender === 'female'
-              ? v.name.includes('Female') || v.name.includes('Samantha') || v.name.includes('Zira')
-              : true)
-        ) || voices.find((v) => v.lang.startsWith('en'))
-      );
-    };
-
-    if (segments.length > 1) {
-      let segmentIndex = 0;
-      const speakNextSegment = () => {
-        if (segmentIndex >= segments.length) {
-          this.currentUtterance = null;
-          options.onEnd?.();
-          return;
-        }
-
-        const seg = segments[segmentIndex];
-        const segUtterance = new SpeechSynthesisUtterance(seg.text);
-        this.currentUtterance = segUtterance;
-        segUtterance.rate = Math.min(1.2, Math.max(0.8, options.rate || 1.0));
-        segUtterance.lang = seg.lang === 'bn' ? 'bn-BD' : 'en-US';
-
-        const matchedVoice = getVoiceForLang(seg.lang);
-        if (matchedVoice) segUtterance.voice = matchedVoice;
-
-        if (segmentIndex === 0) {
-          segUtterance.onstart = () => options.onStart?.();
-        }
-
-        segUtterance.onend = () => {
-          segmentIndex++;
-          speakNextSegment();
+      const voice = voices[index]!;
+      const utterance = new SpeechSynthesisUtterance(segment.text);
+      utterance.voice = voice;
+      utterance.lang = voice.lang;
+      utterance.rate = Math.min(1.2, Math.max(0.8, options.rate ?? 1));
+      utterance.pitch = options.pitch ?? (options.style === 'warm' ? 1.04 : 1);
+      this.currentUtterance = utterance;
+      if (index === 0) {
+        utterance.onstart = () => {
+          if (this.currentUtterance === utterance) options.onStart?.();
         };
-
-        segUtterance.onerror = (e) => {
-          this.currentUtterance = null;
-          if (e.error === 'canceled' || e.error === 'interrupted') return;
-          options.onError?.(e.error || 'speech_synthesis_failed');
-        };
-
-        window.speechSynthesis.speak(segUtterance);
+      }
+      utterance.onend = () => {
+        if (this.currentUtterance === utterance) speakSegment(index + 1);
       };
-
-      speakNextSegment();
-      return;
-    }
-
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    this.currentUtterance = utterance;
-
-    // Rate bounds 0.8x to 1.2x
-    utterance.rate = Math.min(1.2, Math.max(0.8, options.rate || 1.0));
-    utterance.pitch = 1.0;
-    utterance.lang = options.locale === 'bn' ? 'bn-BD' : 'en-US';
-
-    const matchedVoice = getVoiceForLang(options.locale === 'bn' ? 'bn' : 'en');
-    if (matchedVoice) utterance.voice = matchedVoice;
-
-    utterance.onstart = () => {
-      options.onStart?.();
+      utterance.onerror = (event) => {
+        if (this.currentUtterance !== utterance) return;
+        this.currentUtterance = null;
+        options.onError?.(event.error || 'speech_synthesis_failed');
+      };
+      utterance.onboundary = ({ charIndex, charLength }) => {
+        if (this.currentUtterance !== utterance) return;
+        options.onBoundary?.(charIndex, segment.text.slice(charIndex, charIndex + (charLength || 10)));
+      };
+      synth.speak(utterance);
     };
-
-    utterance.onend = () => {
-      this.currentUtterance = null;
-      options.onEnd?.();
-    };
-
-    utterance.onerror = (e) => {
-      this.currentUtterance = null;
-      if (e.error === 'canceled' || e.error === 'interrupted') {
-        // Normal stop/barge-in
-        return;
-      }
-      options.onError?.(e.error || 'speech_synthesis_failed');
-    };
-
-    utterance.onboundary = (event) => {
-      const word = cleanText.substring(event.charIndex, event.charIndex + (event.charLength || 10));
-      options.onBoundary?.(event.charIndex, word);
-    };
-
-    window.speechSynthesis.speak(utterance);
+    speakSegment(0);
   }
 
   public stop(): void {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+    this.generation++;
+    this.cancelVoiceWait?.();
+    if (this.currentUtterance) {
       this.currentUtterance = null;
+      window.speechSynthesis.cancel();
     }
   }
 
   public pause(): void {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.pause();
-    }
+    if (this.currentUtterance) window.speechSynthesis.pause();
   }
 
   public resume(): void {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.resume();
-    }
+    if (this.currentUtterance) window.speechSynthesis.resume();
   }
 }
 
-/**
- * OpenAI TTS implementation of TtsProvider
- * Calls /api/voice/synthesize and plays audio buffer
- */
 export class OpenAiTTS implements TtsProvider {
   public name = 'openai_tts';
   public capabilities: TtsCapabilities = {
@@ -205,7 +136,10 @@ export class OpenAiTTS implements TtsProvider {
     supports_pitch: false,
     supports_pause_control: true,
   };
-  private currentAudio: HTMLAudioElement | null = null;
+  private local = new BrowserSpeechSynthesisTTS();
+  private request: AbortController | null = null;
+  private audio: HTMLAudioElement | null = null;
+  private audioUrl: string | null = null;
 
   public isAvailable(): boolean {
     return typeof window !== 'undefined';
@@ -213,57 +147,89 @@ export class OpenAiTTS implements TtsProvider {
 
   public async speak(options: TtsSpeakOptions): Promise<void> {
     this.stop();
-    const cleanText = options.text.trim();
-    if (!cleanText) {
+    const text = options.text.trim();
+    if (!text) {
       options.onEnd?.();
       return;
     }
 
+    const request = new AbortController();
+    this.request = request;
+    let started = false;
+    const fallback = async () => {
+      if (this.request !== request) return;
+      this.stop();
+      if (started) {
+        options.onError?.('playback_failed');
+      } else {
+        await this.local.speak(options);
+      }
+    };
+
     try {
-      options.onStart?.();
-      const res = await fetch('/api/voice/synthesize', {
+      const response = await fetch('/api/voice/synthesize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: request.signal,
         body: JSON.stringify({
-          text: cleanText,
-          locale: options.locale,
-          rate: options.rate || 1.0,
-          gender: options.voiceGender || 'female',
+          text,
+          locale: segmentForSpeech(text, options.locale)[0]?.lang ?? options.locale,
+          rate: options.rate ?? 1,
+          gender: options.voiceGender ?? 'female',
+          style: options.style ?? 'neutral',
         }),
       });
+      if (!response.ok) throw new Error('synthesize_api_failed');
+      const blob = await response.blob();
+      if (this.request !== request) return;
 
-      if (!res.ok) {
-        options.onError?.('synthesize_api_failed');
-        return;
-      }
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      await audioCache.set(cleanText, options.locale, url, options.voiceGender, options.rate);
-
-      this.currentAudio = new Audio(url);
-      this.currentAudio.playbackRate = options.rate || 1.0;
-      this.currentAudio.onended = () => {
-        this.currentAudio = null;
+      this.audioUrl = URL.createObjectURL(blob);
+      const audio = new Audio(this.audioUrl);
+      this.audio = audio;
+      audio.onplaying = () => {
+        if (this.request !== request || started) return;
+        started = true;
+        options.onStart?.();
+      };
+      audio.onended = () => {
+        if (this.request !== request) return;
+        this.stop();
         options.onEnd?.();
       };
-      this.currentAudio.onerror = () => {
-        this.currentAudio = null;
-        options.onError?.('playback_failed');
+      audio.onerror = () => {
+        void fallback();
       };
-
-      await this.currentAudio.play();
+      await audio.play();
     } catch {
-      options.onError?.('network_error');
+      await fallback();
     }
   }
 
   public stop(): void {
-    if (this.currentAudio) {
-      this.currentAudio.pause();
-      this.currentAudio.currentTime = 0;
-      this.currentAudio = null;
+    this.request?.abort();
+    this.request = null;
+    if (this.audio) {
+      this.audio.onplaying = this.audio.onended = this.audio.onerror = null;
+      this.audio.pause();
+      this.audio.removeAttribute('src');
+      this.audio.load();
+      this.audio = null;
     }
+    if (this.audioUrl) {
+      URL.revokeObjectURL(this.audioUrl);
+      this.audioUrl = null;
+    }
+    this.local.stop();
+  }
+
+  public pause(): void {
+    if (this.audio) this.audio.pause();
+    else this.local.pause();
+  }
+
+  public resume(): void {
+    if (this.audio) void this.audio.play().catch(() => this.audio?.dispatchEvent(new Event('error')));
+    else this.local.resume();
   }
 }
 

@@ -109,13 +109,13 @@ async function verifyHumanPersona() {
     const pageTablet = await tabletContext.newPage();
     await pageTablet.goto(`${BASE_URL}/bn/settings`, { waitUntil: 'networkidle' });
 
-    await pageTablet.waitForSelector('text=সহকারী ও বাচনভঙ্গি');
+    await pageTablet.waitForSelector('text=সহকারী ব্যক্তিগতকরণ');
     const screenshot4 = path.join(ARTIFACT_DIR, '04_assistant_settings_tablet_768.png');
     await pageTablet.screenshot({ path: screenshot4, fullPage: true });
     console.log(`✓ Saved ${screenshot4}`);
 
     // 3. Mobile View (390px) - Case Conversation Tab & Empty State
-    console.log('5. Testing Mobile View at 390px (/bn/cases/101)...');
+    console.log('5. Testing Mobile View at 390px (/bn/cases/7e5eb7d8-f801-4ff1-bbc8-2fdde329fd0d)...');
     const mobileContext = await browser.newContext({
       viewport: { width: 390, height: 844 },
       isMobile: true,
@@ -132,7 +132,7 @@ async function verifyHumanPersona() {
       },
     ]);
     const pageMobile = await mobileContext.newPage();
-    await pageMobile.goto(`${BASE_URL}/bn/cases/101`, { waitUntil: 'networkidle' });
+    await pageMobile.goto(`${BASE_URL}/bn/cases/7e5eb7d8-f801-4ff1-bbc8-2fdde329fd0d`, { waitUntil: 'networkidle' });
 
     // Click consultation / chat tab if present
     const chatTab = pageMobile.locator('button[role="tab"]:has-text("পরামর্শ")');

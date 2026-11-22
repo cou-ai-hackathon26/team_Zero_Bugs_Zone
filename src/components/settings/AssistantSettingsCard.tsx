@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Bot, Volume2, Save, Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { selectPhrase } from '@/lib/persona/phrasebank';
-import { createTtsProvider } from '@/lib/voice/tts-provider';
+import { useVoice } from '@/context/VoiceContext';
 
 interface AssistantPrefs {
   address_style: 'doctor' | 'doctor_sahib' | 'doctor_madam' | 'name';
@@ -25,6 +25,7 @@ interface AssistantPrefs {
 export function AssistantSettingsCard({ userName }: { userName?: string }) {
   const locale = useLocale() as 'bn' | 'en';
   const isBn = locale === 'bn';
+  const { speakText, config, applySpeechPreferences } = useVoice();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -38,7 +39,7 @@ export function AssistantSettingsCard({ userName }: { userName?: string }) {
     hints_enabled: true,
     avatar_enabled: true,
     speech_rate: 1.0,
-    voice_id: 'female',
+    voice_id: 'default',
   });
 
   useEffect(() => {
@@ -63,6 +64,7 @@ export function AssistantSettingsCard({ userName }: { userName?: string }) {
       });
 
       if (!res.ok) throw new Error('Save failed');
+      applySpeechPreferences(prefs);
       toast.success(isBn ? 'সহকারী সেটিংস সফলভাবে সংরক্ষিত হয়েছে' : 'Assistant preferences saved');
     } catch {
       toast.error(isBn ? 'সংরক্ষণ ব্যর্থ হয়েছে' : 'Failed to save preferences');
@@ -71,7 +73,7 @@ export function AssistantSettingsCard({ userName }: { userName?: string }) {
     }
   };
 
-  const handleListenSample = async () => {
+  const handleListenSample = () => {
     if (playingSample) return;
     setPlayingSample(true);
 
@@ -90,19 +92,17 @@ export function AssistantSettingsCard({ userName }: { userName?: string }) {
       seed: 7,
     });
 
-    try {
-      const tts = createTtsProvider('browser');
-      await tts.speak({
-        text: sampleText,
-        locale,
-        rate: prefs.speech_rate,
-        voiceGender: prefs.voice_id === 'male' ? 'male' : 'female',
-        onEnd: () => setPlayingSample(false),
-        onError: () => setPlayingSample(false),
-      });
-    } catch {
+    void speakText(sampleText, (error) => {
       setPlayingSample(false);
-    }
+      if (error) toast.error(error);
+    }, {
+      preview: true,
+      rate: prefs.speech_rate,
+      voiceGender: prefs.voice_id === 'male' || prefs.voice_id === 'female'
+        ? prefs.voice_id
+        : config.default_voice_gender,
+      style: prefs.tone_preset === 'reserved' ? 'neutral' : 'warm',
+    });
   };
 
   if (loading) {

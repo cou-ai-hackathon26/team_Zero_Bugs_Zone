@@ -1,6 +1,5 @@
 import {
   PhraseCategory,
-  TonePreset,
   AddressStyle,
   TimeOfDay,
   PhraseEntry,

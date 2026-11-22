@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,10 +31,10 @@ import {
   ThumbsDown,
   Layers,
   Edit2,
-  Volume2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { VoiceConfig } from '@/lib/voice/types';
+import { useVoice } from '@/context/VoiceContext';
 import { DocMateAvatar, DocMateReaction } from '@/components/voice/DocMateAvatar';
 
 interface VoiceMetrics {
@@ -94,6 +94,8 @@ const PHRASE_CATEGORIES = [
 export default function AdminVoiceSettingsPage() {
   const locale = useLocale();
   const isBn = locale === 'bn';
+  const { speakText, applySystemVoiceConfig } = useVoice();
+  const t = useTranslations('voice');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -110,7 +112,6 @@ export default function AdminVoiceSettingsPage() {
   });
 
   const [config, setConfig] = useState<VoiceConfig & {
-    persona_preset?: 'reserved' | 'friendly';
     default_greeting_morning_bn?: string;
     default_greeting_afternoon_bn?: string;
     default_greeting_evening_bn?: string;
@@ -167,7 +168,7 @@ export default function AdminVoiceSettingsPage() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.config) {
-          setConfig((prev) => ({ ...prev, ...data.config }));
+          setConfig((prev) => ({ ...prev, ...data.config, tts_provider: data.config.tts_provider === 'custom_stub' ? 'browser' : data.config.tts_provider ?? prev.tts_provider }));
         }
         if (data?.metrics) {
           setMetrics(data.metrics);
@@ -213,6 +214,8 @@ export default function AdminVoiceSettingsPage() {
       });
 
       if (res.ok) {
+        const result = await res.json();
+        applySystemVoiceConfig(result.config);
         toast.success(isBn ? 'ভয়েস সেটিংস সফলভাবে সংরক্ষিত হয়েছে' : 'Voice configuration saved successfully');
       } else {
         toast.error(isBn ? 'সংরক্ষণ ব্যর্থ হয়েছে' : 'Failed to save settings');
@@ -228,18 +231,16 @@ export default function AdminVoiceSettingsPage() {
     setTestingTts(true);
     const testPhrase = isBn ? config.persona_greeting_bn : config.persona_greeting_en;
 
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(testPhrase);
-      u.lang = isBn ? 'bn-BD' : 'en-US';
-      u.rate = config.default_speed;
-      u.onend = () => setTestingTts(false);
-      u.onerror = () => setTestingTts(false);
-      window.speechSynthesis.speak(u);
-    } else {
+    void speakText(testPhrase, (error) => {
       setTestingTts(false);
-      toast.info(isBn ? 'ব্রাউজার স্পিচ সিন্থেসিস উপলব্ধ নয়' : 'Speech synthesis not available in browser');
-    }
+      if (error) toast.error(error);
+    }, {
+      preview: true,
+      provider: config.tts_provider,
+      rate: config.default_speed,
+      voiceGender: config.default_voice_gender,
+      style: config.persona_preset === 'reserved' ? 'neutral' : 'warm',
+    });
   };
 
   const handleUpdatePhrase = async () => {
@@ -618,9 +619,8 @@ export default function AdminVoiceSettingsPage() {
                   onChange={(e) => setConfig((p) => ({ ...p, tts_provider: e.target.value as 'browser' | 'openai' | 'custom_stub' }))}
                   className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm focus:ring-1 focus:ring-primary"
                 >
-                  <option value="browser">Browser SpeechSynthesis (Free Bengali/English)</option>
-                  <option value="openai">OpenAI TTS (tts-1)</option>
-                  <option value="custom_stub">Offline Diagnostic Stub</option>
+                  <option value="browser">{t("deviceVoice")}</option>
+                  <option value="openai">{t("expressiveCloudVoice")}</option>
                 </select>
               </div>
             </CardContent>

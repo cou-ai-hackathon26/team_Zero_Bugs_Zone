@@ -123,16 +123,16 @@ export class BrowserWebSpeechSTT implements SttProvider {
         let finalTranscript = '';
         let lowestConfidence = 1.0;
 
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
+        for (let i = 0; i < event.results.length; ++i) {
           const item = event.results[i];
           const text = item[0].transcript;
           const conf = item[0].confidence || 0.9;
           if (conf < lowestConfidence && conf > 0) lowestConfidence = conf;
 
           if (item.isFinal) {
-            finalTranscript += text;
+            finalTranscript += ` ${text.trim()}`;
           } else {
-            interimTranscript += text;
+            interimTranscript += ` ${text.trim()}`;
           }
         }
 

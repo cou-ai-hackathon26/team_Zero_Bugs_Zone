@@ -32,6 +32,7 @@ export async function GET() {
 
     if (!row) {
       return NextResponse.json({
+        persisted: false,
         preferences: {
           address_style: 'doctor',
           tone_preset: 'friendly',
@@ -46,6 +47,7 @@ export async function GET() {
     }
 
     return NextResponse.json({
+      persisted: true,
       preferences: {
         address_style: row.addressStyle,
         tone_preset: row.tonePreset,

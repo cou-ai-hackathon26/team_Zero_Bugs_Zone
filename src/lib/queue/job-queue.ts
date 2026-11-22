@@ -103,12 +103,16 @@ export class JobQueue {
   }
 
   async completeJob(jobId: string, metadataUpdates?: Record<string, unknown>): Promise<void> {
+    const sourceId = metadataUpdates?.sourceId as string | undefined;
+    const versionId = metadataUpdates?.versionId as string | undefined;
     await pool.query(
       `UPDATE ingest_jobs
        SET status = 'completed', stage = 'completed', progress = 100, finished_at = NOW(),
+           source_id = COALESCE($3, source_id),
+           source_version_id = COALESCE($4, source_version_id),
            metadata = CASE WHEN $2::jsonb IS NOT NULL THEN metadata || $2::jsonb ELSE metadata END
        WHERE id = $1;`,
-      [jobId, metadataUpdates ? JSON.stringify(metadataUpdates) : null]
+      [jobId, metadataUpdates ? JSON.stringify(metadataUpdates) : null, sourceId || null, versionId || null]
     );
   }
 

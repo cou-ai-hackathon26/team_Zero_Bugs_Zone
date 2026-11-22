@@ -44,8 +44,8 @@ const SCHEDULE_SPEECH_MAP_EN: Record<string, string> = {
   '1+1+1+1': 'one four times daily',
   '2+0+2': 'two in the morning, two at night',
   '2+2+2': 'two morning, noon, and night',
-  '1/2+0+1/2': 'half tablet morning, half tablet night',
-  '1/2+1/2+1/2': 'half tablet morning, noon, and night',
+  '1/2+0+1/2': 'half in the morning, half at night',
+  '1/2+1/2+1/2': 'half in the morning, at noon, and at night',
   'prn': 'as needed',
   'sos': 'in emergency',
 };
@@ -59,7 +59,7 @@ const DURATION_WORDS_BN: Record<number, string> = {
   10: 'দশ দিন',
   14: 'চৌদ্দ দিন',
   21: 'একুশ দিন',
-  30: 'এক মাস',
+  30: 'ত্রিশ দিন',
 };
 
 const DURATION_WORDS_EN: Record<number, string> = {
@@ -71,27 +71,30 @@ const DURATION_WORDS_EN: Record<number, string> = {
   10: 'for ten days',
   14: 'for fourteen days',
   21: 'for twenty-one days',
-  30: 'for one month',
+  30: 'for thirty days',
 };
 
 /**
  * Converts a structured dose item into a clear, natural spoken sentence
  */
 export function formatDoseForSpeech(item: StructuredDoseItem, locale: 'bn' | 'en' = 'bn'): string {
-  const normSchedule = item.dosingSchedule?.trim().toLowerCase() || '1+0+1';
+  const normSchedule = item.dosingSchedule?.trim().toLowerCase();
+  if (!normSchedule || !Object.hasOwn(SCHEDULE_SPEECH_MAP_EN, normSchedule)) {
+    const label = item.brandName || item.genericName || (locale === 'bn' ? 'ওষুধ' : 'Medicine');
+    return locale === 'bn'
+      ? `${label}: ওষুধ নেওয়ার সময় জানতে পর্দায় প্রেসক্রিপশন দেখুন।`
+      : `${label}: Please check the prescription on screen for the dosing schedule.`;
+  }
+  const meal = item.mealTiming?.trim().toLowerCase();
 
   if (locale === 'bn') {
     const medicineLabel = item.brandName || item.genericName || 'ওষুধ';
-    const schedulePhrase = SCHEDULE_SPEECH_MAP_BN[normSchedule] || `${normSchedule} নিয়মে`;
-
-    // Meal timing
-    let mealPhrase = 'খাওয়ার পরে';
-    if (item.mealTiming) {
-      const lowerMeal = item.mealTiming.toLowerCase();
-      if (lowerMeal.includes('আগে') || lowerMeal.includes('before')) mealPhrase = 'খাওয়ার আগে';
-      else if (lowerMeal.includes('সাথে') || lowerMeal.includes('with')) mealPhrase = 'খাওয়ার সাথে';
-      else if (lowerMeal.includes('খালি') || lowerMeal.includes('empty')) mealPhrase = 'খালি পেটে';
-    }
+    const schedulePhrase = SCHEDULE_SPEECH_MAP_BN[normSchedule];
+    let mealPhrase = '';
+    if (meal && /আগে|before/.test(meal)) mealPhrase = ', খাওয়ার আগে';
+    else if (meal && /সাথে|with/.test(meal)) mealPhrase = ', খাওয়ার সাথে';
+    else if (meal && /খালি|empty/.test(meal)) mealPhrase = ', খালি পেটে';
+    else if (meal && /পর|after/.test(meal)) mealPhrase = ', খাওয়ার পরে';
 
     // Duration
     let durationPhrase = '';
@@ -101,20 +104,17 @@ export function formatDoseForSpeech(item: StructuredDoseItem, locale: 'bn' | 'en
       durationPhrase = `, ${item.durationText}`;
     }
 
-    return `${medicineLabel}: ${schedulePhrase}, ${mealPhrase}${durationPhrase}।`;
+    return `${medicineLabel}: ${schedulePhrase}${mealPhrase}${durationPhrase}।`;
   }
 
   // English
   const medicineLabel = item.brandName || item.genericName || 'Medicine';
-  const schedulePhrase = SCHEDULE_SPEECH_MAP_EN[normSchedule] || `on a ${normSchedule} schedule`;
-
-  let mealPhrase = 'after meal';
-  if (item.mealTiming) {
-    const lowerMeal = item.mealTiming.toLowerCase();
-    if (lowerMeal.includes('before') || lowerMeal.includes('আগে')) mealPhrase = 'before meal';
-    else if (lowerMeal.includes('with') || lowerMeal.includes('সাথে')) mealPhrase = 'with meal';
-    else if (lowerMeal.includes('empty') || lowerMeal.includes('খালি')) mealPhrase = 'on an empty stomach';
-  }
+  const schedulePhrase = SCHEDULE_SPEECH_MAP_EN[normSchedule];
+  let mealPhrase = '';
+  if (meal && /before|আগে/.test(meal)) mealPhrase = ', before meal';
+  else if (meal && /with|সাথে/.test(meal)) mealPhrase = ', with meal';
+  else if (meal && /empty|খালি/.test(meal)) mealPhrase = ', on an empty stomach';
+  else if (meal && /after|পর/.test(meal)) mealPhrase = ', after meal';
 
   let durationPhrase = '';
   if (item.durationDays && DURATION_WORDS_EN[item.durationDays]) {
@@ -123,7 +123,7 @@ export function formatDoseForSpeech(item: StructuredDoseItem, locale: 'bn' | 'en
     durationPhrase = ` for ${item.durationText}`;
   }
 
-  return `${medicineLabel}: ${schedulePhrase}, ${mealPhrase}${durationPhrase}.`;
+  return `${medicineLabel}: ${schedulePhrase}${mealPhrase}${durationPhrase}.`;
 }
 
 /**

@@ -30,6 +30,7 @@ export interface VoiceConfig {
   stt_provider: VoiceProviderType;
   tts_provider: VoiceProviderType;
   persona_name: string;
+  persona_preset?: 'friendly' | 'reserved';
   persona_greeting_bn: string;
   persona_greeting_en: string;
   intro_disclaimer_bn: string;

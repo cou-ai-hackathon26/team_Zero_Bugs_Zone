@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useVoice } from '@/context/VoiceContext';
 import { DocMateAvatar } from './DocMateAvatar';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -31,6 +31,7 @@ import { useEvidenceSheet } from '@/context/EvidenceSheetContext';
 
 export function VoicePanel() {
   const locale = useLocale();
+  const t = useTranslations('voice');
   const { openEvidence } = useEvidenceSheet();
   const {
     isOpen,
@@ -169,9 +170,10 @@ export function VoicePanel() {
       {showSettings && (
         <div className="shrink-0 p-3 bg-muted/40 border-b border-border text-xs space-y-2.5 animate-in slide-in-from-top-2">
           <div className="flex items-center justify-between">
-            <span className="font-semibold">{locale === 'bn' ? 'ব্যক্তিগত মোড (নাম বলা হবে না)' : 'Private Mode'}</span>
+            <label className="font-semibold" htmlFor="voice-private-mode">{t('privateMode')}</label>
             <input
               type="checkbox"
+              id="voice-private-mode"
               checked={privateMode}
               onChange={(e) => setPrivateMode(e.target.checked)}
               className="accent-primary w-4 h-4 rounded cursor-pointer"
@@ -312,7 +314,7 @@ export function VoicePanel() {
         {privateMode && (
           <span className="flex items-center gap-1 text-[10px] text-muted-foreground/80 mt-1">
             <Lock className="w-3 h-3 text-emerald-600" />
-            {locale === 'bn' ? 'ব্যক্তিগত মোড সক্রিয় (নাম উচ্চারিত হবে না)' : 'Private Mode Active (names masked)'}
+            {t('dictationReviewOnly')}
           </span>
         )}
       </div>
