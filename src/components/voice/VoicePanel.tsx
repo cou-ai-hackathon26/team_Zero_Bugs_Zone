@@ -17,12 +17,9 @@ import {
 } from '@/components/ui/drawer';
 import {
   Mic,
-  MicOff,
   Square,
-  Volume2,
   X,
   Settings,
-  ShieldCheck,
   Send,
   BookOpen,
   ArrowRight,
@@ -50,7 +47,6 @@ export function VoicePanel() {
     startPushToTalk,
     stopPushToTalk,
     stopSpeech,
-    setTranscript,
     submitTranscript,
     setPrivateMode,
     setAvatarVisible,
@@ -61,7 +57,25 @@ export function VoicePanel() {
   const [isPressing, setIsPressing] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [editedInput, setEditedInput] = useState('');
+  const [tourStep, setTourStep] = useState<number | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('voice_tour_completed') ? null : 1;
+  });
   const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  const handleNextTour = () => {
+    if (tourStep === 3) {
+      localStorage.setItem('voice_tour_completed', 'true');
+      setTourStep(null);
+    } else if (tourStep !== null) {
+      setTourStep(tourStep + 1);
+    }
+  };
+
+  const handleSkipTour = () => {
+    localStorage.setItem('voice_tour_completed', 'true');
+    setTourStep(null);
+  };
 
   // Auto scroll chat to bottom when messages change
   useEffect(() => {
@@ -198,6 +212,65 @@ export function VoicePanel() {
             >
               {locale === 'bn' ? 'কথোপকথন মুছুন' : 'Clear Chat'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 3-Step Voice Onboarding Tour */}
+      {tourStep !== null && (
+        <div className="shrink-0 m-3 p-3.5 rounded-lg border border-primary/30 bg-primary/5 text-xs space-y-2 animate-in fade-in-50">
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-primary flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5" />
+              {locale === 'bn' ? `গাইড: ধাপ ${tourStep}/৩` : `Guide: Step ${tourStep}/3`}
+            </span>
+            <button
+              onClick={handleSkipTour}
+              className="text-[10px] text-muted-foreground hover:underline"
+            >
+              {locale === 'bn' ? 'এড়িয়ে যান' : 'Skip'}
+            </button>
+          </div>
+
+          <div>
+            <h4 className="font-bold text-foreground">
+              {tourStep === 1 && (locale === 'bn' ? '১. মাইক চেপে ধরে বলুন' : '1. Hold mic to speak')}
+              {tourStep === 2 && (locale === 'bn' ? '২. আমি যা শুনলাম তা দেখে নিশ্চিত করুন' : '2. Confirm what was heard')}
+              {tourStep === 3 && (locale === 'bn' ? '৩. বিস্তারিত ও প্রমাণ স্ক্রিনে' : '3. Details and proof on screen')}
+            </h4>
+            <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+              {tourStep === 1 &&
+                (locale === 'bn'
+                  ? 'মাইক বাটন চেপে ধরে কথা বলুন এবং কথা শেষ হলে ছেড়ে দিন। কিবোর্ডে Space চেপেও বলতে পারেন।'
+                  : 'Hold the mic button while speaking and release when done. You can also hold Space on desktop.')}
+              {tourStep === 2 &&
+                (locale === 'bn'
+                  ? 'আপনার কথা শুনে যা লেখা হয়েছে তা স্ক্রিনে দেখে নিন, প্রয়োজনে এডিট করুন বা হ্যাঁ বলুন।'
+                  : 'Review the transcript on screen, verify or edit it, or say "yes".')}
+              {tourStep === 3 &&
+                (locale === 'bn'
+                  ? 'চিকিৎসা পরামর্শের পূর্ণ বিবরণ ও রেফারেন্স স্ক্রিনে প্রদর্শিত হয়। সহকারী সংক্ষেপে সারসংক্ষেপ বলবে।'
+                  : 'Full clinical evidence and citations appear on screen. The assistant speaks a brief 2-3 sentence summary.')}
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between pt-1 border-t border-border/40">
+            <span className="text-[10px] text-muted-foreground/70">
+              {locale === 'bn' ? 'অডিও কোথাও সংরক্ষণ হয় না' : 'Audio is never stored'}
+            </span>
+            <Button
+              size="sm"
+              onClick={handleNextTour}
+              className="h-7 text-xs px-2.5"
+            >
+              {tourStep === 3
+                ? locale === 'bn'
+                  ? 'শুরু করুন'
+                  : 'Get Started'
+                : locale === 'bn'
+                  ? 'পরবর্তী'
+                  : 'Next'}
+            </Button>
           </div>
         </div>
       )}

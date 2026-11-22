@@ -21,7 +21,6 @@ import {
   Sparkles,
   CheckCircle2,
   XCircle,
-  HelpCircle,
   Clock,
   ShieldAlert,
   FileCheck,
@@ -71,7 +70,6 @@ export function CaseConversationTab({
   const [submitting, setSubmitting] = useState(false);
   const [requestingReview, setRequestingReview] = useState(false);
   const { openVoicePanel } = useVoice();
-  const [inlineAnswers, setInlineAnswers] = useState<Record<string, string>>({});
   const [answeringQuestionId, setAnsweringQuestionId] = useState<string | null>(null);
   const [expandedUpdates, setExpandedUpdates] = useState<Record<string, boolean>>({});
   const [copiedTurnId, setCopiedTurnId] = useState<string | null>(null);
@@ -224,9 +222,9 @@ export function CaseConversationTab({
     }
   };
 
-  // Submit answer to a follow-up question (supports typed text or 1-click chip)
-  const handleAnswerSubmit = async (questionId: string, questionText: string, customAnswer?: string) => {
-    const answer = (customAnswer !== undefined ? customAnswer : (inlineAnswers[questionId] || '')).trim();
+  // Submit answer to a follow-up question (supports 1-click ChatGPT-style chip or text)
+  const handleAnswerSubmit = async (questionId: string, questionText: string, answerText: string) => {
+    const answer = answerText.trim();
     if (!answer) return;
 
     setAnsweringQuestionId(questionId);
@@ -250,11 +248,6 @@ export function CaseConversationTab({
       const data = await res.json();
       if (data.turn) {
         onTurnsUpdate([...turns, data.turn]);
-        setInlineAnswers((prev) => {
-          const next = { ...prev };
-          delete next[questionId];
-          return next;
-        });
         toast.success(locale === 'bn' ? 'ক্লিনিকাল পর্যবেক্ষণ সংরক্ষিত' : 'Observation recorded');
       }
     } catch (err: unknown) {
@@ -557,74 +550,29 @@ export function CaseConversationTab({
                     </div>
                   )}
 
-                  {/* Follow-up Questions with 1-Click Quick Answer Chips */}
-                  {followUps.length > 0 && (
-                    <div className="w-full max-w-[92%] sm:max-w-[85%] space-y-2">
-                      {followUps.map((question) => (
-                        <Card
-                          key={question.id}
-                          className="p-3 border-amber-500/30 bg-amber-500/5 space-y-2 text-xs"
-                        >
-                          <div className="flex items-start gap-2">
-                            <HelpCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                            <div className="space-y-0.5 flex-1">
-                              <span className="font-bold text-foreground block">{question.text}</span>
-                              {question.why_it_helps && (
-                                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                  <span className="font-semibold">{t('whyItHelps')}</span> {question.why_it_helps}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* 1-Tap Quick Answer Chips */}
-                          {question.quick_answers && question.quick_answers.length > 0 && (
-                            <div className="flex items-center flex-wrap gap-1.5 pt-1">
-                              {question.quick_answers.map((quickChip) => (
-                                <button
-                                  key={quickChip}
-                                  type="button"
-                                  onClick={() => void handleAnswerSubmit(question.id, question.text, quickChip)}
-                                  disabled={answeringQuestionId === question.id}
-                                  className="px-2.5 py-1 rounded-md text-[11px] font-medium bg-background border border-border/80 hover:bg-primary/10 hover:border-primary/40 text-foreground transition-all flex items-center gap-1 active:scale-95 shadow-2xs"
-                                >
-                                  <span>{quickChip}</span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Custom manual answer input */}
-                          <div className="flex items-center gap-2 pt-1">
-                            <input
-                              type="text"
-                              placeholder={locale === 'bn' ? 'বা কাস্টম ক্লিনিকাল ফলাফল লিখুন...' : 'Or enter custom findings...'}
-                              value={inlineAnswers[question.id] || ''}
-                              onChange={(e) =>
-                                setInlineAnswers((prev) => ({
-                                  ...prev,
-                                  [question.id]: e.target.value,
-                                }))
-                              }
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  void handleAnswerSubmit(question.id, question.text);
-                                }
-                              }}
-                              className="flex-1 h-8 px-2.5 rounded-md border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                            />
-                            <Button
-                              size="sm"
-                              onClick={() => void handleAnswerSubmit(question.id, question.text)}
-                              disabled={answeringQuestionId === question.id || !inlineAnswers[question.id]?.trim()}
-                              className="h-8 px-3 text-xs font-semibold gap-1"
+                  {/* ChatGPT-style Quick Reply Suggestion Pills */}
+                  {followUps.some((q) => q.quick_answers && q.quick_answers.length > 0) && (
+                    <div className="w-full max-w-[92%] sm:max-w-[85%] pt-1 space-y-1.5 animate-fadeIn">
+                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium pl-0.5">
+                        <Sparkles className="w-3.5 h-3.5 text-primary" />
+                        <span>{locale === 'bn' ? 'সাজেস্টেড কুইক উত্তর (ক্লিক করে উত্তর দিন):' : 'Suggested replies (tap to answer):'}</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {followUps.flatMap((question) =>
+                          (question.quick_answers || []).map((quickChip) => (
+                            <button
+                              key={`${question.id}-${quickChip}`}
+                              type="button"
+                              onClick={() => void handleAnswerSubmit(question.id, question.text, quickChip)}
+                              disabled={answeringQuestionId === question.id || submitting}
+                              className="px-3 py-1.5 rounded-full text-xs font-medium bg-card hover:bg-primary/10 hover:text-primary hover:border-primary/40 border border-border/80 text-foreground transition-all flex items-center gap-1.5 active:scale-95 shadow-2xs group"
                             >
-                              <span>{t('submitInlineAnswer')}</span>
-                            </Button>
-                          </div>
-                        </Card>
-                      ))}
+                              <span className="w-1.5 h-1.5 rounded-full bg-primary/40 group-hover:bg-primary transition-colors shrink-0" />
+                              <span>{quickChip}</span>
+                            </button>
+                          ))
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

@@ -310,6 +310,26 @@ export async function POST(
             : 'Doctor, your clinical findings have been recorded in the case consultation history. Suggested next diagnostic steps and clarifications are outlined below.';
       }
 
+      // ChatGPT-style natural conversational questions integration
+      if (missingInfo.length > 0) {
+        const questionsList = missingInfo
+          .map((q, idx) => {
+            const separatorHint = q.which_diagnoses_it_separates?.length
+              ? ` [${q.which_diagnoses_it_separates.join(' vs ')}]`
+              : '';
+            const whyText = q.why_it_helps ? ` — *${q.why_it_helps}*` : '';
+            return `${idx + 1}. **${q.text}**${whyText}${separatorHint}`;
+          })
+          .join('\n\n');
+
+        const questionsPrompt =
+          locale === 'bn'
+            ? `\n\n💬 **রোগ নির্ণয় সুনির্দিষ্ট করতে কয়েকটি প্রশ্ন (Follow-up Questions):**\n${questionsList}\n\n*সরাসরি নিচে মেসেজ লিখে জানাতে পারেন অথবা সাজেস্টেড অপশনে ক্লিক করুন।*`
+            : `\n\n💬 **To help narrow down the diagnosis (Follow-up Questions):**\n${questionsList}\n\n*Feel free to reply naturally in the chat or tap a suggested reply below.*`;
+
+        assistantText += questionsPrompt;
+      }
+
       // 7. Insert assistant reply turn
       const [assistantTurn] = await tx
         .insert(caseTurns)
