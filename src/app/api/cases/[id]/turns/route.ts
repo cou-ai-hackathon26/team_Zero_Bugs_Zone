@@ -9,9 +9,10 @@ import { hybridRetrieve } from '@/lib/retrieval';
 import { libraryExcerpts } from '@/lib/library-excerpts';
 import { understandText } from '@/lib/language';
 import { detectSystemQuery } from '@/lib/system-query';
+import { checkRedFlags } from '@/lib/red-flags';
 import { MissingInformation, SafetyAlert, StructuredPatientInput } from '@/types';
-import { desc, eq } from 'drizzle-orm';
-import { humanize, UserAssistantPreferences } from '@/lib/persona/humanize';
+import { asc, desc, eq } from 'drizzle-orm';
+import { humanize, analyzeDoctorInput, UserAssistantPreferences } from '@/lib/persona/humanize';
 import { AddressStyle, TonePreset, Verbosity } from '@/lib/persona/phrasebank';
 import bn from '../../../../../../messages/bn.json';
 import en from '../../../../../../messages/en.json';
@@ -64,8 +65,6 @@ export async function POST(
 
     const data = input.data;
     const isFollowUp = 'question_id' in data;
-    const locale = data.locale || 'bn';
-    const tGuard = (locale === 'bn' ? bn : en).analysisGuard;
 
     const result = await db.transaction(async (tx) => {
       const [caseRecord] = await tx
@@ -96,9 +95,58 @@ export async function POST(
 
       const patientInput = caseRecord.structuredInput as StructuredPatientInput;
 
+      // 0. Load previous conversation history for memory and context
+      const historyTurns = await tx.query.caseTurns.findMany({
+        where: eq(caseTurns.caseId, id),
+        orderBy: [asc(caseTurns.createdAt)],
+      });
+
+      const answeredQuestionIds = new Set<string>();
+      for (const t of historyTurns) {
+        const c = t.content as Record<string, unknown>;
+        if (c?.type === 'question_answer' && typeof c?.question_id === 'string') {
+          answeredQuestionIds.add(c.question_id);
+        }
+      }
+
+      // Check vitals in patient input
+      const vitalsObj = patientInput.vitals || {};
+      const hasPreexistingVitals =
+        Boolean(vitalsObj.blood_pressure_systolic) ||
+        Boolean(vitalsObj.temperature_celsius) ||
+        Boolean(vitalsObj.heart_rate);
+      if (hasPreexistingVitals) {
+        answeredQuestionIds.add('vitals-followup');
+      }
+
+      // Load user preferences
+      const [prefsRow] = await tx
+        .select()
+        .from(userAssistantPrefs)
+        .where(eq(userAssistantPrefs.userId, user.id))
+        .limit(1);
+
+      const userPrefs: UserAssistantPreferences = {
+        address_style: (prefsRow?.addressStyle as AddressStyle) || 'doctor',
+        tone_preset: (prefsRow?.tonePreset as TonePreset) || 'friendly',
+        verbosity: (prefsRow?.verbosity as Verbosity) || 'normal',
+        sounds_enabled: prefsRow?.soundsEnabled ?? true,
+        hints_enabled: prefsRow?.hintsEnabled ?? true,
+        avatar_enabled: prefsRow?.avatarEnabled ?? true,
+        speech_rate: prefsRow?.speechRate || 1.0,
+        voice_id: prefsRow?.voiceId || 'default',
+      };
+
+      const userPref = await tx.query.userLanguagePrefs.findFirst({
+        where: eq(userLanguagePrefs.userId, user.id),
+      });
+
+      // -----------------------------------------------------------------
+      // BRANCH A: Follow-up answer (type: question_answer)
+      // -----------------------------------------------------------------
       if (isFollowUp) {
-        // Record single question_answer turn
-        const [created] = await tx
+        // Record single question_answer doctor turn
+        const [doctorTurn] = await tx
           .insert(caseTurns)
           .values({
             caseId: id,
@@ -113,6 +161,168 @@ export async function POST(
           })
           .returning();
 
+        // 1. Language understanding of the answer
+        const languageResult = await understandText(data.answer, {
+          userPrefs: {
+            replyLanguage: (data.reply_language || (userPref?.replyLanguage as 'auto' | 'bn' | 'en' | undefined) || 'auto') as 'auto' | 'bn' | 'en',
+            banglishReply: userPref?.banglishReply ?? false,
+          },
+        });
+        const effectiveLocale = languageResult.replyLanguage === 'en' ? 'en' : 'bn';
+
+        // 2. Extract clinical facts from answer (e.g. "BP 130/85, HR 88")
+        const proposedUpdates = extractClinicalFacts(data.answer, patientInput);
+
+        // 3. Deterministic bilingual red flags on answer
+        const safetyAlerts = checkRedFlags(data.answer, effectiveLocale);
+
+        // 4. Memory: mark question_id as answered
+        answeredQuestionIds.add(data.question_id);
+
+        // 5. Build empathetic acknowledgment text
+        let ackText = '';
+        if (proposedUpdates.length > 0) {
+          const factNames = proposedUpdates
+            .map((u) => (effectiveLocale === 'bn' ? u.label_bn : u.label_en))
+            .join(', ');
+          ackText =
+            effectiveLocale === 'bn'
+              ? `পেয়েছি, আপনার উত্তর থেকে **${proposedUpdates.length}টি ক্লিনিকাল তথ্য** (${factNames}) পেয়েছি। রোগীর ফাইলে যোগ করতে নিচে নিশ্চিত করুন।`
+              : `Understood. Identified **${proposedUpdates.length} clinical fact(s)** (${factNames}) from your response. Confirm below to update patient record.`;
+        } else {
+          ackText =
+            effectiveLocale === 'bn'
+              ? 'ধন্যবাদ ডাক্তার, আপনার উত্তর কেস রেকর্ডে লিপিবদ্ধ করা হয়েছে।'
+              : 'Thank you Doctor, your response has been recorded in the case consultation.';
+        }
+
+        // 6. Select the NEXT smart follow-up question (at most ONE), suppressing already answered
+        const tGuardEffective = (effectiveLocale === 'bn' ? bn : en).analysisGuard;
+        const nextMissingInfo: MissingInformation[] = [];
+
+        const hasVitalsNow =
+          hasPreexistingVitals ||
+          answeredQuestionIds.has('vitals-followup') ||
+          proposedUpdates.some((p) => p.field_path.startsWith('vitals.'));
+
+        if (!hasVitalsNow) {
+          nextMissingInfo.push({
+            id: 'vitals-followup',
+            type: 'exam',
+            text: tGuardEffective.vitals,
+            why_it_helps:
+              effectiveLocale === 'bn'
+                ? 'রোগের তীব্রতা এবং কার্ডিওপালমোনারি স্থিতি মূল্যায়ন করতে'
+                : 'To assess disease severity and cardiopulmonary stability',
+            which_diagnoses_it_separates:
+              effectiveLocale === 'bn'
+                ? ['নিউমোনিয়া (Pneumonia)', 'অ্যাকিউট করোনারি সিন্ড্রোম (ACS)']
+                : ['Pneumonia', 'Acute Coronary Syndrome'],
+            quick_answers:
+              effectiveLocale === 'bn'
+                ? ['বিপি ১২০/৮০, পালস ৭৬, তাপমাত্রা স্বাভাবিক', 'বিপি ১৩০/৮৫, পালস ৮৮', 'অস্থির ভাইটালস']
+                : ['BP 120/80, Pulse 76, Afebrile', 'BP 130/85, HR 88', 'Hemodynamically unstable'],
+          });
+        }
+
+        const isRespiratory = /cough|breath|dyspnea|chest|sputum|কাশি|শ্বাস|বুক|কফ/i.test(
+          `${patientInput.chief_complaint || ''} ${(patientInput.symptoms || []).join(' ')} ${data.answer}`
+        );
+
+        if (isRespiratory && !answeredQuestionIds.has('chest-auscultation-followup')) {
+          nextMissingInfo.push({
+            id: 'chest-auscultation-followup',
+            type: 'exam',
+            text:
+              effectiveLocale === 'bn'
+                ? 'স্টেথোস্কোপে ফুসফুসের শব্দ (Auscultation) কেমন? কোনো অস্বাভাবিক ক্রেপিটেশন বা হুইজ আছে?'
+                : 'What are the chest auscultation findings? Any localized crackles, bronchial breathing, or wheezing?',
+            why_it_helps:
+              effectiveLocale === 'bn'
+                ? 'ফুসফুসে কনসলিডেশন (নিউমোনিয়া) বনাম ব্রঙ্কিয়াল বাধা (অ্যাজমা/সিওপিডি) আলাদা করতে'
+                : 'To differentiate localized consolidation (CAP) from bronchospasm (Asthma/COPD)',
+            which_diagnoses_it_separates:
+              effectiveLocale === 'bn'
+                ? ['কমিউনিটি-অ্যাকওয়ার্ড নিউমোনিয়া (CAP)', 'সিওপিডি / অ্যাজমা (COPD/Asthma)']
+                : ['Community-Acquired Pneumonia (CAP)', 'COPD / Asthma Exacerbation'],
+            quick_answers:
+              effectiveLocale === 'bn'
+                ? ['ক্রেপিটেশন বিদ্যমান (Crackles present)', 'হুইজ বিদ্যমান (Wheezing present)', 'ফুসফুসের শব্দ স্বাভাবিক (Clear)', 'বায়ু চলাচল হ্রাসপ্রাপ্ত (Decreased air entry)']
+                : ['Crackles present', 'Wheezing present', 'Clear breath sounds', 'Decreased air entry'],
+          });
+        } else if (!isRespiratory && !answeredQuestionIds.has('exam-general-followup')) {
+          nextMissingInfo.push({
+            id: 'exam-general-followup',
+            type: 'question',
+            text: tGuardEffective.exam,
+            why_it_helps:
+              effectiveLocale === 'bn'
+                ? 'শারীরিক অনুসন্ধানের ফলাফল লিপিবদ্ধ করতে'
+                : 'To document focused physical examination findings',
+            which_diagnoses_it_separates:
+              effectiveLocale === 'bn'
+                ? ['ভাইরাল বনাম ব্যাকটেরিয়াল সংক্রমণ']
+                : ['Viral vs Bacterial Etiology'],
+            quick_answers:
+              effectiveLocale === 'bn'
+                ? ['শারীরিক লক্ষণ স্থিতিশীল', 'তীব্র ব্যথা বিদ্যমান', 'কোনো জরুরি লক্ষণ নেই']
+                : ['Clinically stable', 'Severe acute discomfort', 'No emergent focal signs'],
+          });
+        }
+
+        const selectedNextFollowup = nextMissingInfo.filter((q) => !answeredQuestionIds.has(q.id)).slice(0, 1);
+
+        const humanized = humanize(
+          {
+            found: true,
+            status: 'analyzed',
+            answer: ackText,
+            citations: [],
+            missing_information: selectedNextFollowup,
+          },
+          undefined,
+          userPrefs,
+          {
+            sessionId: `case-${id}`,
+            userName: user.name,
+            turnCount: historyTurns.length + 1,
+          },
+          effectiveLocale,
+          data.answer,
+          safetyAlerts
+        );
+
+        const [assistantTurn] = await tx
+          .insert(caseTurns)
+          .values({
+            caseId: id,
+            role: 'system',
+            content: {
+              type: 'assistant_response',
+              text: humanized.displayText,
+              speech_text: humanized.speechText,
+              reactions: humanized.reactions,
+              next_steps: humanized.nextSteps,
+              proposed_updates: proposedUpdates,
+              follow_ups: selectedNextFollowup,
+              citations: [],
+              safety_alerts: safetyAlerts,
+              status: 'analyzed',
+              language_metadata: {
+                reply_language: effectiveLocale,
+                understanding: {
+                  detected_lang: languageResult.detectedLang,
+                  dominant_lang: languageResult.dominantLang,
+                  canonical_query: languageResult.canonicalEnglishQuery,
+                  bangla_query: languageResult.banglaQuery,
+                  entities: languageResult.entities,
+                  ambiguity: languageResult.ambiguity,
+                },
+              },
+            },
+          })
+          .returning();
+
         await tx
           .update(cases)
           .set({ updatedAt: new Date() })
@@ -122,13 +332,20 @@ export async function POST(
           caseId: id,
           userId: user.id,
           event: 'follow_up_answered',
-          payload: { question_id: data.question_id },
+          payload: {
+            question_id: data.question_id,
+            doctor_turn_id: doctorTurn.id,
+            assistant_turn_id: assistantTurn.id,
+            proposed_facts_count: proposedUpdates.length,
+          },
         });
 
-        return { doctorTurn: created, assistantTurn: null, duplicate: false };
+        return { doctorTurn, assistantTurn, duplicate: false };
       }
 
-      // Observation / Note / Evidence review
+      // -----------------------------------------------------------------
+      // BRANCH B: Observation / Note / Evidence review
+      // -----------------------------------------------------------------
       const observationText =
         'note' in data
           ? data.note
@@ -140,11 +357,7 @@ export async function POST(
 
       const action = 'action' in data ? data.action : 'observation';
 
-      // 0. Language Layer Understanding & Entity Canonicalization
-      const userPref = await tx.query.userLanguagePrefs.findFirst({
-        where: eq(userLanguagePrefs.userId, user.id),
-      });
-
+      // 1. Language Layer Understanding & Entity Canonicalization
       const languageResult = await understandText(observationText, {
         userPrefs: {
           replyLanguage: (data.reply_language || (userPref?.replyLanguage as 'auto' | 'bn' | 'en' | undefined) || 'auto') as 'auto' | 'bn' | 'en',
@@ -154,7 +367,7 @@ export async function POST(
 
       const effectiveLocale = languageResult.replyLanguage === 'en' ? 'en' : 'bn';
 
-      // 1. Insert doctor turn (Original text strictly preserved for audit)
+      // 2. Insert doctor turn (Original text strictly preserved for audit)
       const [doctorTurn] = await tx
         .insert(caseTurns)
         .values({
@@ -178,32 +391,33 @@ export async function POST(
         })
         .returning();
 
-      // 2. Extract facts from text
+      // 3. Extract facts from text
       const proposedUpdates = extractClinicalFacts(observationText, patientInput);
 
-      // 3. Identify smart, context-aware missing information with quick 1-tap responses
+      // 4. Identify smart, context-aware missing information (at most 1 follow-up)
+      const tGuardEffective = (effectiveLocale === 'bn' ? bn : en).analysisGuard;
       const missingInfo: MissingInformation[] = [];
-      const vitalsObj = patientInput.vitals || {};
+
       const hasVitals =
-        Boolean(vitalsObj.blood_pressure_systolic) ||
-        Boolean(vitalsObj.temperature_celsius) ||
-        Boolean(vitalsObj.heart_rate);
+        hasPreexistingVitals ||
+        answeredQuestionIds.has('vitals-followup') ||
+        proposedUpdates.some((p) => p.field_path.startsWith('vitals.'));
 
       if (!hasVitals) {
         missingInfo.push({
           id: 'vitals-followup',
           type: 'exam',
-          text: tGuard.vitals,
+          text: tGuardEffective.vitals,
           why_it_helps:
-            locale === 'bn'
+            effectiveLocale === 'bn'
               ? 'রোগের তীব্রতা এবং কার্ডিওপালমোনারি স্থিতি মূল্যায়ন করতে'
               : 'To assess disease severity and cardiopulmonary stability',
           which_diagnoses_it_separates:
-            locale === 'bn'
+            effectiveLocale === 'bn'
               ? ['নিউমোনিয়া (Pneumonia)', 'অ্যাকিউট করোনারি সিন্ড্রোম (ACS)']
               : ['Pneumonia', 'Acute Coronary Syndrome'],
           quick_answers:
-            locale === 'bn'
+            effectiveLocale === 'bn'
               ? ['বিপি ১২০/৮০, পালস ৭৬, তাপমাত্রা স্বাভাবিক', 'বিপি ১৩০/৮৫, পালস ৮৮', 'অস্থির ভাইটালস']
               : ['BP 120/80, Pulse 76, Afebrile', 'BP 130/85, HR 88', 'Hemodynamically unstable'],
         });
@@ -233,6 +447,7 @@ export async function POST(
       const hasAuscultation =
         Boolean(patientInput.examination_findings) ||
         proposedUpdates.some((u) => u.field_path === 'examination_findings') ||
+        answeredQuestionIds.has('chest-auscultation-followup') ||
         /crackles?|crepitations?|wheez|rhonchi|clear\s+breath|breath\s+sounds?|বায়ু\s+চলাচল|হুইজ|ক্রেপিটেশন|র‌্যালস|স্বাভাবিক\s+শব্দ/i.test(
           `${observationText} ${pastTurnsHistory}`
         );
@@ -242,19 +457,19 @@ export async function POST(
           id: 'chest-auscultation-followup',
           type: 'exam',
           text:
-            locale === 'bn'
+            effectiveLocale === 'bn'
               ? 'স্টেথোস্কোপে ফুসফুসের শব্দ (Auscultation) কেমন? কোনো অস্বাভাবিক ক্রেপিটেশন বা হুইজ আছে?'
               : 'What are the chest auscultation findings? Any localized crackles, bronchial breathing, or wheezing?',
           why_it_helps:
-            locale === 'bn'
+            effectiveLocale === 'bn'
               ? 'ফুসফুসে কনসলিডেশন (নিউমোনিয়া) বনাম ব্রঙ্কিয়াল বাধা (অ্যাজমা/সিওপিডি) আলাদা করতে'
               : 'To differentiate localized consolidation (CAP) from bronchospasm (Asthma/COPD)',
           which_diagnoses_it_separates:
-            locale === 'bn'
+            effectiveLocale === 'bn'
               ? ['কমিউনিটি-অ্যাকওয়ার্ড নিউমোনিয়া (CAP)', 'সিওপিডি / অ্যাজমা (COPD/Asthma)']
               : ['Community-Acquired Pneumonia (CAP)', 'COPD / Asthma Exacerbation'],
           quick_answers:
-            locale === 'bn'
+            effectiveLocale === 'bn'
               ? ['ক্রেপিটেশন বিদ্যমান (Crackles present)', 'হুইজ বিদ্যমান (Wheezing present)', 'ফুসফুসের শব্দ স্বাভাবিক (Clear)', 'বায়ু চলাচল হ্রাসপ্রাপ্ত (Decreased air entry)']
               : ['Crackles present', 'Wheezing present', 'Clear breath sounds', 'Decreased air entry'],
         });
@@ -263,70 +478,99 @@ export async function POST(
           `${observationText} ${pastTurnsHistory}`
         );
 
-        if (!hasImagingOrLabs) {
+        if (!hasImagingOrLabs && !answeredQuestionIds.has('chest-imaging-followup')) {
           missingInfo.push({
             id: 'chest-imaging-followup',
             type: 'test',
             text:
-              locale === 'bn'
+              effectiveLocale === 'bn'
                 ? 'বুকের এক্স-রে (Chest X-ray PA view) বা সিবিসি (CBC) টেস্টের রিপোর্ট আছে কি?'
                 : 'Has a posteroanterior (PA) chest radiograph or complete blood count (CBC) been performed?',
             why_it_helps:
-              locale === 'bn'
+              effectiveLocale === 'bn'
                 ? 'লোবার কনসোলিডেশন নিশ্চিত করতে এবং নিউমোনিয়া বনাম ব্রঙ্কাইটিস আলাদা করতে'
                 : 'To confirm focal lobar consolidation and rule out complicated pneumonia',
             which_diagnoses_it_separates:
-              locale === 'bn'
+              effectiveLocale === 'bn'
                 ? ['কমিউনিটি-অ্যাকওয়ার্ড নিউমোনিয়া (CAP)', 'তীব্র ব্রঙ্কাইটিস (Acute Bronchitis)']
                 : ['Community-Acquired Pneumonia (CAP)', 'Acute Bronchitis'],
             quick_answers:
-              locale === 'bn'
+              effectiveLocale === 'bn'
                 ? ['এক্স-রে সম্পন্ন হয়নি', 'এক্স-রে: ডান ফুসফুসে কনসলিডেশন', 'সিবিসি: লিউকোসাইটোসিস বিদ্যমান']
                 : ['Chest X-ray pending', 'CXR: Right lower lobe consolidation', 'CBC: Leukocytosis present'],
           });
-        } else {
+        } else if (!answeredQuestionIds.has('duration-followup')) {
           missingInfo.push({
             id: 'duration-followup',
             type: 'question',
             text:
-              locale === 'bn'
+              effectiveLocale === 'bn'
                 ? 'জ্বর ও উপসর্গের স্থায়িত্বকাল কত দিন? রোগী স্বাভাবিকভাবে তরল খাদ্য গ্রহণ করতে পারছেন?'
                 : 'What is the exact duration of symptoms in days? Is the patient able to maintain oral hydration?',
             why_it_helps:
-              locale === 'bn'
+              effectiveLocale === 'bn'
                 ? 'রোগের গতিবিধি এবং হাসপাতালে ভর্তির প্রয়োজনীয়তা নির্ধারণ করতে'
                 : 'To assess clinical acuity and outpatient vs inpatient disposition',
             which_diagnoses_it_separates:
-              locale === 'bn'
+              effectiveLocale === 'bn'
                 ? ['মৃদু কেস (Outpatient)', 'গুরুতর কেস (Inpatient)']
                 : ['Mild (Outpatient)', 'Severe (Inpatient)'],
             quick_answers:
-              locale === 'bn'
+              effectiveLocale === 'bn'
                 ? ['৩ দিন ধরে, তরল গ্রহণ স্বাভাবিক', '১ সপ্তাহ ধরে, দুর্বলতা বেশি', '৫ দিন, উচ্চ জ্বর']
                 : ['3 days, tolerating oral fluids', '1 week, marked weakness', '5 days, high fever'],
           });
         }
-      } else {
+      } else if (!isRespiratory && !answeredQuestionIds.has('exam-general-followup')) {
         missingInfo.push({
           id: 'exam-general-followup',
           type: 'question',
-          text: tGuard.exam,
+          text: tGuardEffective.exam,
           why_it_helps:
-            locale === 'bn'
+            effectiveLocale === 'bn'
               ? 'শারীরিক অনুসন্ধানের ফলাফল লিপিবদ্ধ করতে'
               : 'To document focused physical examination findings',
           which_diagnoses_it_separates:
-            locale === 'bn'
+            effectiveLocale === 'bn'
               ? ['ভাইরাল বনাম ব্যাকটেরিয়াল সংক্রমণ']
               : ['Viral vs Bacterial Etiology'],
           quick_answers:
-            locale === 'bn'
+            effectiveLocale === 'bn'
               ? ['শারীরিক লক্ষণ স্থিতিশীল', 'তীব্র ব্যথা বিদ্যমান', 'কোনো জরুরি লক্ষণ নেই']
               : ['Clinically stable', 'Severe acute discomfort', 'No emergent focal signs'],
         });
       }
 
-      // 4. Multi-query hybrid retrieval using language layer canonical queries & enriched patient context
+      // 4b. Inject Ambiguity Clarification if detected
+      if (
+        languageResult.ambiguity.isAmbiguous &&
+        (languageResult.ambiguity.clarifyingQuestionBn || languageResult.ambiguity.clarifyingQuestionEn)
+      ) {
+        const ambiguityId = 'ambiguity-clarify';
+        if (!answeredQuestionIds.has(ambiguityId)) {
+          missingInfo.unshift({
+            id: ambiguityId,
+            type: 'question',
+            text:
+              effectiveLocale === 'bn'
+                ? languageResult.ambiguity.clarifyingQuestionBn!
+                : languageResult.ambiguity.clarifyingQuestionEn || languageResult.ambiguity.clarifyingQuestionBn!,
+            why_it_helps:
+              effectiveLocale === 'bn'
+                ? 'চিকিৎসা বা নির্দেশিকা সুনির্দিষ্ট করতে'
+                : 'To clarify targeted clinical subject',
+            which_diagnoses_it_separates: [],
+            quick_answers: (languageResult.ambiguity.quickChips || []).map((c) =>
+              effectiveLocale === 'bn' ? c.labelBn : c.labelEn
+            ),
+          });
+        }
+      }
+
+      // Strictly select at most ONE follow-up that has not been answered yet
+      const selectedFollowup = missingInfo.filter((q) => !answeredQuestionIds.has(q.id)).slice(0, 1);
+
+      // 5. Multi-query hybrid retrieval using language layer canonical queries & enriched patient context
       const sysQuery = detectSystemQuery(observationText);
       let citations: ReturnType<typeof libraryExcerpts> = [];
       const isQuestion =
@@ -369,71 +613,24 @@ export async function POST(
         }
       }
 
-      // 4b. Inject Ambiguity Clarification if detected by language layer
-      if (
-        languageResult.ambiguity.isAmbiguous &&
-        (languageResult.ambiguity.clarifyingQuestionBn || languageResult.ambiguity.clarifyingQuestionEn)
-      ) {
-        missingInfo.unshift({
-          id: `ambiguity-clarify-${Date.now()}`,
-          type: 'question',
-          text:
-            effectiveLocale === 'bn'
-              ? languageResult.ambiguity.clarifyingQuestionBn!
-              : languageResult.ambiguity.clarifyingQuestionEn || languageResult.ambiguity.clarifyingQuestionBn!,
-          why_it_helps:
-            effectiveLocale === 'bn'
-              ? 'চিকিৎসা বা নির্দেশিকা সুনির্দিষ্ট করতে'
-              : 'To clarify targeted clinical subject',
-          which_diagnoses_it_separates: [],
-          quick_answers: (languageResult.ambiguity.quickChips || []).map((c) =>
-            effectiveLocale === 'bn' ? c.labelBn : c.labelEn
-          ),
-        });
-      }
+      // 6. Red-flag clinical safety triggers (Negation-aware, Unicode regex, bilingual)
+      const safetyAlerts: SafetyAlert[] = checkRedFlags(
+        `${observationText} ${patientInput.chief_complaint || ''} ${(patientInput.symptoms || []).join(' ')}`,
+        effectiveLocale
+      );
 
-      // 5. Red-flag clinical safety triggers
-      const safetyAlerts: SafetyAlert[] = [];
-      const redFlagRegex = /\b(?:chest\s+pain\s+(?:radiat|spread)|crushing|severe\s+dyspnea|stridor|unconscious|cyanosis|hemoptysis|তীব্র\s+শ্বাসকষ্ট|রক্তবমি|বুকে\s+তীব্র\s+ব্যথা)\b/i;
-      if (redFlagRegex.test(observationText) || redFlagRegex.test(patientInput.chief_complaint || '')) {
-        safetyAlerts.push({
-          id: `redflag-${Date.now()}`,
-          drug_id: 'triage-01',
-          drug_name: 'Emergency Protocol',
-          severity: 'critical',
-          type: 'contraindication',
-          title:
-            locale === 'bn'
-              ? '🚨 জরুরি রেড ফ্ল্যাগ: তাৎক্ষণিক ক্লিনিকাল হস্তক্ষেপ প্রয়োজন'
-              : '🚨 Critical Red Flag: Immediate Clinical Escalation Required',
-          description:
-            locale === 'bn'
-              ? 'উপসর্গ বা পর্যবেক্ষণে উচ্চ ঝুঁকির লক্ষণ বিদ্যমান। কার্ডিওপালমোনারি স্থায়িত্ব নিশ্চিত করুন এবং জরুরি অক্সিজেন ও সিনিয়র কনসালট্যান্ট কল করুন।'
-              : 'Symptoms indicate acute hemodynamic or respiratory instability. Immediate airway/oxygen stabilization and senior specialist consult required.',
-        });
-      }
-
-      // 6. Build smart, empathetic, human-friendly assistant reply via humanize layer
-      const [prefsRow] = await tx
-        .select()
-        .from(userAssistantPrefs)
-        .where(eq(userAssistantPrefs.userId, user.id))
-        .limit(1);
-
-      const userPrefs: UserAssistantPreferences = {
-        address_style: (prefsRow?.addressStyle as AddressStyle) || 'doctor',
-        tone_preset: (prefsRow?.tonePreset as TonePreset) || 'friendly',
-        verbosity: (prefsRow?.verbosity as Verbosity) || 'normal',
-        sounds_enabled: prefsRow?.soundsEnabled ?? true,
-        hints_enabled: prefsRow?.hintsEnabled ?? true,
-        avatar_enabled: prefsRow?.avatarEnabled ?? true,
-        speech_rate: prefsRow?.speechRate || 1.0,
-        voice_id: prefsRow?.voiceId || 'default',
-      };
+      // 7. Build clinical answer
+      const doctorInputSignals = analyzeDoctorInput(
+        observationText,
+        { sessionId: `case-${id}`, turnCount: historyTurns.length + 1 },
+        safetyAlerts
+      );
 
       let baseClinicalAnswer = '';
       if (sysQuery) {
         baseClinicalAnswer = effectiveLocale === 'bn' ? sysQuery.answerBn : sysQuery.answerEn;
+      } else if (doctorInputSignals.isThanks || languageResult.intent === 'greeting') {
+        baseClinicalAnswer = '';
       } else if (languageResult.intent === 'ask_capabilities') {
         baseClinicalAnswer =
           effectiveLocale === 'bn'
@@ -450,51 +647,51 @@ export async function POST(
           if (effectiveLocale === 'bn') {
             const items: string[] = [];
             if (capCitation) {
-              items.push(`১. **কমিউনিটি-অ্যাকওয়ার্ড নিউমোনিয়া (Community-Acquired Pneumonia - CAP)**:\n   • **গাইডলাইন প্রমাণ**: "${capCitation.quote.slice(0, 180)}..."\n   • **যৌক্তিকতা**: জ্বর, কাশি ও বুকের শব্দের সাথে সংগতিপূর্ণ।`);
+              items.push(`১. **কমিউনিটি-অ্যাকওয়ার্ড নিউমোনিয়া (Community-Acquired Pneumonia - CAP)**:\n   • **গাইডলাইন প্রমাণ**: "${capCitation.quote}"\n   • **যৌক্তিকতা**: জ্বর, কাশি ও বুকের শব্দের সাথে সংগতিপূর্ণ।`);
             }
             if (dengueCitation && !capCitation) {
-              items.push(`১. **ডেঙ্গু জ্বর (Dengue Fever)**:\n   • **গাইডলাইন প্রমাণ**: "${dengueCitation.quote.slice(0, 180)}..."\n   • **যৌক্তিকতা**: তীব্র জ্বর ও শারীরিক ব্যথার ক্ষেত্রে এন্ডেমিক অঞ্চলে বিবেচনাযোগ্য।`);
+              items.push(`১. **ডেঙ্গু জ্বর (Dengue Fever)**:\n   • **গাইডলাইন প্রমাণ**: "${dengueCitation.quote}"\n   • **যৌক্তিকতা**: তীব্র জ্বর ও শারীরিক ব্যথার ক্ষেত্রে এন্ডেমিক অঞ্চলে বিবেচনাযোগ্য।`);
             } else if (dengueCitation) {
-              items.push(`২. **ডেঙ্গু জ্বর (Dengue Fever)**:\n   • **গাইডলাইন প্রমাণ**: "${dengueCitation.quote.slice(0, 180)}..."\n   • **যৌক্তিকতা**: তীব্র জ্বর ও শারীরিক ব্যথার ক্ষেত্রে এন্ডেমিক অঞ্চলে বিবেচনাযোগ্য।`);
+              items.push(`২. **ডেঙ্গু জ্বর (Dengue Fever)**:\n   • **গাইডলাইন প্রমাণ**: "${dengueCitation.quote}"\n   • **যৌক্তিকতা**: তীব্র জ্বর ও শারীরিক ব্যথার ক্ষেত্রে এন্ডেমিক অঞ্চলে বিবেচনাযোগ্য।`);
             }
             if (cardioCitation) {
-              items.push(`• **অ্যাকিউট করোনারি সিন্ড্রোম (ACS)**:\n   • **গাইডলাইন প্রমাণ**: "${cardioCitation.quote.slice(0, 180)}..."\n   • **যৌক্তিকতা**: বুকে ব্যথা বা শ্বাসকষ্টের ক্ষেত্রে অবিলম্বে ইসিজি নিশ্চিত করা প্রয়োজন।`);
+              items.push(`• **অ্যাকিউট করোনারি সিন্ড্রোম (ACS)**:\n   • **গাইডলাইন প্রমাণ**: "${cardioCitation.quote}"\n   • **যৌক্তিকতা**: বুকে ব্যথা বা শ্বাসকষ্টের ক্ষেত্রে অবিলম্বে ইসিজি নিশ্চিত করা প্রয়োজন।`);
             }
             if (items.length === 0) {
               const topC = citations[0];
-              items.push(`• **ক্লিনিকাল গাইডলাইন প্রমাণ**: "${topC.quote.slice(0, 200)}..."`);
+              items.push(`• **ক্লিনিকাল গাইডলাইন প্রমাণ**: "${topC.quote}"`);
             }
             baseClinicalAnswer = `রোগীর বর্তমান উপসর্গ ও অভ্যন্তরীণ মেডিকেল লাইব্রেরির তথ্যের ভিত্তিতে সম্ভাব্য ক্লিনিকাল বিবেচনা:\n\n${items.join('\n\n')}\n\n*সতর্কতা: এটি ক্লিনিকাল সিদ্ধান্ত সহায়তা। চূড়ান্ত রোগ নির্ণয়ের জন্য ফিজিক্যাল এক্সামিনেশন ও ইনভেস্টিগেশন পর্যালোচনা করুন।*`;
           } else {
             const items: string[] = [];
             if (capCitation) {
-              items.push(`1. **Community-Acquired Pneumonia (CAP)**:\n   • **Guideline Evidence**: "${capCitation.quote.slice(0, 180)}..."\n   • **Clinical Rationale**: Strongly correlates with acute fever, cough, and localized auscultatory findings.`);
+              items.push(`1. **Community-Acquired Pneumonia (CAP)**:\n   • **Guideline Evidence**: "${capCitation.quote}"\n   • **Clinical Rationale**: Strongly correlates with acute fever, cough, and localized auscultatory findings.`);
             }
             if (dengueCitation && !capCitation) {
-              items.push(`1. **Dengue Fever**:\n   • **Guideline Evidence**: "${dengueCitation.quote.slice(0, 180)}..."\n   • **Clinical Rationale**: Relevant in acute febrile presentation during endemic periods; monitor for warning signs.`);
+              items.push(`1. **Dengue Fever**:\n   • **Guideline Evidence**: "${dengueCitation.quote}"\n   • **Clinical Rationale**: Relevant in acute febrile presentation during endemic periods; monitor for warning signs.`);
             } else if (dengueCitation) {
-              items.push(`2. **Dengue Fever**:\n   • **Guideline Evidence**: "${dengueCitation.quote.slice(0, 180)}..."\n   • **Clinical Rationale**: Relevant in acute febrile presentation during endemic periods; monitor for warning signs.`);
+              items.push(`2. **Dengue Fever**:\n   • **Guideline Evidence**: "${dengueCitation.quote}"\n   • **Clinical Rationale**: Relevant in acute febrile presentation during endemic periods; monitor for warning signs.`);
             }
             if (cardioCitation) {
-              items.push(`• **Acute Coronary Syndrome (ACS)**:\n   • **Guideline Evidence**: "${cardioCitation.quote.slice(0, 180)}..."\n   • **Clinical Rationale**: Consider in acute chest tightness or dyspnea; prioritize STAT 12-lead ECG.`);
+              items.push(`• **Acute Coronary Syndrome (ACS)**:\n   • **Guideline Evidence**: "${cardioCitation.quote}"\n   • **Clinical Rationale**: Consider in acute chest tightness or dyspnea; prioritize STAT 12-lead ECG.`);
             }
             if (items.length === 0) {
               const topC = citations[0];
-              items.push(`• **Verified Guideline Evidence**: "${topC.quote.slice(0, 200)}..."`);
+              items.push(`• **Verified Guideline Evidence**: "${topC.quote}"`);
             }
             baseClinicalAnswer = `Differential considerations based on documented findings and verified internal guidelines:\n\n${items.join('\n\n')}\n\n*Clinical decision support only. Final clinical diagnosis requires physician examination and diagnostic tests.*`;
           }
         } else {
           const topCitation = citations[0];
-          const excerptSnippet = topCitation.quote
-            ? `"${topCitation.quote.slice(0, 200)}..."`
-            : '';
+          const excerptSnippet = topCitation.quote ? `"${topCitation.quote}"` : '';
 
           baseClinicalAnswer =
             effectiveLocale === 'bn'
               ? `অভ্যন্তরীণ মেডিকেল লাইব্রেরি থেকে সংশ্লিষ্ট প্রমাণ:\n\n• **লাইব্রেরি প্রমাণ**: ${excerptSnippet || 'সংশ্লিষ্ট ক্লিনিকাল গাইডলাইনে উপযুক্ত প্রটোকল উল্লেখিত রয়েছে।'}\n\nরোগীর বর্তমান ডেটা ও প্রমাণের ওপর ভিত্তি করে সিদ্ধান্ত সহায়তা প্রস্তুত।`
               : `Verified evidence from internal medical library:\n\n• **Guideline Evidence**: ${excerptSnippet || 'Approved management protocols documented in reference library.'}\n\nPlease review citations below to support your clinical decision.`;
         }
+      } else if (isQuestion && citations.length === 0) {
+        baseClinicalAnswer = '';
       } else if (action === 'evidence_review') {
         baseClinicalAnswer =
           effectiveLocale === 'bn'
@@ -516,22 +713,26 @@ export async function POST(
             : 'Clinical observation has been recorded in the case consultation history.';
       }
 
-      const hasClinicalEvidence = citations.length > 0 || proposedUpdates.length > 0 || Boolean(sysQuery);
+      // Determine real status based on evidence and clinical content
+      const realStatus =
+        Boolean(sysQuery) || citations.length > 0 || proposedUpdates.length > 0 || !isQuestion
+          ? 'analyzed'
+          : 'insufficient_evidence';
 
       const humanized = humanize(
         {
-          found: hasClinicalEvidence,
-          status: hasClinicalEvidence ? 'analyzed' : 'insufficient_evidence',
+          found: realStatus !== 'insufficient_evidence',
+          status: realStatus,
           answer: baseClinicalAnswer,
           citations,
-          missing_information: hasClinicalEvidence && !isQuestion ? [] : missingInfo,
+          missing_information: sysQuery ? [] : selectedFollowup,
         },
         undefined,
         userPrefs,
         {
           sessionId: `case-${id}`,
           userName: user.name,
-          turnCount: 1,
+          turnCount: historyTurns.length + 1,
         },
         effectiveLocale,
         observationText,
@@ -540,7 +741,7 @@ export async function POST(
 
       const assistantText = humanized.displayText;
 
-      // 7. Insert assistant reply turn
+      // 8. Insert assistant reply turn with true status
       const [assistantTurn] = await tx
         .insert(caseTurns)
         .values({
@@ -553,10 +754,10 @@ export async function POST(
             reactions: humanized.reactions,
             next_steps: humanized.nextSteps,
             proposed_updates: proposedUpdates,
-            follow_ups: missingInfo,
+            follow_ups: selectedFollowup,
             citations,
             safety_alerts: safetyAlerts,
-            status: hasClinicalEvidence ? 'analyzed' : 'insufficient_evidence',
+            status: realStatus,
             language_metadata: {
               reply_language: effectiveLocale,
               understanding: {
@@ -593,6 +794,7 @@ export async function POST(
           reply_language: effectiveLocale,
           proposed_facts_count: proposedUpdates.length,
           citations_count: citations.length,
+          status: realStatus,
         },
       });
 
@@ -609,7 +811,8 @@ export async function POST(
       assistantTurn: result.assistantTurn,
       duplicate: result.duplicate,
     });
-  } catch {
+  } catch (err) {
+    console.error('Failed to save turn:', err);
     return NextResponse.json({ error: 'Failed to save turn' }, { status: 500 });
   }
 }

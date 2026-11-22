@@ -57,10 +57,15 @@ export function validateFileSignature(buffer: Buffer, originalName: string): { i
     return { isValid: true, detectedMime: 'application/pdf', safeName };
   }
 
-  // ZIP / DOCX magic: PK\x03\x04
-  if (buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04) {
+  // ZIP / DOCX magic: PK (0x50 0x4B)
+  if (buffer[0] === 0x50 && buffer[1] === 0x4B) {
     const isDocx = safeName.toLowerCase().endsWith('.docx');
     return { isValid: true, detectedMime: isDocx ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/zip', safeName };
+  }
+
+  // Legacy DOC magic: 0xD0 0xCF 0x11 0xE0
+  if (buffer[0] === 0xD0 && buffer[1] === 0xCF && buffer[2] === 0x11 && buffer[3] === 0xE0) {
+    return { isValid: true, detectedMime: 'application/msword', safeName };
   }
 
   const head = buffer.subarray(0, 1024).toString('utf-8').trim().toLowerCase();

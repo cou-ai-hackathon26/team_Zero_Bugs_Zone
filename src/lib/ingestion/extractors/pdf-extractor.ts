@@ -80,59 +80,70 @@ export class PdfExtractor implements DocumentExtractor {
 
       const fontsUrl = pathToFileURL(path.resolve(process.cwd(), 'node_modules/pdfjs-dist/standard_fonts')).href + '/';
 
-      const parser = new PDFParseClass({
-        data: new Uint8Array(buffer),
-        standardFontDataUrl: fontsUrl,
-      });
       try {
-        const infoResult = await parser.getInfo().catch(() => null);
-        if (infoResult?.info?.Title && String(infoResult.info.Title).trim().length > 2) {
-          title = String(infoResult.info.Title).trim();
-        }
+        const parser = new PDFParseClass({
+          data: new Uint8Array(buffer),
+          standardFontDataUrl: fontsUrl,
+        });
 
-        const textResult = await parser.getText().catch(() => null);
-        if (textResult) {
-          if (Array.isArray(textResult.pages) && textResult.pages.length > 0) {
-            for (const p of textResult.pages) {
-              const rawText = (p.text || '').trim();
-              const normalized = normalizePdfText(rawText);
-              const tables = extractTablesFromText(normalized);
-
-              // Detect heading on page
-              let heading: string | undefined;
-              const firstHeadingMatch = normalized.match(
-                /^(?:#{1,4}\s+|Section\s+\d+:?|Chapter\s+\d+:?|অধ্যায়\s+[১-৯\d]+:?|[0-9১-৯]+(?:\.[0-9১-৯]+)*\s+[A-Za-z\u0980-\u09FF]{3,50})/m
-              );
-              if (firstHeadingMatch) {
-                heading = firstHeadingMatch[0].replace(/^#+\s*/, '').trim();
-              }
-
-              if (normalized) {
-                pageTexts.push({
-                  pageNumber: p.num || pageTexts.length + 1,
-                  text: normalized,
-                  tables: tables.length > 0 ? tables : undefined,
-                  heading,
-                });
-              }
-            }
+        try {
+          const infoResult = await parser.getInfo().catch(() => null);
+          if (infoResult?.info?.Title && String(infoResult.info.Title).trim().length > 2) {
+            title = String(infoResult.info.Title).trim();
           }
 
-          pageCount = textResult.total || (pageTexts.length > 0 ? pageTexts.length : 1);
-          fullText = textResult.text || pageTexts.map((p) => p.text).join('\n\n');
+          const textResult = await parser.getText().catch((err: unknown) => {
+            console.warn('[PdfExtractor] getText error:', err);
+            return null;
+          });
+
+          if (textResult) {
+            if (Array.isArray(textResult.pages) && textResult.pages.length > 0) {
+              for (const p of textResult.pages) {
+                const rawText = (p.text || '').trim();
+                const normalized = normalizePdfText(rawText);
+                const tables = extractTablesFromText(normalized);
+
+                // Detect heading on page
+                let heading: string | undefined;
+                const firstHeadingMatch = normalized.match(
+                  /^(?:#{1,4}\s+|Section\s+\d+:?|Chapter\s+\d+:?|অধ্যায়\s+[১-৯\d]+:?|[0-9১-৯]+(?:\.[0-9১-৯]+)*\s+[A-Za-z\u0980-\u09FF]{3,50})/m
+                );
+                if (firstHeadingMatch) {
+                  heading = firstHeadingMatch[0].replace(/^#+\s*/, '').trim();
+                }
+
+                if (normalized) {
+                  pageTexts.push({
+                    pageNumber: p.num || pageTexts.length + 1,
+                    text: normalized,
+                    tables: tables.length > 0 ? tables : undefined,
+                    heading,
+                  });
+                }
+              }
+            }
+
+            pageCount = textResult.total || (pageTexts.length > 0 ? pageTexts.length : 1);
+            fullText = textResult.text || pageTexts.map((p) => p.text).join('\n\n');
+          }
+        } finally {
+          await parser.destroy().catch(() => {});
         }
-      } finally {
-        await parser.destroy().catch(() => {});
+      } catch (err) {
+        console.warn('[PdfExtractor] PDFParseClass initialization error:', err);
       }
-    } else {
-      // Legacy pdf-parse v1 function fallback
+    }
+
+    // If PDFParseClass did not yield any text or was not available, try legacy function
+    if (!fullText.trim()) {
       const parseFn = typeof mod === 'function' ? mod : mod.default;
       if (typeof parseFn === 'function') {
         try {
           const data = await parseFn(buffer);
-          pageCount = data.numpages || 1;
+          pageCount = data.numpages || pageCount || 1;
           fullText = normalizePdfText(data.text || '');
-          if (data.info?.Title && data.info.Title.trim().length > 2) {
+          if (data.info?.Title && data.info.Title.trim().length > 2 && !title) {
             title = data.info.Title.trim();
           }
           const rawPages = fullText.split(/\x0C/);

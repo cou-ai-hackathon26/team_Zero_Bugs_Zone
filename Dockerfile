@@ -40,6 +40,8 @@ COPY --from=builder /app/messages ./messages
 COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/migrations ./migrations
 
+RUN mkdir -p /app/data/storage && chown -R nextjs:nodejs /app/data
+
 USER nextjs
 
 EXPOSE 3000

@@ -1,4 +1,5 @@
 import { DrugRecord, DrugInteractionRecord, SafetyAlert, StructuredPatientInput } from '@/types';
+export { checkRedFlags, RED_FLAG_RULES } from './red-flags';
 
 export function normalizeName(name: string): string {
   return name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');

@@ -244,6 +244,7 @@ export interface CaseTurn {
 
 export interface VerifiedClaim {
   text: string;
+  claim_text?: string;
   chunk_id: string;
   quote: string;
   source_title?: string;

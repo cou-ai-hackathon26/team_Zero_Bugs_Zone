@@ -88,10 +88,14 @@ export function humanize(
   const rawClinicalAnswer = verifiedResult.answer || verifiedResult.summary || verifiedResult.text || '';
   const cleanedClinicalAnswer = rawClinicalAnswer.trim();
 
+  const isDefaultRecordedAck =
+    cleanedClinicalAnswer === 'ক্লিনিকাল পর্যবেক্ষণ কেস হিস্ট্রিতে লিপিবদ্ধ করা হয়েছে।' ||
+    cleanedClinicalAnswer === 'Clinical observation has been recorded in the case consultation history.';
+
   // ----------------------------------------------------
   // CASE 1: Thanks Gratitude Handshake
   // ----------------------------------------------------
-  if (signals.isThanks && !cleanedClinicalAnswer) {
+  if (signals.isThanks && (!cleanedClinicalAnswer || isDefaultRecordedAck)) {
     const thanksText = selectPhrase('thanks_reply', locale, {
       preset: prefs.tone_preset,
       doctorTitle,
@@ -112,7 +116,7 @@ export function humanize(
   // ----------------------------------------------------
   // CASE 2: Correction or Frustration Handling
   // ----------------------------------------------------
-  if (signals.isCorrection && signals.shouldApologize && !cleanedClinicalAnswer) {
+  if (signals.isCorrection && signals.shouldApologize && (!cleanedClinicalAnswer || isDefaultRecordedAck)) {
     const apology = isBn
       ? 'দুঃখিত, ঠিক বুঝতে পারিনি। কী পরিবর্তন করতে চান? সরাসরি জানাতে পারেন বা টাইপ করতে পারেন।'
       : 'My apologies, I misunderstood. What would you like to update? Feel free to speak or type.';

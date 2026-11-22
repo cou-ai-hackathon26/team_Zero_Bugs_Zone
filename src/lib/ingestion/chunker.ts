@@ -370,6 +370,33 @@ export function structureAwareChunk(
     flushChunk();
   }
 
+  // Fallback: If no chunks were created through normal paragraph flushing
+  // (e.g. short documents or all pages had boilerplate flags), gather all text
+  if (result.length === 0) {
+    const fallbackText = pages
+      .map((p) => p.text.trim())
+      .filter((t) => t.length > 0)
+      .join('\n\n');
+
+    if (fallbackText.length >= 30) {
+      const hash = computeContentHash(fallbackText);
+      const entity = detectClinicalEntity(activeHeadingPath, fallbackText);
+      result.push({
+        ordinal: 1,
+        headingPath: documentTitle,
+        pageStart: pages[0]?.pageNumber || 1,
+        pageEnd: pages[pages.length - 1]?.pageNumber || 1,
+        kind: 'body',
+        clinicalEntity: entity,
+        text: fallbackText,
+        embeddingText: buildEmbeddingText(documentTitle, fallbackText, pages[0]?.pageNumber || 1, pages[pages.length - 1]?.pageNumber || 1, entity),
+        contentHash: hash,
+        tokenCount: estimateTokenCount(fallbackText),
+        language: pages[0]?.language || 'en',
+      });
+    }
+  }
+
   if (result.length === 0) {
     throw new InsufficientTextError(totalReadableChars, pages.length);
   }

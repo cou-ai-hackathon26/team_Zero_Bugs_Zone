@@ -229,6 +229,15 @@ export default function AdminLibraryPage() {
 
     setSubmitting(true);
 
+    const parseJsonResponse = async (res: Response) => {
+      try {
+        const text = await res.text();
+        return text ? JSON.parse(text) : {};
+      } catch {
+        return {};
+      }
+    };
+
     try {
       if (addMethod === 'upload') {
         if (selectedFiles.length === 0) {
@@ -255,16 +264,17 @@ export default function AdminLibraryPage() {
           body: formData,
         });
 
-        const data = await res.json();
+        const data = await parseJsonResponse(res);
         if (!res.ok) {
           if (data.error === 'medicine_data_rejected') {
             setMedicineErrorNotice(locale === 'bn' ? data.messageBn : data.message);
             return;
           }
-          throw new Error(data.error || 'Failed to upload files');
+          const errText = (locale === 'bn' ? (data.messageBn || data.message) : (data.message || data.error)) || `Failed to upload files (HTTP ${res.status})`;
+          throw new Error(errText);
         }
 
-        toast.success(locale === 'bn' ? data.messageBn : data.message);
+        toast.success(locale === 'bn' ? (data.messageBn || data.message) : data.message);
         setSelectedFiles([]);
         setActiveTab('queue');
         loadJobs();
@@ -304,10 +314,13 @@ export default function AdminLibraryPage() {
           }),
         });
 
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to enqueue link');
+        const data = await parseJsonResponse(res);
+        if (!res.ok) {
+          const errText = (locale === 'bn' ? (data.messageBn || data.message) : (data.message || data.error)) || `Failed to enqueue link (HTTP ${res.status})`;
+          throw new Error(errText);
+        }
 
-        toast.success(locale === 'bn' ? data.messageBn : data.message);
+        toast.success(locale === 'bn' ? (data.messageBn || data.message) : data.message);
         setLinkInput('');
         setActiveTab('queue');
         loadJobs();
@@ -342,16 +355,17 @@ export default function AdminLibraryPage() {
           }),
         });
 
-        const data = await res.json();
+        const data = await parseJsonResponse(res);
         if (!res.ok) {
           if (data.error === 'medicine_data_rejected') {
             setMedicineErrorNotice(locale === 'bn' ? data.messageBn : data.message);
             return;
           }
-          throw new Error(data.error || 'Failed to enqueue JSON payload');
+          const errText = (locale === 'bn' ? (data.messageBn || data.message) : (data.message || data.error)) || `Failed to enqueue JSON payload (HTTP ${res.status})`;
+          throw new Error(errText);
         }
 
-        toast.success(locale === 'bn' ? data.messageBn : data.message);
+        toast.success(locale === 'bn' ? (data.messageBn || data.message) : data.message);
         setJsonInput('');
         setActiveTab('queue');
         loadJobs();

@@ -36,8 +36,17 @@ export function GlobalSearchCommand({ role }: { role?: UserRole }) {
         setSearch(null);
       }
     };
+    const openSearch = () => {
+      setOpen(true);
+      setValue('');
+      setSearch(null);
+    };
     document.addEventListener('keydown', down);
-    return () => document.removeEventListener('keydown', down);
+    window.addEventListener('open-global-search', openSearch);
+    return () => {
+      document.removeEventListener('keydown', down);
+      window.removeEventListener('open-global-search', openSearch);
+    };
   }, []);
 
   useEffect(() => {

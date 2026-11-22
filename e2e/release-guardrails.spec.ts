@@ -28,10 +28,10 @@ test.describe('Offline synthetic release guardrails', () => {
     await page.getByLabel('Age (years)').fill('40');
     await page.getByLabel('Biological Sex').click();
     await page.getByRole('option', { name: 'Other' }).click();
-    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
     await page.getByLabel('Chief Complaint').fill('Synthetic fatigue for workflow testing');
-    await page.getByRole('button', { name: 'Next' }).click();
-    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
     await page.getByRole('button', { name: 'Run AI Diagnostic Analysis' }).click();
     await expect(page).toHaveURL(/\/en\/cases\/[0-9a-f-]+$/);
     const id = new URL(page.url()).pathname.split('/').at(-1);
@@ -143,8 +143,13 @@ test.describe('Responsive navigation and source integrity', () => {
   test('command search finds owned cases and library sources', async ({ page }) => {
     await login(page.request, 'doctor');
     await page.goto('/en/dashboard');
+    await expect(page.getByRole('button', { name: 'Search cases and sources' })).toBeVisible();
     await page.keyboard.press('Control+k');
-    const query = page.getByRole('dialog', { name: 'Command Palette' }).getByRole('combobox');
+    const dialog = page.getByRole('dialog', { name: 'Command Palette' });
+    if (!(await dialog.isVisible())) {
+      await page.getByRole('button', { name: 'Search cases and sources' }).click();
+    }
+    const query = dialog.getByRole('combobox');
     await query.fill('P-103');
     await expect(page.getByRole('option', { name: 'P-103' })).toBeVisible();
     await query.fill('adult acute respiratory');

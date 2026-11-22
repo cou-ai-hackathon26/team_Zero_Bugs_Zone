@@ -101,6 +101,19 @@ describe('Clinical Fact Extractor (Natural Language to Proposed Patient Record U
     expect(updates).toEqual([]);
   });
 
+  it('extracts Bangla script vitals: বিপি ১২০/৮০, পালস ৭৬', () => {
+    const text = 'বিপি ১২০/৮০, পালস ৭৬, তাপমাত্রা স্বাভাবিক';
+    const updates = extractClinicalFacts(text, basePatient);
+
+    const bp = updates.find((u) => u.field_path === 'vitals.blood_pressure');
+    const hr = updates.find((u) => u.field_path === 'vitals.heart_rate');
+
+    expect(bp).toBeDefined();
+    expect(bp?.value).toBe('120/80');
+    expect(hr).toBeDefined();
+    expect(hr?.value).toBe(76);
+  });
+
   it('rejects out-of-range physiological nonsense (e.g. temperature 12C or HR 999)', () => {
     const text = 'Recorded temp 12 C and pulse 999.';
     const updates = extractClinicalFacts(text, basePatient);

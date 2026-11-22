@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { pool } from '@/db';
 import { jobQueue } from '../queue/job-queue';
 import { getStorageDriver } from '../storage';
 import { validateFileSignature, computeBufferSha256, NoOpAntivirusScanner, ExtractedDocument } from './extractors';
@@ -19,14 +19,6 @@ import { linkAndDoiConnector } from './connectors';
 import { runOcrOnPdfBuffer } from './ocr';
 import { recordAuditLog } from '@/lib/audit';
 import { IngestJobStage } from '@/types';
-
-const connectionString = process.env.DATABASE_URL || 'postgresql://apple@localhost:5432/docmate';
-const isLocal = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
-
-const pool = new Pool({
-  connectionString,
-  ssl: isLocal ? false : { rejectUnauthorized: false },
-});
 
 export interface IngestionInput {
   jobId: string;
@@ -489,6 +481,18 @@ export class IngestionPipeline {
       try {
         await client.query('BEGIN');
 
+        // Verify that userId exists in users table, else fallback to super_admin or null
+        let confirmedByUserId: string | null = userId;
+        if (confirmedByUserId) {
+          const userCheck = await client.query('SELECT id FROM users WHERE id = $1;', [confirmedByUserId]);
+          if (userCheck.rows.length === 0) {
+            const fallbackAdmin = await client.query(
+              "SELECT id FROM users WHERE role = 'super_admin' ORDER BY created_at ASC LIMIT 1;"
+            );
+            confirmedByUserId = fallbackAdmin.rows[0]?.id || null;
+          }
+        }
+
         // Insert or find source
         const sourceRes = await client.query<{ id: string }>(
           `INSERT INTO sources (
@@ -510,7 +514,7 @@ export class IngestionPipeline {
             chunksList[0]?.language || 'mixed',
             evidenceLevel,
             license,
-            userId,
+            confirmedByUserId,
           ]
         );
         sourceId = sourceRes.rows[0].id;
@@ -533,7 +537,7 @@ export class IngestionPipeline {
            )
            VALUES ($1, 1, 'Initial ingestion upload', $2, $3, $4, $5, $6, $7)
            RETURNING id;`,
-          [sourceId, fileId, textFingerprint, qualityReport.score, doc.pageCount, totalTokens, userId]
+          [sourceId, fileId, textFingerprint, qualityReport.score, doc.pageCount, totalTokens, confirmedByUserId]
         );
         versionId = versionRes.rows[0].id;
 
@@ -587,7 +591,7 @@ export class IngestionPipeline {
 
         // Stage 15: Finish & Mark in_review
         await recordAuditLog({
-          userId,
+          userId: confirmedByUserId || userId,
           event: 'SOURCE_INGESTION_COMPLETED',
           payload: {
             sourceId,
