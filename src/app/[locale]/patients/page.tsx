@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocale } from 'next-intl';
 import { AppShell } from '@/components/shared/AppShell';
-import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -91,25 +90,6 @@ export default function PatientsListPage() {
             {locale === 'bn' ? 'চিকিৎসকই চূড়ান্ত সিদ্ধান্ত নেন।' : 'The doctor decides.'}
           </span>
         </div>
-
-        <PageHeader
-          title={locale === 'bn' ? 'রোগীর তালিকা' : 'Patient List'}
-          subtitle={
-            locale === 'bn'
-              ? 'চিকিৎসাধীন রোগীর তালিকা ও রেকর্ড'
-              : 'Registered patients and consultation records'
-          }
-          action={
-            <Link
-              href="/patients/new"
-              data-tour="patients-new-btn"
-              className={buttonVariants({ className: 'h-10 text-sm font-semibold px-4 shadow-xs' })}
-            >
-              <PlusCircle className="w-4 h-4 mr-2" />
-              <span>{locale === 'bn' ? 'নতুন রোগী' : 'New Patient'}</span>
-            </Link>
-          }
-        />
 
         {/* Compact, Narrow Filter and Expandable Search Bar */}
         <div
@@ -240,6 +220,19 @@ export default function PatientsListPage() {
               <option value="male">{locale === 'bn' ? 'পুরুষ (Male)' : 'Male'}</option>
               <option value="other">{locale === 'bn' ? 'অন্যান্য' : 'Other'}</option>
             </select>
+
+            {/* Add New Patient Button placed right side of all gender filtering options */}
+            <Link
+              href="/patients/new"
+              data-tour="patients-new-btn"
+              className={buttonVariants({
+                size: 'sm',
+                className: 'h-8 px-3 text-xs font-semibold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs shrink-0',
+              })}
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>{locale === 'bn' ? 'নতুন রোগী' : 'New Patient'}</span>
+            </Link>
           </div>
         </div>
 
