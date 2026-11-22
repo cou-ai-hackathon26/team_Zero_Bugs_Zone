@@ -226,6 +226,7 @@ export interface MissingInformation {
   text: string;
   why_it_helps: string;
   which_diagnoses_it_separates: string[];
+  quick_answers?: string[];
 }
 
 export type ConfidenceScoreLabel = 'high' | 'moderate' | 'low' | 'insufficient';
