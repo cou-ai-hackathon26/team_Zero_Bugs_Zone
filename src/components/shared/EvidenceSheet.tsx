@@ -9,7 +9,6 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useEvidenceSheet } from '@/context/EvidenceSheetContext';
 import { BookOpen, CheckCircle, ShieldCheck, ExternalLink, FileText, AlertTriangle, Ban } from 'lucide-react';
 
@@ -110,8 +109,11 @@ export function EvidenceSheet() {
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && closeEvidence()}>
-      <SheetContent side="right" className="w-full sm:max-w-lg md:max-w-xl p-0 flex flex-col">
-        <SheetHeader className="p-6 border-b border-border/60 bg-muted/20">
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-lg md:max-w-xl p-0 flex flex-col h-full max-h-screen overflow-hidden gap-0 bg-background"
+      >
+        <SheetHeader className="p-6 border-b border-border/60 bg-muted/20 shrink-0 pr-12">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-primary text-xs font-semibold uppercase tracking-wider mb-1">
               <BookOpen className="w-4 h-4" />
@@ -154,10 +156,10 @@ export function EvidenceSheet() {
           </SheetDescription>
         </SheetHeader>
 
-        <ScrollArea className="flex-1 p-6 space-y-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6 overscroll-contain">
           {/* Status banner for retired or retracted citations */}
           {isRetracted && (
-            <div className="p-3.5 rounded-lg border border-red-500/30 bg-red-500/10 text-xs text-red-700 dark:text-red-400 flex items-start gap-2 mb-4">
+            <div className="p-3.5 rounded-lg border border-red-500/30 bg-red-500/10 text-xs text-red-700 dark:text-red-400 flex items-start gap-2">
               <Ban className="w-4 h-4 mt-0.5 shrink-0" />
               <div>
                 <strong>Notice: Retracted Source.</strong> This reference source has been retracted by the publisher or withdrawn. It is preserved strictly for the audit record of this case consultation.
@@ -166,7 +168,7 @@ export function EvidenceSheet() {
           )}
 
           {isRetired && !isRetracted && (
-            <div className="p-3.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2 mb-4">
+            <div className="p-3.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
               <div>
                 <strong>Notice: Retired Source.</strong> This source has been retired or superseded by a newer version in the active library. This citation remains immutable for historical verification.
@@ -176,7 +178,7 @@ export function EvidenceSheet() {
 
           {/* Verbatim quote callout */}
           {quote && (
-            <div className="p-4 rounded-lg border border-primary/30 bg-primary/5 space-y-2 mb-6">
+            <div className="p-4 rounded-lg border border-primary/30 bg-primary/5 space-y-2">
               <div className="flex items-center justify-between text-xs font-semibold text-primary">
                 <span className="flex items-center gap-1.5">
                   <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
@@ -192,7 +194,7 @@ export function EvidenceSheet() {
 
           {/* Heading / Path breadcrumb */}
           {(extraMeta?.heading_path || activeEvidence.section) && (
-            <div className="mb-4">
+            <div>
               <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
                 Heading Path / Section
               </h5>
@@ -203,7 +205,7 @@ export function EvidenceSheet() {
           )}
 
           {/* Original Document / External Link Actions */}
-          <div className="flex flex-wrap gap-2 mb-4">
+          <div className="flex flex-wrap gap-2">
             {extraMeta?.storage_key && (
               <a
                 href={`/api/admin/library/files/${extraMeta.storage_key}#page=${pageNum || 1}`}
@@ -254,15 +256,16 @@ export function EvidenceSheet() {
               )}
             </div>
           </div>
+        </div>
 
-          <div className="pt-4 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground">
-            <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
-              <ShieldCheck className="w-4 h-4" />
-              Verified by DocMate Code Engine
-            </span>
-            <span className="text-[10px]">Closed Medical Library</span>
-          </div>
-        </ScrollArea>
+        {/* Pinned Verification & Integrity Footer */}
+        <div className="shrink-0 px-6 py-3 border-t border-border/60 bg-muted/20 flex items-center justify-between text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-medium">
+            <ShieldCheck className="w-4 h-4" />
+            Verified by DocMate Code Engine
+          </span>
+          <span className="text-[10px] font-mono tracking-wider text-muted-foreground/80">Closed Medical Library</span>
+        </div>
       </SheetContent>
     </Sheet>
   );
