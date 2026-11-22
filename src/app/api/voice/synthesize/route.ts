@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import OpenAI from 'openai';
+import { Readable } from 'stream';
 import { db } from '@/db';
 import { systemSettings } from '@/db/schema';
 import { getCurrentUser } from '@/lib/auth';
@@ -19,7 +20,8 @@ const mayaGreetings = {
 };
 
 const synthSchema = z.object({
-  provider: z.enum(['openai', 'maya']).default('openai'),
+  provider: z.enum(['openai', 'maya', 'edge']).default('openai'),
+  voice: z.string().optional(),
   conversationTone: z.enum(['warm', 'neutral']).optional(),
   text: z.string().trim().min(1).max(2000),
   locale: z.enum(['bn', 'en']).default('bn'),
@@ -54,11 +56,62 @@ export async function POST(request: Request) {
 
     const [settings] = await db.select({ value: systemSettings.value }).from(systemSettings)
       .where(eq(systemSettings.key, 'voice:config')).limit(1);
-    const config = settings?.value as { enabled?: boolean; kill_switch?: boolean; tts_provider?: string } | undefined;
+    const config = settings?.value as {
+      enabled?: boolean;
+      kill_switch?: boolean;
+      tts_provider?: string;
+      edge_voice_bn?: string;
+      edge_voice_en?: string;
+    } | undefined;
     const { text, gender, rate, style, locale, provider, conversationTone } = parsed.data;
     if (config?.enabled === false || config?.kill_switch ||
         (config?.tts_provider !== provider && user.role !== 'super_admin')) {
       return NextResponse.json({ error: 'Requested speech provider is disabled' }, { status: 403 });
+    }
+
+    if (provider === 'edge') {
+      try {
+        const { MsEdgeTTS, OUTPUT_FORMAT } = await import('msedge-tts');
+        const tts = new MsEdgeTTS();
+
+        let selectedVoice = parsed.data.voice;
+        if (!selectedVoice) {
+          if (locale === 'bn') {
+            selectedVoice = config?.edge_voice_bn || (gender === 'male' ? 'bn-BD-PradeepNeural' : 'bn-BD-NabanitaNeural');
+          } else {
+            selectedVoice = config?.edge_voice_en || (gender === 'male' ? 'en-US-GuyNeural' : 'en-US-JennyNeural');
+          }
+        }
+
+        await tts.setMetadata(selectedVoice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
+
+        const ratePercent = Math.round((rate - 1) * 100);
+        const rateStr = ratePercent >= 0 ? `+${ratePercent}%` : `${ratePercent}%`;
+
+        let pitchStr = '+0Hz';
+        if (style === 'calm_urgent') {
+          pitchStr = '-2Hz';
+        } else if (style === 'warm') {
+          pitchStr = '+1Hz';
+        }
+
+        const { audioStream } = tts.toStream(text, {
+          rate: rateStr,
+          pitch: pitchStr,
+        });
+
+        const webStream = Readable.toWeb(audioStream) as ReadableStream<Uint8Array>;
+
+        return new Response(webStream, {
+          headers: {
+            'Content-Type': 'audio/mpeg',
+            'Cache-Control': 'private, no-store',
+          },
+        });
+      } catch (edgeErr) {
+        console.error('[Edge Neural TTS error]:', edgeErr);
+        return NextResponse.json({ error: 'Edge neural voice unavailable' }, { status: 502 });
+      }
     }
 
     if (provider === 'maya') {

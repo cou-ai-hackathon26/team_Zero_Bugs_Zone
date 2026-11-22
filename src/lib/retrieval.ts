@@ -61,6 +61,7 @@ export async function singleQueryHybridSearch(query: string, limit = 15): Promis
     JOIN sources s ON c.source_id = s.id
     WHERE s.lifecycle = 'published' AND s.status = 'active' AND c.status = 'active'
       AND c.embedding IS NOT NULL
+      AND 1 - (c.embedding <=> $1::vector) >= 0.30
     ORDER BY c.embedding <=> $1::vector ASC
     LIMIT $2;
   `;

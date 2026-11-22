@@ -24,7 +24,7 @@ export type VoiceIntent =
   | 'other';
 
 export type VoiceProviderType = 'browser' | 'openai' | 'custom_stub';
-export type SpeechProviderType = VoiceProviderType | 'maya';
+export type SpeechProviderType = VoiceProviderType | 'maya' | 'edge';
 
 export interface VoiceConfig {
   enabled: boolean;
@@ -42,6 +42,9 @@ export interface VoiceConfig {
   private_mode_default: boolean;
   avatar_enabled_default: boolean;
   sounds_enabled?: boolean;
+  edge_voice_bn?: string;
+  edge_voice_en?: string;
+  vocal_reactions_enabled?: boolean;
 }
 
 export interface SttTranscriptionResult {

@@ -58,6 +58,8 @@ import {
   Cpu,
   CreditCard,
   History,
+  Mic,
+  Sparkles,
 } from 'lucide-react';
 import { User } from '@/types';
 import { cn } from '@/lib/utils';
@@ -126,6 +128,16 @@ export function AppShell({ children, fullHeight = false }: AppShellProps) {
       title: tAdmin('ai'),
       href: '/admin/ai',
       icon: Cpu,
+    },
+    {
+      title: tAdmin('voice'),
+      href: '/admin/voice',
+      icon: Mic,
+    },
+    {
+      title: tAdmin('language'),
+      href: '/admin/language',
+      icon: Sparkles,
     },
     {
       title: tAdmin('plans'),

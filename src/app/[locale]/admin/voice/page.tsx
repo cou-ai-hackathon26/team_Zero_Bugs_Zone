@@ -101,6 +101,19 @@ export default function AdminVoiceSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [testingTts, setTestingTts] = useState(false);
   const [previewReaction, setPreviewReaction] = useState<DocMateReaction>('idle');
+  const [playingReaction, setPlayingReaction] = useState<string | null>(null);
+
+  const handlePlayReactionAudio = (audioPath: string) => {
+    try {
+      setPlayingReaction(audioPath);
+      const audio = new Audio(audioPath);
+      audio.onended = () => setPlayingReaction(null);
+      audio.onerror = () => setPlayingReaction(null);
+      void audio.play().catch(() => setPlayingReaction(null));
+    } catch {
+      setPlayingReaction(null);
+    }
+  };
 
   const [metrics, setMetrics] = useState<VoiceMetrics>({
     totalSessions: 0,
@@ -119,11 +132,14 @@ export default function AdminVoiceSettingsPage() {
     default_greeting_afternoon_en?: string;
     default_greeting_evening_en?: string;
     sounds_enabled?: boolean;
+    edge_voice_bn?: string;
+    edge_voice_en?: string;
+    vocal_reactions_enabled?: boolean;
   }>({
     enabled: true,
     kill_switch: false,
     stt_provider: 'browser',
-    tts_provider: 'browser',
+    tts_provider: 'edge',
     persona_name: 'ডকমেট (DocMate)',
     persona_greeting_bn: 'স্বাগতম, ডাক্তার। বলুন, কীভাবে সাহায্য করতে পারি?',
     persona_greeting_en: 'Welcome, Doctor. How can I assist you today?',
@@ -141,6 +157,9 @@ export default function AdminVoiceSettingsPage() {
     default_greeting_afternoon_en: 'Good afternoon, Doctor. How can I help?',
     default_greeting_evening_en: 'Good evening, Doctor. How can I support you?',
     sounds_enabled: true,
+    edge_voice_bn: 'bn-BD-NabanitaNeural',
+    edge_voice_en: 'en-US-JennyNeural',
+    vocal_reactions_enabled: true,
   });
 
   // Phrase Bank State
@@ -238,7 +257,7 @@ export default function AdminVoiceSettingsPage() {
       if (error) toast.error(error);
     }, {
       preview: true,
-      requireLiveProvider: config.tts_provider === 'maya',
+      requireLiveProvider: config.tts_provider === 'maya' || config.tts_provider === 'edge',
       provider: config.tts_provider,
       rate: config.default_speed,
       voiceGender: config.default_voice_gender,
@@ -621,13 +640,183 @@ export default function AdminVoiceSettingsPage() {
                 <select
                   value={config.tts_provider}
                   onChange={(e) => setConfig((p) => ({ ...p, tts_provider: e.target.value as VoiceConfig['tts_provider'] }))}
-                  className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm focus:ring-1 focus:ring-primary"
+                  className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm focus:ring-1 focus:ring-primary font-medium"
                 >
+                  <option value="edge">{isBn ? 'মাইক্রোসফট এজ নিউরাল (সম্পূর্ণ ফ্রি ও উচ্চ মানসম্পন্ন - রিকমেন্ডেড)' : 'Edge Neural TTS (Permanent Free & Studio Quality - Recommended)'}</option>
                   <option value="browser">{t("deviceVoice")}</option>
                   <option value="maya">{t("localNeuralVoice")}</option>
                   <option value="openai">{t("expressiveCloudVoice")}</option>
                 </select>
                 <p id="admin-voice-disclosure" className="text-xs text-muted-foreground">{t('generatedVoice')}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Edge Neural Voice Models Configuration */}
+          <Card className="border-border">
+            <CardHeader className="p-4 pb-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-emerald-600" />
+                  <span>{isBn ? 'স্থায়ী ফ্রি নিউরাল ভয়েস মডেল কনফিগারেশন' : 'Permanent Free Neural Voice Configuration'}</span>
+                </CardTitle>
+                <Badge className="w-fit bg-emerald-600/10 text-emerald-700 dark:text-emerald-400 border-emerald-600/20 text-[11px] font-semibold">
+                  {isBn ? '১০০% ফ্রি আজীবন • কোনো বিলিং নেই' : '100% Free Forever • Zero API Cost'}
+                </Badge>
+              </div>
+              <CardDescription className="text-xs">
+                {isBn
+                  ? 'কোনো এপিআই কি বা পেমেন্ট ছাড়াই আজীবন উচ্চমানের মানবিক বাংলা ও ইংরেজি কণ্ঠ নির্বাচন করুন।'
+                  : 'Select high-fidelity natural neural human voices for Bangla and English with zero API keys or monthly costs.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 pt-2 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5 p-3 rounded-lg border border-border bg-card">
+                  <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <span>🇧🇩</span>
+                    <span>{isBn ? 'বাংলা নিউরাল ভয়েস (Bangla Voice)' : 'Bangla Neural Voice (bn-BD / bn-IN)'}</span>
+                  </Label>
+                  <select
+                    value={config.edge_voice_bn ?? 'bn-BD-NabanitaNeural'}
+                    onChange={(e) => setConfig((p) => ({ ...p, edge_voice_bn: e.target.value }))}
+                    className="w-full h-9 rounded-md border border-border bg-background px-3 text-xs focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="bn-BD-NabanitaNeural">{isBn ? 'নবনীতা (Nabanita) - নারী, বাংলাদেশী (অত্যন্ত সাবলীল ও প্রাণবন্ত) [ডিফল্ট]' : 'bn-BD-NabanitaNeural (Female, Bangladeshi - Warm & Expressive) [Default]'}</option>
+                    <option value="bn-BD-PradeepNeural">{isBn ? 'প্রদীপ (Pradeep) - পুরুষ, বাংলাদেশী (শান্ত, গম্ভীর ও প্রফেশনাল)' : 'bn-BD-PradeepNeural (Male, Bangladeshi - Calm & Clear)'}</option>
+                    <option value="bn-IN-TanishaaNeural">{isBn ? 'তানিশা (Tanishaa) - নারী, পশ্চিমবঙ্গ বাংলা' : 'bn-IN-TanishaaNeural (Female, Indian Bengali)'}</option>
+                    <option value="bn-IN-BashkarNeural">{isBn ? 'ভাস্কর (Bashkar) - পুরুষ, পশ্চিমবঙ্গ বাংলা' : 'bn-IN-BashkarNeural (Male, Indian Bengali)'}</option>
+                  </select>
+                  <p className="text-[11px] text-muted-foreground">
+                    {isBn ? 'বাংলাদেশী চিকিৎসকদের জন্য নবনীতা বা প্রদীপ বাচনভঙ্গি সবচেয়ে প্রাকৃতিক ও বোধগম্য।' : 'Native Bangladeshi cadence designed for clinical clarity and warmth.'}
+                  </p>
+                </div>
+
+                <div className="space-y-1.5 p-3 rounded-lg border border-border bg-card">
+                  <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <span>🌐</span>
+                    <span>{isBn ? 'ইংরেজি নিউরাল ভয়েস (English Voice)' : 'English Neural Voice (en-US / en-IN / en-GB)'}</span>
+                  </Label>
+                  <select
+                    value={config.edge_voice_en ?? 'en-US-JennyNeural'}
+                    onChange={(e) => setConfig((p) => ({ ...p, edge_voice_en: e.target.value }))}
+                    className="w-full h-9 rounded-md border border-border bg-background px-3 text-xs focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="en-US-JennyNeural">{isBn ? 'জেনি (Jenny) - নারী, কনভার্সেশনাল ও স্বাভাবিক [ডিফল্ট]' : 'en-US-JennyNeural (Female, US Conversational & Natural) [Default]'}</option>
+                    <option value="en-US-GuyNeural">{isBn ? 'গাই (Guy) - পুরুষ, বন্ধুসুলভ ও স্পষ্ট' : 'en-US-GuyNeural (Male, US Natural & Friendly)'}</option>
+                    <option value="en-IN-NeerjaExpressiveNeural">{isBn ? 'নির্জা (Neerja) - নারী, সাউথ এশিয়ান এক্সপ্রেসিভ (মেডিকেল টার্মের জন্য সেরা)' : 'en-IN-NeerjaExpressiveNeural (Female, South Asian - Best for Medical Terms)'}</option>
+                    <option value="en-IN-NeerjaNeural">{isBn ? 'নির্জা স্ট্যান্ডার্ড (Neerja Standard) - নারী' : 'en-IN-NeerjaNeural (Female, South Asian Standard)'}</option>
+                    <option value="en-GB-RyanNeural">{isBn ? 'রায়ান (Ryan) - পুরুষ, ব্রিটিশ প্রফেশনাল' : 'en-GB-RyanNeural (Male, British Professional)'}</option>
+                  </select>
+                  <p className="text-[11px] text-muted-foreground">
+                    {isBn ? 'ইংরেজি মেডিকেল টার্ম ও ড্রাগের নাম নিখুঁত উচ্চারণে সহায়তা করে।' : 'Natural inflection with precise pronunciation of generic drug names.'}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Instant Human Vocal Reactions */}
+          <Card className="border-border">
+            <CardHeader className="p-4 pb-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Bot className="w-5 h-5 text-indigo-600" />
+                  <span>{isBn ? 'ইনস্ট্যান্ট হিউম্যান ভোকাল রিঅ্যাকশন (০-মিলি-সেকেন্ড ফিলার)' : 'Instant Human Vocal Reactions (0ms Fillers & Feedback)'}</span>
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="toggle-reactions" className="text-xs font-semibold cursor-pointer">
+                    {config.vocal_reactions_enabled ?? true ? (
+                      <Badge className="bg-primary text-primary-foreground text-[10px]">{isBn ? 'সক্রিয়' : 'Active'}</Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-[10px]">{isBn ? 'নিষ্ক্রিয়' : 'Disabled'}</Badge>
+                    )}
+                  </Label>
+                  <input
+                    id="toggle-reactions"
+                    type="checkbox"
+                    checked={config.vocal_reactions_enabled ?? true}
+                    onChange={(e) => setConfig((p) => ({ ...p, vocal_reactions_enabled: e.target.checked }))}
+                    className="accent-primary w-5 h-5 rounded cursor-pointer shrink-0"
+                  />
+                </div>
+              </div>
+              <CardDescription className="text-xs">
+                {isBn
+                  ? 'কথা বলা শেষ হওয়ার সাথে সাথে রোবোটিক নীরবতা এড়াতে সহকারী তাৎক্ষণিক প্রাকৃতিক হিউম্যান প্রতিক্রিয়া ("হুম...", "জি, দেখছি...", "হয়ে গেছে।") শোনাবে।'
+                  : 'Eliminates robotic silence by playing instantaneous natural conversational fillers ("Hmm...", "Looking into this...", "Done.") while medical reasoning computes.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 pt-2 space-y-3">
+              <div className="p-3 rounded-lg border border-border bg-muted/20 space-y-3">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                  {isBn ? 'ভোকাল রিঅ্যাকশন অডিও পরীক্ষা (ক্লিক করে শুনুন)' : 'Audition Real Human Vocal Clips (Click to Preview)'}
+                </span>
+
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-[11px] font-semibold text-foreground/80 block mb-1.5">
+                      {isBn ? 'বাংলা তাৎক্ষণিক প্রতিক্রিয়া:' : 'Bangla Vocal Reactions:'}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { label: 'জি, বুঝেছি', file: '/voice/reactions/bn-understood-1.mp3' },
+                        { label: 'ঠিক আছে', file: '/voice/reactions/bn-understood-2.mp3' },
+                        { label: 'একটু দেখছি...', file: '/voice/reactions/bn-thinking-1.mp3' },
+                        { label: 'লাইব্রেরিতে খুঁজছি...', file: '/voice/reactions/bn-thinking-2.mp3' },
+                        { label: 'হুম, একটু সময় দিন...', file: '/voice/reactions/bn-thinking-3.mp3' },
+                        { label: 'হয়ে গেছে', file: '/voice/reactions/bn-success-1.mp3' },
+                        { label: 'জরুরি সতর্কতা', file: '/voice/reactions/bn-alert-1.mp3' },
+                        { label: 'একটু নিশ্চিত হয়ে নিই', file: '/voice/reactions/bn-clarify-1.mp3' },
+                      ].map((clip) => (
+                        <button
+                          key={clip.file}
+                          type="button"
+                          onClick={() => handlePlayReactionAudio(clip.file)}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full border transition-all cursor-pointer ${
+                            playingReaction === clip.file
+                              ? 'bg-primary text-primary-foreground border-primary font-bold shadow-xs'
+                              : 'bg-card text-foreground border-border hover:bg-muted'
+                          }`}
+                        >
+                          <Play className="w-3 h-3" />
+                          <span>{clip.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-[11px] font-semibold text-foreground/80 block mb-1.5">
+                      {isBn ? 'ইংরেজি তাৎক্ষণিক প্রতিক্রিয়া:' : 'English Vocal Reactions:'}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { label: 'Understood', file: '/voice/reactions/en-understood-1.mp3' },
+                        { label: 'Got it', file: '/voice/reactions/en-understood-2.mp3' },
+                        { label: 'Looking into this...', file: '/voice/reactions/en-thinking-1.mp3' },
+                        { label: 'Checking library...', file: '/voice/reactions/en-thinking-2.mp3' },
+                        { label: 'Hmm, one moment...', file: '/voice/reactions/en-thinking-3.mp3' },
+                        { label: 'Done', file: '/voice/reactions/en-success-1.mp3' },
+                        { label: 'Safety Alert', file: '/voice/reactions/en-alert-1.mp3' },
+                      ].map((clip) => (
+                        <button
+                          key={clip.file}
+                          type="button"
+                          onClick={() => handlePlayReactionAudio(clip.file)}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full border transition-all cursor-pointer ${
+                            playingReaction === clip.file
+                              ? 'bg-primary text-primary-foreground border-primary font-bold shadow-xs'
+                              : 'bg-card text-foreground border-border hover:bg-muted'
+                          }`}
+                        >
+                          <Play className="w-3 h-3" />
+                          <span>{clip.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>

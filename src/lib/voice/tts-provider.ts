@@ -130,7 +130,7 @@ export class BrowserSpeechSynthesisTTS implements TtsProvider {
 class ServerSpeechTTS implements TtsProvider {
   public readonly name: string;
 
-  constructor(private readonly engine: 'openai' | 'maya') {
+  constructor(private readonly engine: 'openai' | 'maya' | 'edge') {
     this.name = `${engine}_tts`;
   }
   public capabilities: TtsCapabilities = {
@@ -179,7 +179,8 @@ class ServerSpeechTTS implements TtsProvider {
         headers: { 'Content-Type': 'application/json' },
         signal: request.signal,
         body: JSON.stringify({
-          ...(this.engine === 'maya' ? { provider: 'maya', conversationTone: options.conversationTone } : {}),
+          provider: this.engine,
+          ...(this.engine === 'maya' ? { conversationTone: options.conversationTone } : {}),
           text,
           locale: segmentForSpeech(text, options.locale)[0]?.lang ?? options.locale,
           rate: options.rate ?? 1,
@@ -292,6 +293,7 @@ export class StubTTS implements TtsProvider {
 }
 
 export function createTtsProvider(type: SpeechProviderType = 'browser'): TtsProvider {
+  if (type === 'edge') return new ServerSpeechTTS('edge');
   if (type === 'maya') return new ServerSpeechTTS('maya');
   if (type === 'openai') return new OpenAiTTS();
   if (type === 'custom_stub') return new StubTTS();

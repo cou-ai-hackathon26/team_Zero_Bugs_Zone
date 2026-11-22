@@ -15,8 +15,10 @@ import {
   RefreshCw,
   AlertOctagon,
   Sliders,
+  Mic,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Link } from '@/i18n/routing';
 import { AiCredentialsCard } from '@/components/settings/AiCredentialsCard';
 
 interface PromptVersion {

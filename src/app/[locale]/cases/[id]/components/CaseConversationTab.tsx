@@ -842,6 +842,10 @@ export function CaseConversationTab({
                   {/* Proposed Patient Record Updates - Expandable Section */}
                   {proposedUpdates.length > 0 && (
                     <div className="w-full max-w-[92%] sm:max-w-[85%] space-y-2">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-primary pl-1">
+                        <Sparkles className="w-3.5 h-3.5 text-primary" />
+                        <span>{t('proposedUpdateTitle')}</span>
+                      </div>
                       {proposedUpdates.map((update) => {
                         const isExpanded = expandedUpdates[update.id] ?? (update.status === 'pending');
                         return (
@@ -1030,7 +1034,7 @@ export function CaseConversationTab({
             disabled={submitting || requestingReview}
             rows={1}
             className="flex-1 min-h-[38px] max-h-28 text-xs sm:text-sm resize-none rounded-lg p-2 border-border/80 focus-visible:ring-1 focus-visible:ring-primary bg-background"
-            aria-label="Clinical observation input"
+            aria-label="Enter clinical observation"
           />
           <Button
             type="button"
