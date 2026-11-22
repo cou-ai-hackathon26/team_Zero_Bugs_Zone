@@ -3,6 +3,7 @@ import { requireFeaturePermission } from '@/lib/permissions';
 import { jobQueue } from '@/lib/queue/job-queue';
 import { getStorageDriver } from '@/lib/storage';
 import { recordAuditLog } from '@/lib/audit';
+import { ingestionWorker } from '@/workers/ingestion-worker';
 import AdmZip from 'adm-zip';
 import path from 'path';
 
@@ -211,6 +212,9 @@ export async function POST(request: NextRequest) {
         userEmail: auth.user.email,
       },
     });
+
+    // Trigger immediate background worker processing
+    ingestionWorker.triggerProcessing();
 
     return NextResponse.json({
       success: true,

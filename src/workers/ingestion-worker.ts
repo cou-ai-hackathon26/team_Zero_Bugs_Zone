@@ -5,6 +5,7 @@ export class IngestionWorker {
   private isRunning = false;
   private pollIntervalMs: number;
   private timer: NodeJS.Timeout | null = null;
+  private isProcessingAsync = false;
 
   constructor(pollIntervalMs = 2000) {
     this.pollIntervalMs = pollIntervalMs;
@@ -27,38 +28,62 @@ export class IngestionWorker {
     }
   }
 
+  async processNextAvailableJob(): Promise<boolean> {
+    try {
+      const job = await jobQueue.fetchNextJob();
+      if (!job) return false;
+
+      console.log(`[IngestionWorker] Processing job ${job.id} (type: ${job.input_type})...`);
+      const meta = (job.metadata || {}) as Record<string, unknown>;
+
+      const input: IngestionInput = {
+        jobId: job.id,
+        userId: (meta.userId as string) || '00000000-0000-0000-0000-000000000001',
+        fileStorageKey: meta.fileStorageKey as string | undefined,
+        fileName: meta.fileName as string | undefined,
+        url: meta.url as string | undefined,
+        doi: meta.doi as string | undefined,
+        pmid: meta.pmid as string | undefined,
+        jsonPayload: meta.jsonPayload,
+        prefilledMetadata: meta.prefilledMetadata as IngestionInput['prefilledMetadata'],
+        rightsConfirmed: !!meta.rightsConfirmed,
+      };
+
+      const result = await ingestionPipeline.process(input);
+      console.log(`[IngestionWorker] Job ${job.id} completed successfully! Source: ${result.sourceId}, Version: ${result.versionId}`);
+      return true;
+    } catch (err) {
+      console.error('[IngestionWorker] Error processing job:', err);
+      return false;
+    }
+  }
+
   private async loop(): Promise<void> {
     if (!this.isRunning) return;
 
-    try {
-      const job = await jobQueue.fetchNextJob();
-      if (job) {
-        console.log(`[IngestionWorker] Processing job ${job.id} (type: ${job.input_type})...`);
-        const meta = (job.metadata || {}) as Record<string, unknown>;
-
-        const input: IngestionInput = {
-          jobId: job.id,
-          userId: (meta.userId as string) || '00000000-0000-0000-0000-000000000001',
-          fileStorageKey: meta.fileStorageKey as string | undefined,
-          fileName: meta.fileName as string | undefined,
-          url: meta.url as string | undefined,
-          doi: meta.doi as string | undefined,
-          pmid: meta.pmid as string | undefined,
-          jsonPayload: meta.jsonPayload,
-          prefilledMetadata: meta.prefilledMetadata as IngestionInput['prefilledMetadata'],
-          rightsConfirmed: !!meta.rightsConfirmed,
-        };
-
-        const result = await ingestionPipeline.process(input);
-        console.log(`[IngestionWorker] Job ${job.id} completed successfully! Source: ${result.sourceId}, Version: ${result.versionId}`);
-      }
-    } catch (err) {
-      console.error('[IngestionWorker] Error processing job in loop:', err);
-    }
+    await this.processNextAvailableJob();
 
     if (this.isRunning) {
       this.timer = setTimeout(() => this.loop(), this.pollIntervalMs);
     }
+  }
+
+  triggerProcessing(): void {
+    if (this.isProcessingAsync) return;
+    this.isProcessingAsync = true;
+
+    setTimeout(async () => {
+      try {
+        let processed = true;
+        while (processed) {
+          processed = await this.processNextAvailableJob();
+        }
+      } catch (err) {
+        console.error('[IngestionWorker] Error in background triggerProcessing:', err);
+      } finally {
+        this.isProcessingAsync = false;
+      }
+    }, 50);
   }
 }
 

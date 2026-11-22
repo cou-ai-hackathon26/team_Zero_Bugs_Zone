@@ -209,6 +209,11 @@ export class IngestionPipeline {
       await jobQueue.updateProgress(jobId, 'chunking', 70);
       const chunksList = structureAwareChunk(title, cleanedPages);
       if (chunksList.length === 0) {
+        if (doc.pageCount > 1 && doc.fullText.length < 500) {
+          throw new Error(
+            `Scanned Image PDF: Document contains ${doc.pageCount} pages of scanned photographic images without an embedded text layer. DocMate AI requires machine-readable text to generate verified clinical citations.`
+          );
+        }
         throw new Error('Chunking produced zero usable chunks. Document contains insufficient text.');
       }
 

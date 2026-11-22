@@ -1,5 +1,4 @@
-// @ts-expect-error pdf-parse CJS module default export
-import pdfParse from 'pdf-parse';
+import * as pdfParseModule from 'pdf-parse';
 import { DocumentExtractor, ExtractedDocument, ExtractedPage } from './index';
 
 export class PdfExtractor implements DocumentExtractor {
@@ -9,64 +8,65 @@ export class PdfExtractor implements DocumentExtractor {
 
   async extract(buffer: Buffer, fileName: string): Promise<ExtractedDocument> {
     const pageTexts: ExtractedPage[] = [];
-    let currentPage = 1;
-
-    // Custom pager render callback in pdf-parse to track page numbers
-    const renderPage = (pageData: { getTextContent: () => Promise<{ items: Array<{ str: string; transform: number[] }> }> }) => {
-      return pageData.getTextContent().then((textContent) => {
-        let lastY: number | null = null;
-        let text = '';
-        for (const item of textContent.items) {
-          if (lastY === item.transform[5] || lastY === null) {
-            text += item.str;
-          } else {
-            text += '\n' + item.str;
-          }
-          lastY = item.transform[5];
-        }
-
-        pageTexts.push({
-          pageNumber: currentPage,
-          text: text.trim(),
-        });
-        currentPage++;
-        return text;
-      });
-    };
-
     let title = fileName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
     let fullText = '';
     let pageCount = 1;
 
-    try {
-      const data = await pdfParse(buffer, { pagerender: renderPage });
-      pageCount = data.numpages || pageTexts.length || 1;
-      fullText = data.text || '';
-      if (data.info?.Title && data.info.Title.trim().length > 2) {
-        title = data.info.Title.trim();
+    // Support both modern pdf-parse v2 (class PDFParse) and legacy v1 (function)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mod = pdfParseModule as any;
+    const PDFParseClass = mod.PDFParse || mod.default?.PDFParse;
+
+    if (typeof PDFParseClass === 'function') {
+      const parser = new PDFParseClass(new Uint8Array(buffer));
+      try {
+        const infoResult = await parser.getInfo().catch(() => null);
+        if (infoResult?.info?.Title && String(infoResult.info.Title).trim().length > 2) {
+          title = String(infoResult.info.Title).trim();
+        }
+
+        const textResult = await parser.getText().catch(() => null);
+        if (textResult) {
+          pageCount = textResult.total || (textResult.pages ? textResult.pages.length : 1);
+          fullText = textResult.text || '';
+
+          if (Array.isArray(textResult.pages) && textResult.pages.length > 0) {
+            for (const p of textResult.pages) {
+              pageTexts.push({
+                pageNumber: p.num || pageTexts.length + 1,
+                text: (p.text || '').trim(),
+              });
+            }
+          }
+        }
+      } finally {
+        await parser.destroy().catch(() => {});
       }
-    } catch {
-      // Fallback if custom pagerender fails on unusual PDF structures
-      const fallbackData = await pdfParse(buffer);
-      pageCount = fallbackData.numpages || 1;
-      fullText = fallbackData.text || '';
-      
-      // Approximate pages by form-feed characters (\x0C) or equal chunking
-      const rawPages = fullText.split(/\x0C/);
-      if (rawPages.length > 1) {
-        rawPages.forEach((txt, idx) => {
-          if (txt.trim()) {
-            pageTexts.push({
-              pageNumber: idx + 1,
-              text: txt.trim(),
+    } else {
+      // Legacy pdf-parse v1 function fallback
+      const parseFn = typeof mod === 'function' ? mod : mod.default;
+      if (typeof parseFn === 'function') {
+        try {
+          const data = await parseFn(buffer);
+          pageCount = data.numpages || 1;
+          fullText = data.text || '';
+          if (data.info?.Title && data.info.Title.trim().length > 2) {
+            title = data.info.Title.trim();
+          }
+          const rawPages = fullText.split(/\x0C/);
+          if (rawPages.length > 1) {
+            rawPages.forEach((txt: string, idx: number) => {
+              if (txt.trim()) {
+                pageTexts.push({
+                  pageNumber: idx + 1,
+                  text: txt.trim(),
+                });
+              }
             });
           }
-        });
-      } else {
-        pageTexts.push({
-          pageNumber: 1,
-          text: fullText.trim(),
-        });
+        } catch {
+          // ignore fallback error
+        }
       }
     }
 

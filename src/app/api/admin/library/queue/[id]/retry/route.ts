@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireFeaturePermission } from '@/lib/permissions';
 import { jobQueue } from '@/lib/queue/job-queue';
 import { recordAuditLog } from '@/lib/audit';
+import { ingestionWorker } from '@/workers/ingestion-worker';
 
 export async function POST(
   _request: NextRequest,
@@ -20,6 +21,7 @@ export async function POST(
       event: 'LIBRARY_JOB_RETRY',
       payload: { jobId: id, userEmail: auth.user.email },
     });
+    ingestionWorker.triggerProcessing();
     return NextResponse.json({ success: true, message: 'Job re-enqueued for retry' });
   } catch (error) {
     console.error('[admin/library/queue/retry] Failed:', error);
