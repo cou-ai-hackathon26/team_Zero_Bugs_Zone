@@ -26,6 +26,8 @@ import {
   Clock,
   ShieldAlert,
   FileCheck,
+  ChevronDown,
+  Stethoscope,
 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
@@ -37,15 +39,18 @@ interface CaseConversationTabProps {
   onTurnsUpdate: (turns: CaseTurn[]) => void;
   onCaseUpdate: (updatedCase: PatientCase) => void;
   onOpenMobileSummary?: () => void;
+  onOpenPatientDetail?: () => void;
+  onSwitchTab?: (tab: string) => void;
 }
 
 export function CaseConversationTab({
   caseId,
-  caseData,
   turns,
   onTurnsUpdate,
   onCaseUpdate,
   onOpenMobileSummary,
+  onOpenPatientDetail,
+  onSwitchTab,
 }: CaseConversationTabProps) {
   const locale = useLocale();
   const t = useTranslations('workspace');
@@ -62,6 +67,7 @@ export function CaseConversationTab({
   const [requestingReview, setRequestingReview] = useState(false);
   const [inlineAnswers, setInlineAnswers] = useState<Record<string, string>>({});
   const [answeringQuestionId, setAnsweringQuestionId] = useState<string | null>(null);
+  const [expandedUpdates, setExpandedUpdates] = useState<Record<string, boolean>>({});
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -232,7 +238,7 @@ export function CaseConversationTab({
           delete next[questionId];
           return next;
         });
-        toast.success('Clinical observation recorded');
+        toast.success(locale === 'bn' ? 'ক্লিনিকাল পর্যবেক্ষণ সংরক্ষিত' : 'Observation recorded');
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to record answer';
@@ -242,62 +248,87 @@ export function CaseConversationTab({
     }
   };
 
+  const toggleUpdateExpanded = (updateId: string) => {
+    setExpandedUpdates((prev) => ({
+      ...prev,
+      [updateId]: !prev[updateId],
+    }));
+  };
+
+  const handlePatientSummaryTrigger = () => {
+    if (onOpenPatientDetail) {
+      onOpenPatientDetail();
+    } else if (onOpenMobileSummary) {
+      onOpenMobileSummary();
+    }
+  };
+
   return (
-    <div className="flex flex-col h-[700px] max-h-[82vh] bg-background rounded-xl border border-border/80 shadow-xs overflow-hidden">
-      {/* Conversation Header Bar */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border/70 bg-card/60 backdrop-blur-xs">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold">
-            <Bot className="w-4 h-4" />
+    <div className="flex flex-col h-full min-h-0 bg-background rounded-lg border border-border/80 shadow-2xs overflow-hidden">
+      {/* Clean Chat Header */}
+      <div className="flex items-center justify-between px-3 py-1.5 shrink-0 border-b border-border/60 bg-card/60 backdrop-blur-xs">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold shrink-0">
+            <Bot className="w-3.5 h-3.5" />
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-              <span>{t('tabConversation')} • {caseData.patient_code}</span>
-              <Badge variant="outline" className="text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">
-                {locale === 'bn' ? 'সংরক্ষিত লাইব্রেরি' : 'Closed Library Only'}
-              </Badge>
-            </h3>
-            <p className="text-[11px] text-muted-foreground">
-              {locale === 'bn'
-                ? 'পর্যবেক্ষণ লিখুন, উদ্ধৃতি যাচাই করুন এবং রোগীর তথ্য আপডেট করুন'
-                : 'Write clinical notes, inspect citations, and confirm structured patient updates'}
-            </p>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-bold text-foreground">DocMate AI</span>
+            <Badge variant="outline" className="text-[9px] font-semibold bg-primary/5 text-primary border-primary/20 py-0 px-1">
+              {locale === 'bn' ? 'যাচাইকৃত লাইব্রেরি' : 'Verified Library'}
+            </Badge>
           </div>
         </div>
 
-        {/* Mobile Patient Summary Sheet Button */}
-        {onOpenMobileSummary && (
+        {/* Quick Drawer/Sheet Action Buttons */}
+        <div className="flex items-center gap-1">
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            onClick={onOpenMobileSummary}
-            className="lg:hidden gap-1.5 text-xs font-semibold h-8 border-primary/30 text-primary hover:bg-primary/10"
+            onClick={handlePatientSummaryTrigger}
+            className="h-7 px-2 text-xs font-semibold gap-1 text-muted-foreground hover:text-foreground"
             aria-label={t('viewPatientSummary')}
           >
-            <User className="w-3.5 h-3.5" />
-            <span>{t('viewPatientSummary')}</span>
+            <User className="w-3 h-3 text-primary" />
+            <span className="hidden sm:inline">{t('viewPatientSummary')}</span>
           </Button>
-        )}
+
+          {onSwitchTab && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onSwitchTab('differentials')}
+              className="h-7 px-2 text-xs font-semibold gap-1 text-muted-foreground hover:text-foreground"
+            >
+              <Stethoscope className="w-3 h-3 text-primary" />
+              <span className="hidden sm:inline">{t('tabDifferentials')}</span>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Message Stream */}
       <div
         ref={scrollRef}
         tabIndex={0}
-        aria-label="Case conversation message stream"
-        className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/40"
+        aria-label="Case conversation stream"
+        className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-3 focus:outline-none"
       >
         {turns.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-3">
+          <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-4">
             <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-xs">
               <Sparkles className="w-6 h-6" />
             </div>
-            <h4 className="text-sm font-bold text-foreground">
-              {locale === 'bn' ? 'ক্লিনিকাল কেস পরামর্শ প্রস্তুত' : 'Case Consultation Ready'}
-            </h4>
-            <p className="text-xs text-muted-foreground max-w-md leading-relaxed">
-              {t('noConversationYet')}
-            </p>
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-foreground">
+                {locale === 'bn' ? 'ক্লিনিকাল পরামর্শ প্রস্তুত' : 'Clinical Consultation Ready'}
+              </h4>
+              <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">
+                {locale === 'bn'
+                  ? 'রোগীর লক্ষণ বা ক্লিনিকাল নোট লিখুন। সিস্টেম লাইব্রেরি থেকে প্রমাণ উদ্ধার করে সম্ভাব্য কারণ দেখাবে।'
+                  : 'Enter patient findings or clinical observations. The system searches the internal medical library to provide verified insights.'}
+              </p>
+            </div>
+
             <div className="pt-2 flex flex-wrap gap-2 justify-center">
               <Button
                 variant="outline"
@@ -322,11 +353,11 @@ export function CaseConversationTab({
               minute: '2-digit',
             });
 
-            // 1. Case Event / System Audit Pill
+            // 1. Audit / Event Log Pill
             if (turnType === 'case_event' || turnType === 'status_change') {
               return (
-                <div key={turn.id || turnIdx} className="flex justify-center my-2">
-                  <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-muted/80 border border-border/60 text-[11px] text-muted-foreground font-medium shadow-2xs">
+                <div key={turn.id || turnIdx} className="flex justify-center my-1.5">
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted/70 border border-border/60 text-[11px] text-muted-foreground font-medium">
                     <FileCheck className="w-3.5 h-3.5 text-primary" />
                     <span>{(content.description as string) || (content.note as string) || t('confirmedObservation')}</span>
                     <span className="text-[10px] opacity-70">• {timestamp}</span>
@@ -335,7 +366,7 @@ export function CaseConversationTab({
               );
             }
 
-            // 2. Doctor Message
+            // 2. Doctor Message (Right)
             if (isDoctor) {
               const obsText =
                 (content.text as string) ||
@@ -345,21 +376,21 @@ export function CaseConversationTab({
 
               return (
                 <div key={turn.id || turnIdx} className="flex flex-col items-end space-y-1">
-                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-medium">
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-medium pr-1">
                     <span className="font-semibold text-foreground">
-                      {locale === 'bn' ? 'চিকিৎসক (Attending)' : 'Attending Physician'}
+                      {locale === 'bn' ? 'চিকিৎসক' : 'Physician'}
                     </span>
                     <Clock className="w-3 h-3" />
                     <span>{timestamp}</span>
                   </div>
-                  <div className="max-w-[85%] sm:max-w-[75%] rounded-2xl rounded-tr-xs bg-primary text-primary-foreground p-3.5 shadow-xs text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">
+                  <div className="max-w-[85%] sm:max-w-[75%] rounded-2xl rounded-tr-xs bg-primary text-primary-foreground px-4 py-3 shadow-xs text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">
                     {obsText}
                   </div>
                 </div>
               );
             }
 
-            // 3. Assistant Reply
+            // 3. Assistant Message (Left)
             const assistantText = (content.text as string) || '';
             const proposedUpdates = (content.proposed_updates as ProposedUpdate[]) || [];
             const followUps = (content.follow_ups as MissingInformation[]) || [];
@@ -367,11 +398,11 @@ export function CaseConversationTab({
             const safetyAlerts = (content.safety_alerts as SafetyAlert[]) || [];
 
             return (
-              <div key={turn.id || turnIdx} className="flex flex-col items-start space-y-3">
-                {/* Header */}
-                <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-medium">
-                  <div className="w-5 h-5 rounded bg-primary/10 text-primary flex items-center justify-center">
-                    <Bot className="w-3 h-3" />
+              <div key={turn.id || turnIdx} className="flex flex-col items-start space-y-2.5">
+                {/* Assistant Identity */}
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-medium pl-1">
+                  <div className="w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                    <Bot className="w-2.5 h-2.5" />
                   </div>
                   <span className="font-bold text-foreground">DocMate AI</span>
                   <Badge variant="outline" className="text-[9px] py-0 px-1 border-primary/20 text-primary font-semibold">
@@ -381,34 +412,32 @@ export function CaseConversationTab({
                   <span>{timestamp}</span>
                 </div>
 
-                {/* Assistant Main Text */}
+                {/* Main Speech Bubble */}
                 {assistantText && (
-                  <div className="max-w-[90%] sm:max-w-[85%] rounded-2xl rounded-tl-xs bg-card border border-border/80 p-4 shadow-xs text-xs sm:text-sm leading-relaxed text-foreground">
+                  <div className="max-w-[92%] sm:max-w-[85%] rounded-2xl rounded-tl-xs bg-card border border-border/80 px-4 py-3.5 shadow-xs text-xs sm:text-sm leading-relaxed text-foreground">
                     <p className="whitespace-pre-wrap">{assistantText}</p>
 
-                    {/* Verbatim Citations Inline */}
+                    {/* Inline Verbatim Citations - opens EvidenceSheet on click */}
                     {citations.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-border/60">
-                        <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
-                          {locale === 'bn' ? 'লাইব্রেরি উদ্ধৃতি প্রমাণ:' : 'Verified Library Citations:'}
+                      <div className="mt-2.5 pt-2 border-t border-border/60 flex items-center flex-wrap gap-1">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mr-1">
+                          {locale === 'bn' ? 'প্রমাণ উদ্ধৃতি:' : 'Evidence:'}
                         </span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {citations.map((claim, cIdx) => (
-                            <CitationChip key={claim.chunk_id || cIdx} index={cIdx + 1} claim={claim} />
-                          ))}
-                        </div>
+                        {citations.map((claim, cIdx) => (
+                          <CitationChip key={claim.chunk_id || cIdx} index={cIdx + 1} claim={claim} />
+                        ))}
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Safety Alerts Callout */}
+                {/* Compact Safety Warning Banner */}
                 {safetyAlerts.length > 0 && (
-                  <div className="w-full max-w-[90%] sm:max-w-[85%] space-y-2">
+                  <div className="w-full max-w-[92%] sm:max-w-[85%] space-y-1.5">
                     {safetyAlerts.map((alert) => (
                       <div
                         key={alert.id}
-                        className={`p-3 rounded-lg border text-xs flex items-start gap-2.5 ${
+                        className={`px-3 py-2 rounded-lg border text-xs flex items-start gap-2 ${
                           alert.severity === 'critical'
                             ? 'bg-destructive/10 border-destructive/30 text-destructive'
                             : 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-300'
@@ -424,29 +453,28 @@ export function CaseConversationTab({
                   </div>
                 )}
 
-                {/* Proposed Structured Patient Updates Card */}
+                {/* Proposed Patient Record Updates - Expandable Section */}
                 {proposedUpdates.length > 0 && (
-                  <Card className="w-full max-w-[90%] sm:max-w-[85%] border-primary/30 bg-primary/5 p-4 space-y-3 shadow-2xs">
-                    <div className="flex items-center gap-2 text-primary font-bold text-xs">
-                      <Sparkles className="w-4 h-4" />
-                      <span>{t('proposedUpdateTitle')}</span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      {t('proposedUpdateDesc')}
-                    </p>
-
-                    <div className="space-y-2.5">
-                      {proposedUpdates.map((update) => (
-                        <div
+                  <div className="w-full max-w-[92%] sm:max-w-[85%] space-y-2">
+                    {proposedUpdates.map((update) => {
+                      const isExpanded = expandedUpdates[update.id] ?? (update.status === 'pending');
+                      return (
+                        <Card
                           key={update.id}
-                          className="p-3 rounded-lg bg-card border border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                          className="border-primary/20 bg-primary/5 p-3 text-xs space-y-2 shadow-2xs"
                         >
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-foreground">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+                              <span className="font-bold text-foreground truncate">
                                 {locale === 'bn' ? update.label_bn : update.label_en}:
                               </span>
-                              <span className="font-semibold text-primary">{update.display_value}</span>
+                              <span className="font-semibold text-primary truncate">
+                                {update.display_value}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
                               <Badge
                                 variant={
                                   update.status === 'confirmed'
@@ -469,50 +497,69 @@ export function CaseConversationTab({
                                   ? t('statusDismissed')
                                   : t('statusPending')}
                               </Badge>
-                            </div>
-                            <div className="text-[11px] text-muted-foreground italic">
-                              <span className="font-medium not-italic">{t('originalWording')}:</span> &ldquo;{update.original_wording}&rdquo;
+
+                              <button
+                                type="button"
+                                onClick={() => toggleUpdateExpanded(update.id)}
+                                className="p-1 rounded hover:bg-muted text-muted-foreground"
+                                aria-label="Toggle details"
+                              >
+                                <ChevronDown
+                                  className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                />
+                              </button>
                             </div>
                           </div>
 
-                          {update.status === 'pending' && (
-                            <div className="flex items-center gap-2 shrink-0">
-                              <Button
-                                size="sm"
-                                onClick={() => void handleConfirmUpdate(turn.id, update.id, 'confirm')}
-                                className="h-7 px-2.5 text-xs font-semibold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs"
-                              >
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                <span>{t('confirmUpdate')}</span>
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => void handleConfirmUpdate(turn.id, update.id, 'dismiss')}
-                                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-                              >
-                                <XCircle className="w-3.5 h-3.5" />
-                                <span>{t('dismissUpdate')}</span>
-                              </Button>
+                          {isExpanded && (
+                            <div className="pt-2 border-t border-border/60 space-y-2">
+                              <div className="text-[11px] text-muted-foreground">
+                                <span className="font-semibold text-foreground mr-1">
+                                  {t('originalWording')}:
+                                </span>
+                                &ldquo;{update.original_wording}&rdquo;
+                              </div>
+
+                              {update.status === 'pending' && (
+                                <div className="flex items-center gap-2 pt-1">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => void handleConfirmUpdate(turn.id, update.id, 'confirm')}
+                                    className="h-7 px-2.5 text-xs font-semibold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs"
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    <span>{t('confirmUpdate')}</span>
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => void handleConfirmUpdate(turn.id, update.id, 'dismiss')}
+                                    className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                  >
+                                    <XCircle className="w-3.5 h-3.5" />
+                                    <span>{t('dismissUpdate')}</span>
+                                  </Button>
+                                </div>
+                              )}
                             </div>
                           )}
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
+                        </Card>
+                      );
+                    })}
+                  </div>
                 )}
 
-                {/* Inline Missing Information Follow-Ups */}
+                {/* Follow-up Questions (Clarifications) - Clean compact prompt */}
                 {followUps.length > 0 && (
-                  <div className="w-full max-w-[90%] sm:max-w-[85%] space-y-2.5">
-                    <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
-                      {t('followUpTitle')}
-                    </span>
+                  <div className="w-full max-w-[92%] sm:max-w-[85%] space-y-2">
                     {followUps.map((question) => (
-                      <Card key={question.id} className="p-3.5 border-amber-500/30 bg-amber-500/5 space-y-2 text-xs">
+                      <Card
+                        key={question.id}
+                        className="p-3 border-amber-500/30 bg-amber-500/5 space-y-2 text-xs"
+                      >
                         <div className="flex items-start gap-2">
                           <HelpCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                          <div className="space-y-1 flex-1">
+                          <div className="space-y-0.5 flex-1">
                             <span className="font-bold text-foreground block">{question.text}</span>
                             {question.why_it_helps && (
                               <p className="text-[11px] text-muted-foreground leading-relaxed">
@@ -525,7 +572,7 @@ export function CaseConversationTab({
                         <div className="flex items-center gap-2 pt-1">
                           <input
                             type="text"
-                            placeholder={locale === 'bn' ? 'ক্লিনিকাল ফলাফল লিখুন...' : 'Enter clinical finding or result...'}
+                            placeholder={locale === 'bn' ? 'ক্লিনিকাল ফলাফল লিখুন...' : 'Enter clinical finding...'}
                             value={inlineAnswers[question.id] || ''}
                             onChange={(e) =>
                               setInlineAnswers((prev) => ({
@@ -560,8 +607,8 @@ export function CaseConversationTab({
         )}
       </div>
 
-      {/* Input Action Controls */}
-      <div className="p-3 sm:p-4 border-t border-border/70 bg-card/70 backdrop-blur-xs space-y-2.5">
+      {/* Clean Floating Input Bar */}
+      <div className="p-2 sm:p-2.5 shrink-0 border-t border-border/70 bg-card/70 backdrop-blur-xs space-y-1.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Button
@@ -569,15 +616,15 @@ export function CaseConversationTab({
               size="sm"
               onClick={() => void handleSend('evidence_review')}
               disabled={submitting || requestingReview}
-              className="h-7 px-2.5 text-xs font-medium gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+              className="h-6 px-2 text-[11px] font-medium gap-1 border-primary/30 text-primary hover:bg-primary/10"
             >
-              <BookOpen className="w-3.5 h-3.5" />
+              <BookOpen className="w-3 h-3" />
               <span>{requestingReview ? t('requestingReview') : t('requestEvidenceReview')}</span>
             </Button>
           </div>
 
           <span className="text-[10px] text-muted-foreground hidden sm:inline">
-            {locale === 'bn' ? 'Enter চাপলে পাঠানো হবে • Shift+Enter নতুন লাইন' : 'Press Enter to send • Shift+Enter for new line'}
+            {locale === 'bn' ? 'Enter পাঠাবে • Shift+Enter নতুন লাইন' : 'Enter to send • Shift+Enter for new line'}
           </span>
         </div>
 
@@ -587,20 +634,20 @@ export function CaseConversationTab({
             value={inputObservation}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder={t('inputPlaceholder')}
+            placeholder={locale === 'bn' ? 'ক্লিনিকাল পর্যবেক্ষণ বা প্রশ্ন লিখুন... (Enter চাপলে পাঠানো হবে)' : 'Type clinical findings or questions... (Enter to send)'}
             disabled={submitting || requestingReview}
-            rows={2}
-            className="flex-1 min-h-[56px] max-h-32 text-xs sm:text-sm resize-none rounded-lg p-2.5 border-border/80 focus-visible:ring-1 focus-visible:ring-primary"
-            aria-label={t('inputPlaceholder')}
+            rows={1}
+            className="flex-1 min-h-[38px] max-h-24 text-xs sm:text-sm resize-none rounded-lg p-2 border-border/80 focus-visible:ring-1 focus-visible:ring-primary"
+            aria-label="Clinical observation input"
           />
           <Button
             size="sm"
             onClick={() => void handleSend('observation')}
             disabled={submitting || requestingReview || !inputObservation.trim()}
-            className="h-14 px-4 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold gap-1.5 shadow-xs shrink-0"
+            className="h-[38px] px-3.5 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold gap-1 shadow-xs shrink-0 text-xs"
             aria-label={t('send')}
           >
-            <Send className="w-4 h-4" />
+            <Send className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">{submitting ? t('submitting') : t('send')}</span>
           </Button>
         </div>

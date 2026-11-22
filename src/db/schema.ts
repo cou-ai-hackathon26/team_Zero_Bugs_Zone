@@ -24,30 +24,137 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+export const sourceFiles = pgTable('source_files', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  storageKey: text('storage_key').notNull(),
+  sha256: varchar('sha256', { length: 64 }).notNull(),
+  mime: varchar('mime', { length: 100 }).notNull(),
+  size: integer('size').notNull(),
+  originalName: text('original_name').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('source_files_sha256_idx').on(table.sha256),
+]);
+
 export const sources = pgTable('sources', {
   id: uuid('id').defaultRandom().primaryKey(),
   title: text('title').notNull(),
+  authors: jsonb('authors').default([]).notNull(), // string[]
   type: varchar('type', { length: 50 }).notNull(), // 'textbook' | 'guideline' | 'journal' | 'drug'
   year: integer('year').notNull(),
+  journalOrPublisher: text('journal_or_publisher'),
+  doi: text('doi'),
+  pmid: text('pmid'),
+  canonicalUrl: text('canonical_url'),
+  language: varchar('language', { length: 20 }).default('mixed').notNull(), // 'bn' | 'en' | 'mixed'
+  sourceType: varchar('source_type', { length: 50 }).default('guideline').notNull(), // 'textbook' | 'guideline' | 'journal_article' | 'review' | 'case_report' | 'other'
+  evidenceLevel: varchar('evidence_level', { length: 10 }).default('Ia').notNull(),
   license: text('license').notNull().default('Open Access / Academic Demo'),
+  copyrightHolder: text('copyright_holder'),
+  rightsConfirmedBy: uuid('rights_confirmed_by').references(() => users.id, { onDelete: 'set null' }),
+  rightsConfirmedAt: timestamp('rights_confirmed_at', { withTimezone: true }),
+  lifecycle: varchar('lifecycle', { length: 30 }).default('published').notNull(), // 'draft' | 'in_review' | 'approved' | 'published' | 'retired' | 'retracted'
+  currentVersionId: uuid('current_version_id'),
   url: text('url'),
   status: varchar('status', { length: 50 }).notNull().default('active'), // 'active' | 'archived'
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (table) => [
+  index('sources_doi_idx').on(table.doi),
+  index('sources_canonical_url_idx').on(table.canonicalUrl),
+  index('sources_lifecycle_idx').on(table.lifecycle),
+]);
+
+export const sourceVersions = pgTable('source_versions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  sourceId: uuid('source_id').references(() => sources.id, { onDelete: 'cascade' }).notNull(),
+  versionNo: integer('version_no').default(1).notNull(),
+  changeNote: text('change_note'),
+  fileId: uuid('file_id').references(() => sourceFiles.id, { onDelete: 'set null' }),
+  textFingerprint: text('text_fingerprint'), // 64-bit simhash hex
+  extractionQuality: integer('extraction_quality').default(100).notNull(), // 0 to 100
+  pageCount: integer('page_count').default(1).notNull(),
+  tokenCount: integer('token_count').default(0).notNull(),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('source_versions_source_id_idx').on(table.sourceId),
+  unique('source_versions_source_version_unique').on(table.sourceId, table.versionNo),
+]);
+
+export const ingestJobs = pgTable('ingest_jobs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  sourceId: uuid('source_id').references(() => sources.id, { onDelete: 'cascade' }),
+  sourceVersionId: uuid('source_version_id').references(() => sourceVersions.id, { onDelete: 'cascade' }),
+  inputType: varchar('input_type', { length: 30 }).notNull(), // 'file' | 'url' | 'doi' | 'json' | 'zip'
+  status: varchar('status', { length: 30 }).default('pending').notNull(), // 'pending' | 'processing' | 'awaiting_approval' | 'completed' | 'failed' | 'cancelled'
+  stage: varchar('stage', { length: 50 }).default('queued').notNull(),
+  progress: integer('progress').default(0).notNull(), // 0 to 100
+  error: text('error'),
+  attempts: integer('attempts').default(0).notNull(),
+  estimatedTokens: integer('estimated_tokens').default(0).notNull(),
+  estimatedCost: numeric('estimated_cost', { precision: 10, scale: 4 }).default('0').notNull(),
+  tokensUsed: integer('tokens_used').default(0).notNull(),
+  metadata: jsonb('metadata').default({}).notNull(),
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('ingest_jobs_status_idx').on(table.status),
+  index('ingest_jobs_source_id_idx').on(table.sourceId),
+]);
+
+export const embeddingCache = pgTable('embedding_cache', {
+  id: text('id').primaryKey(), // `${contentHash}:${model}`
+  contentHash: varchar('content_hash', { length: 64 }).notNull(),
+  model: varchar('model', { length: 100 }).notNull(),
+  embedding: vector('embedding', { dimensions: 1536 }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('embedding_cache_hash_idx').on(table.contentHash),
+]);
+
+export const duplicateCandidates = pgTable('duplicate_candidates', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  newSourceId: uuid('new_source_id').references(() => sources.id, { onDelete: 'cascade' }).notNull(),
+  existingSourceId: uuid('existing_source_id').references(() => sources.id, { onDelete: 'cascade' }).notNull(),
+  level: varchar('level', { length: 30 }).notNull(), // 'file_hash' | 'doi_url' | 'metadata' | 'fingerprint'
+  score: numeric('score', { precision: 5, scale: 2 }).notNull(),
+  decision: varchar('decision', { length: 30 }), // 'skip' | 'new_version' | 'keep_both'
+  decidedBy: uuid('decided_by').references(() => users.id, { onDelete: 'set null' }),
+  reason: text('reason'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('dup_cand_new_source_idx').on(table.newSourceId),
+  index('dup_cand_existing_source_idx').on(table.existingSourceId),
+]);
 
 export const chunks = pgTable('chunks', {
   id: uuid('id').defaultRandom().primaryKey(),
   sourceId: uuid('source_id').references(() => sources.id, { onDelete: 'cascade' }).notNull(),
+  sourceVersionId: uuid('source_version_id').references(() => sourceVersions.id, { onDelete: 'set null' }),
+  ordinal: integer('ordinal').default(0).notNull(),
+  headingPath: text('heading_path'),
+  pageStart: integer('page_start').default(1).notNull(),
+  pageEnd: integer('page_end').default(1).notNull(),
   page: integer('page').default(1),
   section: text('section').notNull(),
+  kind: varchar('kind', { length: 30 }).default('body').notNull(), // 'body' | 'table' | 'list' | 'skip' | 'references'
   text: text('text').notNull(),
+  embeddingText: text('embedding_text'),
+  contentHash: text('content_hash'),
+  tokenCount: integer('token_count').default(0).notNull(),
+  language: varchar('language', { length: 20 }).default('en').notNull(),
   embedding: vector('embedding', { dimensions: 1536 }),
   tsv: tsvector('tsv'),
   evidenceLevel: varchar('evidence_level', { length: 10 }).notNull().default('Ia'), // 'Ia' | 'Ib' | 'IIa' | 'IIb' | 'III' | 'IV'
   hash: text('hash'),
+  status: varchar('status', { length: 30 }).default('active').notNull(), // 'active' | 'retired'
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => [
   index('chunks_tsv_idx').using('gin', table.tsv),
+  index('chunks_content_hash_idx').on(table.contentHash),
+  index('chunks_source_version_idx').on(table.sourceVersionId),
+  index('chunks_status_idx').on(table.status),
 ]);
 
 export const patientAccounts = pgTable('patient_accounts', {

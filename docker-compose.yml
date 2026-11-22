@@ -17,5 +17,18 @@ services:
       timeout: 5s
       retries: 5
 
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["npm", "run", "worker"]
+    container_name: docmate-ingestion-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://docmate:docmate_dev_password@postgres:5432/docmate
+
 volumes:
   docmate_pgdata:

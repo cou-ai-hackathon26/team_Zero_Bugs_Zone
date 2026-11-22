@@ -62,9 +62,10 @@ import { cn } from '@/lib/utils';
 
 interface AppShellProps {
   children: React.ReactNode;
+  fullHeight?: boolean;
 }
 
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({ children, fullHeight = false }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const locale = useLocale();
@@ -469,11 +470,14 @@ export function AppShell({ children }: AppShellProps) {
           </Sidebar>
 
           {/* Main Inset Content Area */}
-          <SidebarInset className="flex flex-col flex-1 min-w-0">
+          <SidebarInset className={cn("flex flex-col flex-1 min-w-0", fullHeight && "h-screen max-h-screen overflow-hidden")}>
             {/* Top Navigation Bar */}
-            <header className="sticky top-0 z-30 flex min-h-14 items-center justify-between gap-2 border-b border-border bg-background/95 px-3 backdrop-blur-md sm:px-4 w-full max-w-full overflow-hidden">
+            <header className={cn(
+              "sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/95 px-3 backdrop-blur-md sm:px-4 w-full max-w-full overflow-hidden shrink-0",
+              fullHeight ? "h-11 min-h-11" : "min-h-14"
+            )}>
               <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink">
-                <SidebarTrigger className="size-9 sm:size-10 text-muted-foreground hover:text-foreground shrink-0" aria-label={t('toggleSidebar')} />
+                <SidebarTrigger className={cn("text-muted-foreground hover:text-foreground shrink-0", fullHeight ? "size-8" : "size-9 sm:size-10")} aria-label={t('toggleSidebar')} />
                 <button
                   type="button"
                   data-tour="nav-search"
@@ -482,7 +486,10 @@ export function AppShell({ children }: AppShellProps) {
                     document.dispatchEvent(event);
                   }}
                   aria-label={t('search')}
-                  className="flex size-9 sm:size-10 shrink-0 items-center justify-center gap-2 rounded-md border border-border bg-muted/40 text-xs text-muted-foreground hover:bg-muted/80 xl:w-auto xl:px-3"
+                  className={cn(
+                    "flex shrink-0 items-center justify-center gap-2 rounded-md border border-border bg-muted/40 text-xs text-muted-foreground hover:bg-muted/80 xl:w-auto xl:px-3",
+                    fullHeight ? "size-8" : "size-9 sm:size-10"
+                  )}
                 >
                   <Search className="w-3.5 h-3.5" />
                   <span className="hidden xl:inline">{t('search')}</span>
@@ -503,7 +510,10 @@ export function AppShell({ children }: AppShellProps) {
                       render={
                         <button
                           type="button"
-                          className="size-8 sm:size-9 rounded-full bg-primary/15 hover:bg-primary/25 text-primary flex items-center justify-center text-xs font-bold ring-1 ring-border/80 hover:ring-primary/50 transition-all shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                          className={cn(
+                            "rounded-full bg-primary/15 hover:bg-primary/25 text-primary flex items-center justify-center text-xs font-bold ring-1 ring-border/80 hover:ring-primary/50 transition-all shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                            fullHeight ? "size-7 sm:size-8" : "size-8 sm:size-9"
+                          )}
                           aria-label={currentUser.name}
                           title={currentUser.name}
                         >
@@ -549,15 +559,22 @@ export function AppShell({ children }: AppShellProps) {
             </header>
 
             {/* Page Body */}
-            <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-16">
+            <main className={cn(
+              fullHeight
+                ? "flex-1 min-h-0 w-full overflow-hidden flex flex-col p-2 sm:p-2.5 max-w-[1700px] mx-auto"
+                : "flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-16"
+            )}>
               {children}
             </main>
 
             {/* Persistent Mandatory Clinical Disclaimer */}
-            <footer className="border-t border-border bg-card/60 px-4 py-3 text-center sm:px-6 no-print">
+            <footer className={cn(
+              "border-t border-border bg-card/60 text-center no-print shrink-0",
+              fullHeight ? "px-3 py-1" : "px-4 py-3 sm:px-6"
+            )}>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-xs text-muted-foreground font-medium">
-                <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 font-semibold">
-                  <ShieldAlert className="w-4 h-4 shrink-0" />
+                <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 font-semibold text-[11px]">
+                  <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
                   {tCommon('disclaimer')}
                 </span>
                 <span className="hidden sm:inline text-muted-foreground/40">•</span>

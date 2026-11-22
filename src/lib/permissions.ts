@@ -62,6 +62,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, Partial<Record<FeatureKey,
     'library.ask': true,
     'library.browse': true,
     'library.manage': true,
+    'library.ingest': true,
+    'library.review': true,
+    'library.retire': true,
     'medicine.search': true,
     'medicine.interactions': true,
     'medicine.manage': true,
@@ -96,6 +99,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, Partial<Record<FeatureKey,
     'library.ask': true,
     'library.browse': true,
     'library.manage': false,
+    'library.ingest': false,
+    'library.review': false,
+    'library.retire': false,
     'medicine.search': true,
     'medicine.interactions': true,
     'medicine.manage': false,
@@ -130,6 +136,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, Partial<Record<FeatureKey,
     'library.ask': true,
     'library.browse': true,
     'library.manage': false,
+    'library.ingest': false,
+    'library.review': false,
+    'library.retire': false,
     'medicine.search': true,
     'medicine.interactions': true,
     'medicine.manage': false,
@@ -164,6 +173,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, Partial<Record<FeatureKey,
     'library.ask': true,
     'library.browse': true,
     'library.manage': false,
+    'library.ingest': false,
+    'library.review': false,
+    'library.retire': false,
     'medicine.search': true,
     'medicine.interactions': true,
     'medicine.manage': false,
@@ -198,6 +210,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, Partial<Record<FeatureKey,
     'library.ask': false,
     'library.browse': false,
     'library.manage': false,
+    'library.ingest': false,
+    'library.review': false,
+    'library.retire': false,
     'medicine.search': false,
     'medicine.interactions': false,
     'medicine.manage': false,
@@ -232,6 +247,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, Partial<Record<FeatureKey,
     'library.ask': true,
     'library.browse': true,
     'library.manage': false,
+    'library.ingest': false,
+    'library.review': false,
+    'library.retire': false,
     'medicine.search': true,
     'medicine.interactions': true,
     'medicine.manage': true,
@@ -708,6 +726,22 @@ export async function requireSuperAdmin(): Promise<RequireSuperAdminResult> {
   }
   return { user, error: null, status: 200 };
 }
+
+/**
+ * Route guard helper requiring specific feature permission (e.g. library.ingest, library.review, library.retire).
+ */
+export async function requireFeaturePermission(featureKey: FeatureKey): Promise<RequireSuperAdminResult> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { error: 'Authentication required', status: 401, user: {} as User };
+  }
+  const check = await canUse(user, featureKey);
+  if (!check.allowed) {
+    return { error: check.reason || 'Forbidden: Insufficient privileges', status: 403, user };
+  }
+  return { user, error: null, status: 200 };
+}
+
 
 export type RequireMedicineControllerResult =
   | { user: User; error: null; status: 200 }

@@ -1,19 +1,15 @@
-import { Pool } from 'pg';
+import { pool } from '@/db';
 import OpenAI from 'openai';
 import { Chunk } from '@/types';
 import { getRawAiCredentials } from '@/lib/ai-credentials';
 
-const connectionString = process.env.DATABASE_URL || 'postgresql://apple@localhost:5432/docmate';
-const isLocal = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
-
-const pool = new Pool({
-  connectionString,
-  ssl: isLocal ? false : { rejectUnauthorized: false },
-});
-
 // In-memory cache for embeddings and retrieval (cost control & speed)
 const retrievalCache = new Map<string, { timestamp: number; chunks: ScoredChunk[] }>();
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+export function clearRetrievalCache(): void {
+  retrievalCache.clear();
+}
 
 export interface ScoredChunk extends Chunk {
   rrfScore: number;
@@ -21,6 +17,10 @@ export interface ScoredChunk extends Chunk {
   textRank?: number;
   vectorScore?: number;
   textScore?: number;
+  contentHash?: string;
+  headingPath?: string;
+  sourceVersionId?: string;
+  ordinal?: number;
 }
 
 async function getQueryEmbedding(query: string): Promise<number[] | null> {
@@ -48,26 +48,33 @@ export async function singleQueryHybridSearch(query: string, limit = 15): Promis
   const embedding = await getQueryEmbedding(query);
   const vectorStr = embedding ? `[${embedding.join(',')}]` : null;
 
-  // 1. Vector Search
+  const isBengali = /[\u0980-\u09FF]/.test(query);
+  const tsvConfig = isBengali ? 'simple' : 'english';
+
+  // 1. Vector Search (Restricted strictly to published sources & active chunks)
   const vectorQuery = `
-    SELECT c.id, c.source_id, c.page, c.section, c.text, c.evidence_level,
+    SELECT c.id, c.source_id, c.source_version_id, c.ordinal, c.page, c.section, c.heading_path,
+           c.text, c.evidence_level, c.content_hash, c.token_count,
            s.title as source_title, s.year as source_year,
            1 - (c.embedding <=> $1::vector) as vector_score
     FROM chunks c
     JOIN sources s ON c.source_id = s.id
-    WHERE s.status = 'active' AND c.embedding IS NOT NULL
+    WHERE s.lifecycle = 'published' AND s.status = 'active' AND c.status = 'active'
+      AND c.embedding IS NOT NULL
     ORDER BY c.embedding <=> $1::vector ASC
     LIMIT $2;
   `;
 
-  // 2. Full-Text Search (tsvector)
+  // 2. Full-Text Search (tsvector with language-specific configuration)
   const textQuery = `
-    SELECT c.id, c.source_id, c.page, c.section, c.text, c.evidence_level,
+    SELECT c.id, c.source_id, c.source_version_id, c.ordinal, c.page, c.section, c.heading_path,
+           c.text, c.evidence_level, c.content_hash, c.token_count,
            s.title as source_title, s.year as source_year,
-           ts_rank(c.tsv, plainto_tsquery('english', $1)) as text_score
+           ts_rank(c.tsv, plainto_tsquery('${tsvConfig}', $1)) as text_score
     FROM chunks c
     JOIN sources s ON c.source_id = s.id
-    WHERE s.status = 'active' AND c.tsv @@ plainto_tsquery('english', $1)
+    WHERE s.lifecycle = 'published' AND s.status = 'active' AND c.status = 'active'
+      AND c.tsv @@ plainto_tsquery('${tsvConfig}', $1)
     ORDER BY text_score DESC
     LIMIT $2;
   `;
@@ -91,6 +98,10 @@ export async function singleQueryHybridSearch(query: string, limit = 15): Promis
       source_year: row.source_year,
       page: row.page,
       section: row.section,
+      headingPath: row.heading_path,
+      sourceVersionId: row.source_version_id,
+      ordinal: row.ordinal,
+      contentHash: row.content_hash,
       text: row.text,
       evidence_level: row.evidence_level,
       created_at: new Date().toISOString(),
@@ -117,6 +128,10 @@ export async function singleQueryHybridSearch(query: string, limit = 15): Promis
         source_year: row.source_year,
         page: row.page,
         section: row.section,
+        headingPath: row.heading_path,
+        sourceVersionId: row.source_version_id,
+        ordinal: row.ordinal,
+        contentHash: row.content_hash,
         text: row.text,
         evidence_level: row.evidence_level,
         created_at: new Date().toISOString(),
@@ -127,7 +142,22 @@ export async function singleQueryHybridSearch(query: string, limit = 15): Promis
     }
   });
 
-  return Array.from(scoreMap.values()).sort((a, b) => b.rrfScore - a.rrfScore);
+  // Deduplicate chunks with identical content_hash
+  const uniqueHashes = new Set<string>();
+  const deduped: ScoredChunk[] = [];
+
+  const sorted = Array.from(scoreMap.values()).sort((a, b) => b.rrfScore - a.rrfScore);
+  for (const chunk of sorted) {
+    if (chunk.contentHash) {
+      if (uniqueHashes.has(chunk.contentHash)) {
+        continue; // drop redundant boilerplate chunk
+      }
+      uniqueHashes.add(chunk.contentHash);
+    }
+    deduped.push(chunk);
+  }
+
+  return deduped;
 }
 
 // Multi-query hybrid retrieval with reciprocal rank fusion across key findings
@@ -162,14 +192,74 @@ export async function hybridRetrieve(queries: string[], maxChunks = 12): Promise
   return sorted;
 }
 
+/**
+ * Small-to-big retrieval: Expands a core matched chunk with adjacent ordinal chunks
+ * from the same version up to a maximum token budget.
+ */
+export async function expandChunkContext(
+  chunkId: string,
+  maxAdditionalTokens = 500
+): Promise<{ expandedText: string; chunkIds: string[] }> {
+  const baseRes = await pool.query<{
+    source_version_id: string | null;
+    ordinal: number | null;
+    text: string;
+    token_count: number;
+  }>(
+    `SELECT source_version_id, ordinal, text, token_count FROM chunks WHERE id = $1;`,
+    [chunkId]
+  );
+
+  if (baseRes.rows.length === 0) {
+    return { expandedText: '', chunkIds: [] };
+  }
+
+  const base = baseRes.rows[0];
+  if (!base.source_version_id || base.ordinal === null) {
+    return { expandedText: base.text, chunkIds: [chunkId] };
+  }
+
+  // Fetch immediately preceding and succeeding chunks
+  const neighborsRes = await pool.query<{ id: string; ordinal: number; text: string; token_count: number }>(
+    `SELECT id, ordinal, text, token_count
+     FROM chunks
+     WHERE source_version_id = $1 AND ordinal IN ($2, $3) AND status = 'active'
+     ORDER BY ordinal ASC;`,
+    [base.source_version_id, base.ordinal - 1, base.ordinal + 1]
+  );
+
+  let totalTokens = base.token_count || 100;
+  const parts: { ordinal: number; text: string; id: string }[] = [
+    { ordinal: base.ordinal, text: base.text, id: chunkId },
+  ];
+
+  for (const neighbor of neighborsRes.rows) {
+    if (totalTokens + (neighbor.token_count || 100) <= maxAdditionalTokens + (base.token_count || 100)) {
+      parts.push({ ordinal: neighbor.ordinal, text: neighbor.text, id: neighbor.id });
+      totalTokens += neighbor.token_count || 100;
+    }
+  }
+
+  parts.sort((a, b) => a.ordinal - b.ordinal);
+
+  return {
+    expandedText: parts.map((p) => p.text).join('\n\n'),
+    chunkIds: parts.map((p) => p.id),
+  };
+}
+
 export async function searchLibraryText(query: string, limit: number): Promise<Chunk[]> {
+  const isBengali = /[\u0980-\u09FF]/.test(query);
+  const tsvConfig = isBengali ? 'simple' : 'english';
+
   const { rows } = await pool.query<Chunk>(
     `SELECT c.id, c.source_id, c.page, c.section, c.text, c.evidence_level, c.created_at,
             s.title AS source_title, s.year AS source_year
      FROM chunks c
      JOIN sources s ON s.id = c.source_id
-     WHERE s.status = 'active' AND c.tsv @@ plainto_tsquery('english', $1)
-     ORDER BY ts_rank(c.tsv, plainto_tsquery('english', $1)) DESC, c.id
+     WHERE s.lifecycle = 'published' AND s.status = 'active' AND c.status = 'active'
+       AND c.tsv @@ plainto_tsquery('${tsvConfig}', $1)
+     ORDER BY ts_rank(c.tsv, plainto_tsquery('${tsvConfig}', $1)) DESC, c.id
      LIMIT $2`,
     [query, limit],
   );

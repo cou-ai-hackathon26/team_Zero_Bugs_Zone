@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { getCurrentUser } from '@/lib/auth';
 import { NextResponse } from 'next/server';
-import { db } from '@/db';
+import { db, pool } from '@/db';
 import { chunks, sources } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
@@ -25,12 +25,36 @@ export async function GET(
       where: eq(sources.id, chunkRecord.sourceId),
     });
 
+    let storageKey: string | null = null;
+    let fileMime: string | null = null;
+
+    if (chunkRecord.sourceVersionId) {
+      const versionRes = await pool.query(
+        `SELECT sf.storage_key, sf.mime
+         FROM source_versions sv
+         JOIN source_files sf ON sf.id = sv.file_id
+         WHERE sv.id = $1;`,
+        [chunkRecord.sourceVersionId]
+      );
+      if (versionRes.rows.length > 0) {
+        storageKey = versionRes.rows[0].storage_key;
+        fileMime = versionRes.rows[0].mime;
+      }
+    }
+
     return NextResponse.json({
       chunk: {
         ...chunkRecord,
         source_title: sourceRecord?.title,
         source_year: sourceRecord?.year,
         source_license: sourceRecord?.license,
+        source_doi: sourceRecord?.doi,
+        source_url: sourceRecord?.canonicalUrl,
+        source_lifecycle: sourceRecord?.lifecycle,
+        is_retired: sourceRecord?.lifecycle === 'retired',
+        is_retracted: sourceRecord?.lifecycle === 'retracted',
+        storage_key: storageKey,
+        file_mime: fileMime,
       },
     });
   } catch {

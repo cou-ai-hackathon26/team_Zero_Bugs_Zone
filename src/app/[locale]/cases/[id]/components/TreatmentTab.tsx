@@ -16,16 +16,14 @@ import {
 import {
   Pill,
   CheckCircle2,
-  AlertTriangle,
   FileCheck,
   Stethoscope,
   Clock,
-  Activity,
   ShieldAlert,
   Loader2,
   Lock,
 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 
 interface TreatmentTabProps {
   confirmedDiagnosis?: string;
@@ -60,25 +58,28 @@ export function TreatmentTab({
   isFinalized,
   finalizing,
 }: TreatmentTabProps) {
+  const locale = useLocale();
   const t = useTranslations('treatment');
 
   if (!confirmedDiagnosis) {
     return (
-      <Card className="p-8 text-center border-dashed border-2 flex flex-col items-center justify-center space-y-4">
-        <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-          <Stethoscope className="w-6 h-6" />
+      <Card className="p-8 text-center border-dashed border-2 flex flex-col items-center justify-center space-y-3">
+        <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+          <Stethoscope className="w-5 h-5" />
         </div>
         <div className="space-y-1">
-          <h3 className="text-base font-semibold text-foreground">
-            No Working Diagnosis Confirmed
+          <h3 className="text-sm font-semibold text-foreground">
+            {locale === 'bn' ? 'কোনো রোগ নির্ধারিত হয়নি' : 'No Working Diagnosis Confirmed'}
           </h3>
-          <p className="text-xs text-muted-foreground max-w-md">
-            Treatment protocols and deterministic dosage validation require an active working diagnosis confirmed by the attending physician.
+          <p className="text-xs text-muted-foreground max-w-sm">
+            {locale === 'bn'
+              ? 'ওষুধের সঠিক মাত্রা ও নিরাপত্তা যাচাই করতে প্রথমে একটি রোগ নির্ধারণ করুন।'
+              : 'Please confirm a working diagnosis first to generate dosage-validated treatment options.'}
           </p>
         </div>
-        <Button onClick={onOpenConfirmDiag} className="gap-2 font-semibold text-xs">
-          <CheckCircle2 className="w-4 h-4" />
-          Select &amp; Confirm Diagnosis
+        <Button onClick={onOpenConfirmDiag} size="sm" className="gap-2 font-semibold text-xs h-8">
+          <CheckCircle2 className="w-3.5 h-3.5" />
+          <span>{locale === 'bn' ? 'রোগ নির্ধারণ করুন' : 'Select Diagnosis'}</span>
         </Button>
       </Card>
     );
@@ -86,14 +87,16 @@ export function TreatmentTab({
 
   if (loading) {
     return (
-      <Card className="p-8 text-center border-dashed border-2 flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="w-10 h-10 text-primary animate-spin" />
+      <Card className="p-8 text-center border-dashed border-2 flex flex-col items-center justify-center space-y-3">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
         <div className="space-y-1">
-          <h3 className="text-base font-semibold text-foreground">
-            Evaluating Treatment Protocols &amp; Safety Checks...
+          <h3 className="text-sm font-semibold text-foreground">
+            {locale === 'bn' ? 'চিকিৎসা প্রটোকল প্রস্তুত করা হচ্ছে...' : 'Validating Treatment Protocols...'}
           </h3>
-          <p className="text-xs text-muted-foreground max-w-md">
-            Retrieving clinical guidelines, pulling structured drug formulary rules, and executing deterministic allergy, interaction, and renal safety engine...
+          <p className="text-xs text-muted-foreground max-w-sm">
+            {locale === 'bn'
+              ? 'রোগীর অ্যালার্জি, ইন্টারঅ্যাকশন ও রেনাল ডোজ নিরাপত্তা যাচাই করা হচ্ছে...'
+              : 'Executing deterministic allergy, drug interaction, and renal safety rules...'}
           </p>
         </div>
       </Card>
@@ -102,21 +105,21 @@ export function TreatmentTab({
 
   if (!treatmentPlan) {
     return (
-      <Card className="p-8 text-center border-dashed border-2 flex flex-col items-center justify-center space-y-4">
-        <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-          <Pill className="w-6 h-6" />
+      <Card className="p-8 text-center border-dashed border-2 flex flex-col items-center justify-center space-y-3">
+        <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+          <Pill className="w-5 h-5" />
         </div>
         <div className="space-y-1">
-          <h3 className="text-base font-semibold text-foreground">
-            Confirmed Working Diagnosis: {confirmedDiagnosis}
+          <h3 className="text-sm font-semibold text-foreground">
+            {locale === 'bn' ? 'নির্ধারিত রোগ:' : 'Working Diagnosis:'} {confirmedDiagnosis}
           </h3>
-          <p className="text-xs text-muted-foreground max-w-md">
+          <p className="text-xs text-muted-foreground max-w-sm">
             {t('unavailable')}
           </p>
         </div>
-        <Button disabled onClick={onGenerateTreatment} className="gap-2 font-semibold text-xs">
-          <FileCheck className="w-4 h-4" />
-          Generate Treatment Plan
+        <Button disabled onClick={onGenerateTreatment} size="sm" className="gap-2 font-semibold text-xs h-8">
+          <FileCheck className="w-3.5 h-3.5" />
+          <span>{locale === 'bn' ? 'চিকিৎসা তৈরি করুন' : 'Generate Treatment Plan'}</span>
         </Button>
       </Card>
     );
@@ -141,74 +144,74 @@ export function TreatmentTab({
         key={drug.drug_id}
         className={`border transition-all ${
           isApproved
-            ? 'border-primary/60 bg-card shadow-xs'
+            ? 'border-primary/60 bg-card shadow-2xs'
             : 'border-border/60 bg-muted/20 opacity-80'
         }`}
       >
-        <CardHeader className="p-4 pb-2">
+        <CardHeader className="p-3.5 pb-2">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-2.5 min-w-0">
               <Checkbox
                 id={`drug-${drug.drug_id}`}
                 checked={isApproved}
                 disabled={isFinalized}
                 onCheckedChange={() => onToggleDrug(drug.drug_id)}
-                className="mt-1"
+                className="mt-0.5"
               />
-              <div>
+              <div className="min-w-0">
                 <label
                   htmlFor={`drug-${drug.drug_id}`}
-                  className="text-sm font-bold text-foreground cursor-pointer flex items-center gap-2"
+                  className="text-xs sm:text-sm font-bold text-foreground cursor-pointer flex items-center gap-1.5 flex-wrap"
                 >
-                  {drug.generic_name}
+                  <span>{drug.generic_name}</span>
                   {isFirstLine ? (
                     <Badge className="bg-emerald-600 text-white text-[10px] py-0">First Line</Badge>
                   ) : (
                     <Badge variant="outline" className="text-[10px] py-0">Alternative</Badge>
                   )}
                 </label>
-                <p className="text-xs text-muted-foreground font-medium">{drug.drug_class}</p>
+                <p className="text-[11px] text-muted-foreground font-medium">{drug.drug_class}</p>
               </div>
             </div>
 
             {drug.claim && (
-              <CitationChip claim={drug.claim} />
+              <CitationChip claim={drug.claim} className="shrink-0" />
             )}
           </div>
         </CardHeader>
 
-        <CardContent className="p-4 pt-1 space-y-3">
+        <CardContent className="p-3.5 pt-0 space-y-2.5">
           {/* Dose rules (Deterministic) */}
-          <div className="p-2.5 rounded-md bg-primary/5 border border-primary/20 space-y-1">
-            <div className="flex items-center justify-between text-xs">
+          <div className="p-2 rounded-md bg-primary/5 border border-primary/20 space-y-1 text-xs">
+            <div className="flex items-center justify-between">
               <span className="font-semibold text-primary flex items-center gap-1">
                 <Pill className="w-3.5 h-3.5" />
-                {t('dose')} (Deterministic Formulary):
+                <span>{t('dose')}:</span>
               </span>
-              <span className="text-[11px] text-muted-foreground uppercase font-medium">
-                {drug.route} &bull; {drug.frequency}
+              <span className="text-[10px] text-muted-foreground uppercase font-medium">
+                {drug.route} • {drug.frequency}
               </span>
             </div>
-            <p className="text-xs font-bold text-foreground">
+            <p className="font-bold text-foreground">
               {drug.dose_text}
             </p>
             {drug.duration_days > 0 && (
-              <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                Recommended Duration: {drug.duration_days} days
+                <span>{locale === 'bn' ? `মেয়াদ: ${drug.duration_days} দিন` : `Duration: ${drug.duration_days} days`}</span>
               </p>
             )}
           </div>
 
           {/* Rationale */}
           <p className="text-xs text-foreground/90 leading-relaxed">
-            <strong className="text-muted-foreground font-medium">{t('rationale')}: </strong>
+            <span className="text-muted-foreground font-medium">{t('rationale')}: </span>
             {drug.rationale}
           </p>
 
           {/* Monitoring & Follow-up */}
           {(drug.monitoring?.length > 0 || drug.follow_up) && (
-            <div className="text-[11px] text-muted-foreground space-y-1 pt-1 border-t border-border/40">
+            <div className="text-[11px] text-muted-foreground space-y-0.5 pt-1 border-t border-border/40">
               {drug.monitoring?.length > 0 && (
                 <p>
                   <strong className="text-foreground/80 font-medium">{t('monitoring')}:</strong>{' '}
@@ -242,70 +245,63 @@ export function TreatmentTab({
   };
 
   return (
-    <div className="space-y-5">
-      {/* Confirmed Diagnosis Header */}
-      <Card className="p-4 border-emerald-500/30 bg-emerald-500/5 shadow-2xs">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold">
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
-                Confirmed Working Diagnosis
-              </span>
-              <h3 className="text-sm font-bold text-foreground">
-                {confirmedDiagnosis}
-              </h3>
-            </div>
+    <div className="space-y-4">
+      {/* Header Info */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3.5 rounded-lg bg-card border border-border/80 shadow-2xs">
+        <div>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold text-foreground">
+              {t('title')}
+            </h3>
+            <Badge className="bg-emerald-600 text-white text-[10px]">
+              {confirmedDiagnosis}
+            </Badge>
           </div>
-
-          {!isFinalized && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onOpenConfirmDiag}
-              className="text-xs"
-            >
-              Change Diagnosis
-            </Button>
-          )}
+          <p className="text-xs text-muted-foreground">
+            {t('subtitle')}
+          </p>
         </div>
-      </Card>
 
-      {/* Critical Alert Warning (if unacknowledged) */}
-      {unacknowledgedCriticalCount > 0 && (
-        <Alert variant="destructive" className="border-2 shadow-sm">
-          <ShieldAlert className="w-5 h-5 animate-bounce" />
-          <div className="flex-1">
-            <AlertTitle className="text-sm font-bold">
-              {t('criticalAlertWarning')} ({unacknowledgedCriticalCount} pending)
-            </AlertTitle>
-            <AlertDescription className="text-xs mt-1">
-              Hospital clinical safety policy requires the prescribing physician to explicitly acknowledge and override critical contraindications or severe drug interactions before finalising the prescription.
-            </AlertDescription>
-          </div>
+        {isFinalized && (
+          <Badge variant="outline" className="text-emerald-700 dark:text-emerald-400 border-emerald-500/30 gap-1 bg-emerald-500/10">
+            <Lock className="w-3 h-3" />
+            <span>{locale === 'bn' ? 'প্রেসক্রিপশন চূড়ান্ত' : 'Prescription Finalized'}</span>
+          </Badge>
+        )}
+      </div>
+
+      {/* Critical Safety Block Banner */}
+      {criticalAlerts.length > 0 && (
+        <Alert variant="destructive" className="border shadow-xs">
+          <ShieldAlert className="w-4 h-4 text-destructive" />
+          <AlertTitle className="text-xs font-bold">
+            {criticalAlerts.length} Critical Safety Alerts
+          </AlertTitle>
+          <AlertDescription className="text-xs mt-1">
+            {t('criticalAlertWarning')}
+          </AlertDescription>
         </Alert>
       )}
 
-      {/* First-Line Regimens */}
-      <div className="space-y-3">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-          <Pill className="w-3.5 h-3.5 text-primary" />
-          {t('firstLine')} ({treatmentPlan.first_line?.length || 0})
-        </h4>
-        <div className="space-y-3">
-          {treatmentPlan.first_line?.map((drug) => renderDrugCard(drug, true))}
+      {/* First-Line Therapeutic Regimens */}
+      {treatmentPlan.first_line && treatmentPlan.first_line.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
+            {t('firstLine')} ({treatmentPlan.first_line.length})
+          </h4>
+          <div className="space-y-2">
+            {treatmentPlan.first_line.map((drug) => renderDrugCard(drug, true))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Alternative Regimens */}
       {treatmentPlan.alternatives && treatmentPlan.alternatives.length > 0 && (
-        <div className="space-y-3">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+        <div className="space-y-2">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
             {t('alternatives')} ({treatmentPlan.alternatives.length})
           </h4>
-          <div className="space-y-3">
+          <div className="space-y-2">
             {treatmentPlan.alternatives.map((drug) => renderDrugCard(drug, false))}
           </div>
         </div>
@@ -313,12 +309,11 @@ export function TreatmentTab({
 
       {/* Non-Pharmacological Care */}
       {treatmentPlan.non_pharmacological && treatmentPlan.non_pharmacological.length > 0 && (
-        <Card className="p-4 border-border/80">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-2">
-            <Activity className="w-3.5 h-3.5 text-primary" />
+        <Card className="p-3.5 border-border/80 bg-card shadow-2xs space-y-2 text-xs">
+          <h4 className="font-bold text-foreground">
             {t('nonPharmacological')}
           </h4>
-          <ul className="list-disc list-inside space-y-1 text-xs text-foreground/90 leading-relaxed">
+          <ul className="list-disc list-inside space-y-1 text-muted-foreground leading-relaxed">
             {treatmentPlan.non_pharmacological.map((item, idx) => (
               <li key={idx}>{item}</li>
             ))}
@@ -326,61 +321,44 @@ export function TreatmentTab({
         </Card>
       )}
 
-      {/* Doctor Notes & Finalization */}
-      <Card className="p-4 border-border/80 space-y-3 bg-card shadow-xs">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-          <FileCheck className="w-3.5 h-3.5 text-primary" />
-          Physician Finalization &amp; Prescription Notes
-        </h4>
+      {/* Doctor Notes & Finalize CTA */}
+      <Card className="p-3.5 border-border/80 bg-card shadow-2xs space-y-3">
+        <div className="space-y-1">
+          <label htmlFor="doc-notes" className="text-xs font-semibold text-foreground block">
+            {locale === 'bn' ? 'চিকিৎসকের অতিরিক্ত নির্দেশনা ও পরামর্শ:' : 'Attending Physician Notes & Advice:'}
+          </label>
+          <Textarea
+            id="doc-notes"
+            placeholder={locale === 'bn' ? 'রোগীর জন্য কোনো বিশেষ পরামর্শ লিখুন...' : 'Enter lifestyle recommendations, precautions, or follow-up notes...'}
+            value={doctorNotes}
+            disabled={isFinalized}
+            onChange={(e) => onDoctorNotesChange(e.target.value)}
+            rows={2}
+            className="text-xs resize-none"
+          />
+        </div>
 
-        <Textarea
-          placeholder="Enter special patient instructions, dosage adjustments, or review timeline..."
-          value={doctorNotes}
-          disabled={isFinalized}
-          onChange={(e) => onDoctorNotesChange(e.target.value)}
-          rows={3}
-          className="text-xs"
-        />
-
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-border/60">
-          <p className="text-[11px] text-muted-foreground">
-            {isFinalized ? (
-              <span className="text-emerald-600 font-semibold flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Prescription finalized and locked in audit trail.
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-border/60">
+          <div className="text-[11px] text-muted-foreground">
+            {approvedDrugIds.size} {locale === 'bn' ? 'ওষুধ নির্বাচিত' : 'drug(s) selected'}
+            {unacknowledgedCriticalCount > 0 && (
+              <span className="text-destructive font-semibold ml-1">
+                • {unacknowledgedCriticalCount} critical alert(s) unacknowledged
               </span>
-            ) : unacknowledgedCriticalCount > 0 ? (
-              <span className="text-destructive font-semibold flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                Must acknowledge {unacknowledgedCriticalCount} critical safety alert(s) first.
-              </span>
-            ) : (
-              <span>Ready to sign and create printable clinical record.</span>
             )}
-          </p>
+          </div>
 
-          <Button
-            onClick={onFinalizePrescription}
-            disabled
-            className="gap-2 font-semibold text-xs shrink-0 w-full sm:w-auto"
-          >
-            {isFinalized ? (
-              <>
-                <Lock className="w-4 h-4" />
-                Prescription Finalized
-              </>
-            ) : finalizing ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Finalizing...
-              </>
-            ) : (
-              <>
-                <FileCheck className="w-4 h-4" />
-                {t('finalizePrescription')}
-              </>
-            )}
-          </Button>
+          {!isFinalized && (
+            <Button
+              size="sm"
+              onClick={onFinalizePrescription}
+              disabled={approvedDrugIds.size === 0 || finalizing}
+              className="gap-1.5 text-xs font-semibold h-8"
+            >
+              <FileCheck className="w-3.5 h-3.5" />
+              <span>{t('finalizePrescription')}</span>
+            </Button>
+          )}
         </div>
       </Card>
     </div>

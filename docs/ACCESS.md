@@ -40,6 +40,9 @@ Access is evaluated dynamically via the server-side function `canUse(user, featu
 | **`library.ask`** | **Y** | **Y** | **Y** | **Y** | - | **Y** | Q&A with verbatim citations over internal library |
 | **`library.browse`** | **Y** | **Y** | **Y** | **Y** | - | **Y** | Read approved textbooks and clinical protocols |
 | **`library.manage`** | **Y** | - | - | - | - | - | Ingest, edit, approve, and retire library sources |
+| **`library.ingest`** | **Y** | - | - | - | - | - | Upload files (PDF, DOCX, JSON, ZIP) and import links/DOIs |
+| **`library.review`** | **Y** | - | - | - | - | - | Review extractions, quality scores, safety flags, and test retrieval |
+| **`library.retire`** | **Y** | - | - | - | - | - | Retire or retract published library sources immediately |
 | **`medicine.search`** | **Y** | **Y** | **Y** | **Y** | - | **Y** | Search generic medicines, Bangladeshi brands, dosage forms |
 | **`medicine.interactions`** | **Y** | **Y** | **Y** | **Y** | - | **Y** | Multi-drug interaction screening engine |
 | **`medicine.manage`** | **Y** | - | - | - | - | **Y** | Add/edit drugs, brand mapping, DGDA registration, dose rules |

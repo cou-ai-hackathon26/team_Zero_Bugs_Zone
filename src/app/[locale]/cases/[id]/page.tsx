@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { LoadingState } from '@/components/shared/LoadingState';
 import { ErrorState } from '@/components/shared/ErrorState';
 import { PatientSummaryPanel } from './components/PatientSummaryPanel';
+import { PatientDetailSheet } from './components/PatientDetailSheet';
 import { CaseConversationTab } from './components/CaseConversationTab';
 import { DifferentialsTab } from './components/DifferentialsTab';
 import { MissingInfoTab } from './components/MissingInfoTab';
@@ -18,12 +19,12 @@ import { SafetyTab } from './components/SafetyTab';
 import { ReportTab } from './components/ReportTab';
 import { ConfirmDiagnosisDialog } from './components/ConfirmDiagnosisDialog';
 import { FinalizePrescriptionDialog } from './components/FinalizePrescriptionDialog';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   PatientCase,
   CaseTurn,
   AnalysisOutput,
   TreatmentPlan,
+  StructuredPatientInput,
 } from '@/types';
 import {
   Stethoscope,
@@ -34,6 +35,13 @@ import {
   ArrowLeft,
   MessagesSquare,
   User,
+  Heart,
+  Activity,
+  Thermometer,
+  Wind,
+  Columns,
+  Maximize2,
+  CheckCircle2,
 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
@@ -55,11 +63,15 @@ function CaseWorkspaceContent({ params }: CaseWorkspacePageProps) {
   const tAnalysisGuard = useTranslations('analysisGuard');
   const searchParams = useSearchParams();
   const t = useTranslations('workspace');
+  const tIntake = useTranslations('intake');
 
   // Active tab state (synced with ?tab=, defaults to conversation)
   const currentTab = searchParams.get('tab') || 'conversation';
   const [activeTab, setActiveTab] = useState<string>(currentTab);
-  const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
+
+  // Overlay states: Sheet & Drawer
+  const [patientDetailOpen, setPatientDetailOpen] = useState(false);
+  const [dockSidebar, setDockSidebar] = useState(false);
 
   // Case & Clinical State
   const [caseData, setCaseData] = useState<PatientCase | null>(null);
@@ -147,7 +159,6 @@ function CaseWorkspaceContent({ params }: CaseWorkspacePageProps) {
         setIsFinalized(true);
       }
 
-      // If case already has confirmed diagnosis, fetch treatment plan
       if (data.case?.confirmedDiagnosis) {
         void fetchTreatmentPlan(data.case.confirmedDiagnosis);
       }
@@ -216,7 +227,7 @@ function CaseWorkspaceContent({ params }: CaseWorkspacePageProps) {
       const data = await res.json();
       if (data.turn) {
         setTurns((prev) => [...prev, data.turn]);
-        toast.success('Clinical observation recorded in patient history.');
+        toast.success(locale === 'bn' ? 'ক্লিনিকাল পর্যবেক্ষণ সংরক্ষিত' : 'Observation recorded');
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error submitting answer';
@@ -239,7 +250,7 @@ function CaseWorkspaceContent({ params }: CaseWorkspacePageProps) {
         confirmed_diagnosis: condition,
         status: 'confirmed',
       });
-      toast.success(`Confirmed working diagnosis: ${condition}`);
+      toast.success(`${locale === 'bn' ? 'নির্ধারিত রোগ' : 'Confirmed diagnosis'}: ${condition}`);
       await fetchTreatmentPlan(condition);
       handleTabChange('treatment');
     } catch {
@@ -267,7 +278,7 @@ function CaseWorkspaceContent({ params }: CaseWorkspacePageProps) {
       next.add(alertId);
       return next;
     });
-    toast.success('Clinical safety override recorded.');
+    toast.success(locale === 'bn' ? 'নিরাপত্তা সতর্কতা নিশ্চিত করা হয়েছে' : 'Clinical safety override recorded.');
   };
 
   // Finalize prescription
@@ -292,7 +303,7 @@ function CaseWorkspaceContent({ params }: CaseWorkspacePageProps) {
 
       setIsFinalized(true);
       setFinalizeDialogOpen(false);
-      toast.success('Prescription finalized and locked in audit log.');
+      toast.success(locale === 'bn' ? 'প্রেসক্রিপশন সফলভাবে চূড়ান্ত করা হয়েছে' : 'Prescription finalized and locked.');
       handleTabChange('report');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Finalization failed';
@@ -305,7 +316,7 @@ function CaseWorkspaceContent({ params }: CaseWorkspacePageProps) {
   if (loading) {
     return (
       <AppShell>
-        <LoadingState message="Loading patient case workspace..." />
+        <LoadingState message={locale === 'bn' ? 'কেস ওয়ার্কস্পেস লোড হচ্ছে...' : 'Loading patient case workspace...'} />
       </AppShell>
     );
   }
@@ -314,17 +325,21 @@ function CaseWorkspaceContent({ params }: CaseWorkspacePageProps) {
     return (
       <AppShell>
         <ErrorState
-          title="Case Not Found"
-          message={error || 'The requested patient case does not exist.'}
+          title={locale === 'bn' ? 'কেস পাওয়া যায়নি' : 'Case Not Found'}
+          message={error || (locale === 'bn' ? 'অনুরোধকৃত রোগীর কেস বিদ্যমান নেই।' : 'The requested patient case does not exist.')}
           onRetry={fetchCaseData}
         />
       </AppShell>
     );
   }
 
-  const criticalAlerts = treatmentPlan?.safety_alerts.filter(
-    (a) => a.severity === 'critical'
-  ) || [];
+  const input = ((caseData.structured_input ||
+    (caseData as unknown as Record<string, unknown>).structuredInput) ||
+    {}) as unknown as StructuredPatientInput;
+  const vitals = input.vitals || {};
+
+  const criticalAlerts =
+    treatmentPlan?.safety_alerts.filter((a) => a.severity === 'critical') || [];
   const unacknowledgedCriticalCount = criticalAlerts.filter(
     (a) => !acknowledgedAlerts.has(a.id)
   ).length;
@@ -333,107 +348,234 @@ function CaseWorkspaceContent({ params }: CaseWorkspacePageProps) {
 
   return (
     <AppShell>
-      <div className="space-y-4">
-        {/* Page Header with Breadcrumb */}
+      <div className="space-y-3.5">
+        {/* Page Header */}
         <PageHeader
           title={`Case Workspace: ${caseData.patient_code}`}
-          subtitle={`Clinical Decision Support & Differential Reasoning • Round ${caseData.structured_input?.past_medical_history ? 'Active' : '1'}`}
+          subtitle={
+            locale === 'bn'
+              ? 'ক্লিনিকাল ডিসিশন সাপোর্ট ও সম্ভাব্য রোগ বিশ্লেষণ'
+              : 'Clinical Decision Support & Verified Reasoning'
+          }
           action={
             <div className="flex items-center gap-2">
               <Link href="/cases">
-                <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8">
                   <ArrowLeft className="w-3.5 h-3.5" />
-                  All Cases
+                  <span>{locale === 'bn' ? 'সকল কেস' : 'All Cases'}</span>
                 </Button>
               </Link>
             </div>
           }
         />
 
-        {/* Mobile Patient Summary Sheet */}
-        <Sheet open={mobileSummaryOpen} onOpenChange={setMobileSummaryOpen}>
-          <SheetContent side="left" className="w-full sm:max-w-md p-0 flex flex-col">
-            <SheetHeader className="p-4 border-b border-border/60">
-              <SheetTitle className="text-base font-bold flex items-center gap-2">
-                <User className="w-4 h-4 text-primary" />
-                <span>{t('patientSummary')}</span>
-              </SheetTitle>
-            </SheetHeader>
-            <div className="flex-1 overflow-y-auto p-4">
-              <PatientSummaryPanel caseData={caseData} turns={turns} />
+        {/* Patient Quick Context Strip (Drawer/Sheet Entry Point) */}
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 sm:px-4 rounded-xl border border-border/80 bg-card shadow-2xs">
+          {/* Left: Patient Info & Chief Complaint */}
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+              <User className="w-4 h-4" />
             </div>
-          </SheetContent>
-        </Sheet>
-
-        {/* Workspace Body: Responsive Two-Panel Layout (Side-by-side on lg+, Stacked on mobile) */}
-        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 items-start">
-          {/* Left Panel: Patient Summary & Turn History (4 cols on lg+, hidden on mobile) */}
-          <div className="hidden lg:block lg:col-span-4 lg:sticky lg:top-4 max-h-[calc(100vh-8rem)]">
-            <PatientSummaryPanel caseData={caseData} turns={turns} />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-xs sm:text-sm text-foreground">
+                  {caseData.patient_code}
+                </span>
+                <span className="text-[11px] text-muted-foreground capitalize">
+                  {input.age ? `${input.age} yrs, ` : ''}
+                  {input.gender}
+                  {input.weight_kg ? ` • ${input.weight_kg} kg` : ''}
+                </span>
+                <Badge variant="outline" className="text-[10px] uppercase font-semibold">
+                  {caseData.status.replace('_', ' ')}
+                </Badge>
+              </div>
+              <p className="text-[11px] text-muted-foreground truncate max-w-xs sm:max-w-md">
+                <span className="font-semibold text-foreground mr-1">{tIntake('chiefComplaint')}:</span>
+                {input.chief_complaint || '—'}
+              </p>
+            </div>
           </div>
 
-          {/* Right Panel: Tabbed Clinical Workspace (8 cols on lg+) */}
-          <div className="w-full lg:col-span-8 bg-card rounded-xl border border-border/80 shadow-xs p-4 sm:p-5">
+          {/* Middle: Quick Vitals Badges */}
+          <div className="hidden md:flex items-center gap-2">
+            {vitals.blood_pressure_systolic && (
+              <Badge variant="outline" className="text-[10px] gap-1 font-mono font-semibold py-0.5">
+                <Heart className="w-3 h-3 text-rose-500" />
+                {vitals.blood_pressure_systolic}/{vitals.blood_pressure_diastolic}
+              </Badge>
+            )}
+            {vitals.heart_rate && (
+              <Badge variant="outline" className="text-[10px] gap-1 font-mono font-semibold py-0.5">
+                <Activity className="w-3 h-3 text-primary" />
+                {vitals.heart_rate} bpm
+              </Badge>
+            )}
+            {vitals.temperature_celsius && (
+              <Badge
+                variant={vitals.temperature_celsius >= 38.5 ? 'destructive' : 'outline'}
+                className="text-[10px] gap-1 font-mono font-semibold py-0.5"
+              >
+                <Thermometer className="w-3 h-3 text-amber-500" />
+                {vitals.temperature_celsius}°C
+              </Badge>
+            )}
+            {vitals.spo2_percent && (
+              <Badge
+                variant={vitals.spo2_percent < 95 ? 'secondary' : 'outline'}
+                className="text-[10px] gap-1 font-mono font-semibold py-0.5"
+              >
+                <Wind className="w-3 h-3 text-teal-600" />
+                {vitals.spo2_percent}%
+              </Badge>
+            )}
+          </div>
+
+          {/* Right: Quick Overlay Actions */}
+          <div className="flex items-center gap-1.5 ml-auto sm:ml-0">
+            {/* Patient Detail Trigger (Sheet / Drawer) */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPatientDetailOpen(true)}
+              className="h-8 px-2.5 text-xs font-semibold gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+              aria-label={t('viewPatientSummary')}
+            >
+              <User className="w-3.5 h-3.5" />
+              <span>{t('viewPatientSummary')}</span>
+            </Button>
+
+            {/* Split Mode / Dock Sidebar Toggle (Desktop) */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setDockSidebar((prev) => !prev)}
+              className="hidden lg:flex h-8 px-2 text-xs font-medium text-muted-foreground hover:text-foreground gap-1"
+              title={dockSidebar ? 'Focus workspace' : 'Dock patient panel'}
+            >
+              {dockSidebar ? <Maximize2 className="w-3.5 h-3.5" /> : <Columns className="w-3.5 h-3.5" />}
+              <span className="text-[11px]">{dockSidebar ? 'Focus' : 'Split'}</span>
+            </Button>
+
+            {/* Diagnosis / Treatment Quick Status */}
+            {caseData.confirmed_diagnosis ? (
+              <Badge className="bg-emerald-600 text-white text-[10px] gap-1 py-1 px-2 font-semibold">
+                <CheckCircle2 className="w-3 h-3" />
+                <span className="truncate max-w-[120px]">{caseData.confirmed_diagnosis}</span>
+              </Badge>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setConfirmDiagOpen(true)}
+                className="h-8 px-2.5 text-xs font-semibold gap-1 text-primary border-primary/30"
+              >
+                <Stethoscope className="w-3.5 h-3.5" />
+                <span>{locale === 'bn' ? 'রোগ নির্ধারণ' : 'Set Diagnosis'}</span>
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Slide-over Sheet (Desktop) & Bottom Drawer (Mobile) for Patient Details */}
+        <PatientDetailSheet
+          open={patientDetailOpen}
+          onOpenChange={setPatientDetailOpen}
+          caseData={caseData}
+          turns={turns}
+        />
+
+        {/* Workspace Body: Flexible Focus / Split Grid */}
+        <div className={`grid gap-4 items-start ${dockSidebar ? 'lg:grid-cols-12' : 'grid-cols-1'}`}>
+          {/* Optional Docked Sidebar (Only visible if physician toggles Split mode) */}
+          {dockSidebar && (
+            <div className="hidden lg:block lg:col-span-4 sticky top-4 max-h-[calc(100vh-8rem)]">
+              <PatientSummaryPanel caseData={caseData} turns={turns} />
+            </div>
+          )}
+
+          {/* Main Tabbed Clinical Workspace */}
+          <div className={`w-full bg-card rounded-xl border border-border/80 shadow-xs p-3.5 sm:p-4 ${dockSidebar ? 'lg:col-span-8' : 'col-span-1'}`}>
             <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+              {/* Tab Navigation List */}
               <div className="border-b border-border/60 pb-3 mb-4 overflow-x-auto scrollbar-none">
-                <TabsList className="inline-flex sm:flex flex-nowrap sm:flex-wrap h-auto gap-1.5 p-1.5 bg-muted/80 rounded-lg min-w-max sm:min-w-0 sm:w-full">
-                  <TabsTrigger value="conversation" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5">
+                <TabsList className="flex flex-nowrap gap-1.5 p-1 bg-muted/80 rounded-lg min-w-max justify-start h-auto">
+                  <TabsTrigger
+                    value="conversation"
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:shadow-xs"
+                  >
                     <MessagesSquare className="w-3.5 h-3.5 text-primary shrink-0" />
                     <span>{t('tabConversation')}</span>
-                    {turns.length > 0 ? (
-                      <Badge variant="secondary" className="text-[10px] px-1 py-0 ml-1">
+                    {turns.length > 0 && (
+                      <Badge variant="secondary" className="text-[10px] px-1 py-0 ml-0.5">
                         {turns.length}
                       </Badge>
-                    ) : null}
+                    )}
                   </TabsTrigger>
 
-                  <TabsTrigger value="differentials" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5">
+                  <TabsTrigger
+                    value="differentials"
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:shadow-xs"
+                  >
                     <Stethoscope className="w-3.5 h-3.5 text-primary shrink-0" />
                     <span>{t('tabDifferentials')}</span>
                     {analysis?.differentials?.length ? (
-                      <Badge variant="secondary" className="text-[10px] px-1 py-0 ml-1">
+                      <Badge variant="secondary" className="text-[10px] px-1 py-0 ml-0.5">
                         {analysis.differentials.length}
                       </Badge>
                     ) : null}
                   </TabsTrigger>
 
-                  <TabsTrigger value="missing_info" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5">
+                  <TabsTrigger
+                    value="missing_info"
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:shadow-xs"
+                  >
                     <HelpCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                     <span>{t('tabMissingInfo')}</span>
                     {analysis?.missing_information?.length ? (
-                      <Badge variant="destructive" className="text-[10px] px-1 py-0 ml-1">
+                      <Badge variant="destructive" className="text-[10px] px-1 py-0 ml-0.5">
                         {analysis.missing_information.length}
                       </Badge>
                     ) : null}
                   </TabsTrigger>
 
-                  <TabsTrigger value="treatment" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5">
+                  <TabsTrigger
+                    value="treatment"
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:shadow-xs"
+                  >
                     <Pill className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                     <span>{t('tabTreatment')}</span>
-                    {caseData.confirmed_diagnosis ? (
-                      <Badge className="bg-emerald-600 text-white text-[10px] px-1 py-0 ml-1">
-                        Confirmed
+                    {caseData.confirmed_diagnosis && (
+                      <Badge className="bg-emerald-600 text-white text-[10px] px-1 py-0 ml-0.5">
+                        Ready
                       </Badge>
-                    ) : null}
+                    )}
                   </TabsTrigger>
 
-                  <TabsTrigger value="safety" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5">
+                  <TabsTrigger
+                    value="safety"
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:shadow-xs"
+                  >
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <span>{t('tabSafety')}</span>
-                    {criticalAlerts.length > 0 ? (
-                      <Badge variant="destructive" className="text-[10px] px-1 py-0 ml-1 animate-pulse">
+                    {criticalAlerts.length > 0 && (
+                      <Badge variant="destructive" className="text-[10px] px-1 py-0 ml-0.5 animate-pulse">
                         {criticalAlerts.length} Critical
                       </Badge>
-                    ) : null}
+                    )}
                   </TabsTrigger>
 
-                  <TabsTrigger value="report" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5">
+                  <TabsTrigger
+                    value="report"
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:shadow-xs"
+                  >
                     <FileText className="w-3.5 h-3.5 text-primary shrink-0" />
                     <span>{t('tabReport')}</span>
                   </TabsTrigger>
                 </TabsList>
               </div>
 
+              {/* Tab Contents */}
               <div>
                 <TabsContent value="conversation" className="mt-0 focus-visible:outline-none">
                   <CaseConversationTab
@@ -442,7 +584,8 @@ function CaseWorkspaceContent({ params }: CaseWorkspacePageProps) {
                     turns={turns}
                     onTurnsUpdate={setTurns}
                     onCaseUpdate={setCaseData}
-                    onOpenMobileSummary={() => setMobileSummaryOpen(true)}
+                    onOpenPatientDetail={() => setPatientDetailOpen(true)}
+                    onSwitchTab={handleTabChange}
                   />
                 </TabsContent>
 
@@ -516,7 +659,7 @@ function CaseWorkspaceContent({ params }: CaseWorkspacePageProps) {
           </div>
         </div>
 
-        {/* Confirm Working Diagnosis Dialog */}
+        {/* Confirm Working Diagnosis Dialog (Modal) */}
         <ConfirmDiagnosisDialog
           open={confirmDiagOpen}
           onOpenChange={setConfirmDiagOpen}
@@ -525,7 +668,7 @@ function CaseWorkspaceContent({ params }: CaseWorkspacePageProps) {
           onConfirm={handleConfirmDiagnosis}
         />
 
-        {/* Finalize Prescription AlertDialog */}
+        {/* Finalize Prescription Dialog (AlertDialog) */}
         <FinalizePrescriptionDialog
           open={finalizeDialogOpen}
           onOpenChange={setFinalizeDialogOpen}

@@ -50,6 +50,26 @@ services:
         limits:
           memory: 2048M
 
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["npm", "run", "worker"]
+    container_name: docmate-worker
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-docmate_admin}:${POSTGRES_PASSWORD:-ChangeMeSecurePass2026!}@db:5432/${POSTGRES_DB:-docmate}
+      AUTH_SECRET: ${AUTH_SECRET}
+      CLINICAL_ENCRYPTION_KEY: ${CLINICAL_ENCRYPTION_KEY}
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+
 volumes:
   postgres_data:
     driver: local

@@ -97,6 +97,22 @@ describe('Fine-Grained Feature RBAC & Data-Scope Enforcement', () => {
     const controllerPatientAccess = await canUse(mockUsers.medicine_controller, 'patients.manage');
     expect(controllerPatientAccess.allowed).toBe(false);
 
+    // Super Admin has ingestion, review, and retire capabilities
+    const adminIngest = await canUse(mockUsers.super_admin, 'library.ingest');
+    const adminReview = await canUse(mockUsers.super_admin, 'library.review');
+    const adminRetire = await canUse(mockUsers.super_admin, 'library.retire');
+    expect(adminIngest.allowed).toBe(true);
+    expect(adminReview.allowed).toBe(true);
+    expect(adminRetire.allowed).toBe(true);
+
+    // Non-super-admins cannot ingest, review, or retire library sources by default
+    const doctorIngest = await canUse(mockUsers.doctor, 'library.ingest');
+    const studentReview = await canUse(mockUsers.student, 'library.review');
+    const researcherRetire = await canUse(mockUsers.researcher, 'library.retire');
+    expect(doctorIngest.allowed).toBe(false);
+    expect(studentReview.allowed).toBe(false);
+    expect(researcherRetire.allowed).toBe(false);
+
     // Patient can access patient portal, but cannot run clinical AI
     const patientPortal = await canUse(mockUsers.patient, 'patient.portal');
     expect(patientPortal.allowed).toBe(true);

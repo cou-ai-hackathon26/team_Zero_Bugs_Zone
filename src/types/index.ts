@@ -8,6 +8,9 @@ export type FeatureKey =
   | 'library.ask'
   | 'library.browse'
   | 'library.manage'
+  | 'library.ingest'
+  | 'library.review'
+  | 'library.retire'
   | 'medicine.search'
   | 'medicine.interactions'
   | 'medicine.manage'
@@ -78,14 +81,27 @@ export interface UserFeatureOverride {
   created_at: string;
 }
 
-export type SourceType = 'textbook' | 'guideline' | 'journal' | 'drug';
+export type SourceType = 'textbook' | 'guideline' | 'journal' | 'drug' | 'journal_article' | 'review' | 'case_report' | 'other';
 
 export interface Source {
   id: string;
   title: string;
   type: SourceType;
   year: number;
+  authors?: string[];
+  journal_or_publisher?: string | null;
+  doi?: string | null;
+  pmid?: string | null;
+  canonical_url?: string | null;
+  language?: 'bn' | 'en' | 'mixed';
+  source_type?: SourceType;
+  evidence_level?: 'Ia' | 'Ib' | 'IIa' | 'IIb' | 'III' | 'IV';
   license: string;
+  copyright_holder?: string | null;
+  rights_confirmed_by?: string | null;
+  rights_confirmed_at?: string | null;
+  lifecycle?: SourceLifecycle;
+  current_version_id?: string | null;
   url?: string;
   status: 'active' | 'archived';
   created_at: string;
@@ -94,14 +110,25 @@ export interface Source {
 export interface Chunk {
   id: string;
   source_id: string;
+  source_version_id?: string | null;
   source_title?: string;
   source_year?: number;
+  ordinal?: number;
+  heading_path?: string | null;
+  page_start?: number;
+  page_end?: number;
   page?: number;
   section: string;
+  kind?: ChunkKind;
   text: string;
+  embedding_text?: string | null;
+  content_hash?: string | null;
+  token_count?: number;
+  language?: string;
   embedding?: number[];
   evidence_level: 'Ia' | 'Ib' | 'IIa' | 'IIb' | 'III' | 'IV';
   hash?: string;
+  status?: 'active' | 'retired';
   created_at: string;
 }
 
@@ -324,3 +351,27 @@ export interface AuditLogRecord {
   payload: Record<string, unknown>;
   created_at: string;
 }
+
+export type SourceLifecycle = 'draft' | 'in_review' | 'approved' | 'published' | 'retired' | 'retracted';
+export type ChunkKind = 'body' | 'table' | 'list' | 'skip' | 'references';
+export type IngestJobStatus = 'pending' | 'processing' | 'awaiting_approval' | 'completed' | 'failed' | 'cancelled';
+export type IngestJobStage =
+  | 'queued'
+  | 'receiving'
+  | 'deduping_file'
+  | 'extracting'
+  | 'ocring'
+  | 'cleaning'
+  | 'quality_check'
+  | 'extracting_metadata'
+  | 'deduping_metadata'
+  | 'chunking'
+  | 'deduping_chunks'
+  | 'cost_estimation'
+  | 'embedding'
+  | 'indexing'
+  | 'safety_scanning'
+  | 'completed';
+export type DuplicateLevel = 'file_hash' | 'doi_url' | 'metadata' | 'fingerprint';
+export type DuplicateDecision = 'skip' | 'new_version' | 'keep_both';
+

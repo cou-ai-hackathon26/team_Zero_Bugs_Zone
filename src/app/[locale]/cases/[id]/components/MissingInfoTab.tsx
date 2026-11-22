@@ -12,7 +12,7 @@ import {
   Info,
   Loader2,
 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 
 interface MissingInfoTabProps {
   missingInfo: MissingInformation[];
@@ -27,41 +27,46 @@ export function MissingInfoTab({
   onReAnalyze,
   reAnalyzing,
 }: MissingInfoTabProps) {
+  const locale = useLocale();
   const t = useTranslations('workspace');
 
   if (!missingInfo || missingInfo.length === 0) {
     return (
       <Card className="p-8 text-center border-dashed border-2 flex flex-col items-center justify-center space-y-3">
-        <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
-          <CheckCircle2 className="w-6 h-6" />
+        <div className="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+          <CheckCircle2 className="w-5 h-5" />
         </div>
-        <h3 className="text-base font-semibold text-foreground">
-          Sufficient Information Collected
+        <h3 className="text-sm font-semibold text-foreground">
+          {locale === 'bn' ? 'পর্যাপ্ত তথ্য সংগৃহীত হয়েছে' : 'Sufficient Information Collected'}
         </h3>
-        <p className="text-xs text-muted-foreground max-w-md">
-          The internal medical library has retrieved sufficient clinical parameters and objective evidence for the current case.
+        <p className="text-xs text-muted-foreground max-w-sm">
+          {locale === 'bn'
+            ? 'বর্তমান কেসের জন্য মেডিকেল লাইব্রেরি থেকে পর্যাপ্ত তথ্য ও প্রমাণ পাওয়া গেছে।'
+            : 'The medical library has sufficient parameters and evidence for this case.'}
         </p>
       </Card>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3.5">
       {/* Principle of Abstention Explanation */}
-      <Alert className="border-primary/30 bg-primary/5 text-foreground">
-        <Info className="w-5 h-5 text-primary shrink-0" />
-        <div className="space-y-1">
-          <AlertTitle className="text-sm font-semibold">
+      <Alert className="border-primary/30 bg-primary/5 text-foreground py-2.5">
+        <Info className="w-4 h-4 text-primary shrink-0" />
+        <div className="space-y-0.5">
+          <AlertTitle className="text-xs font-semibold">
             {t('followUpTitle')} ({missingInfo.length})
           </AlertTitle>
           <AlertDescription className="text-xs text-muted-foreground leading-relaxed">
-            DocMate AI operates strictly under <em>Abstention by Design</em>. When evidence is insufficient or discriminating clinical signs are absent, the model prompts for specific physical exams, tests, or clarifications rather than guessing.
+            {locale === 'bn'
+              ? 'অনুমান পরিহার করে নির্ভুল রোগ নির্ণয় করতে নিচের তথ্য বা পরীক্ষা ফলাফল প্রদান করুন।'
+              : 'Additional clinical observations or test results needed to narrow differentials.'}
           </AlertDescription>
         </div>
       </Alert>
 
       {/* List of Questions */}
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {missingInfo.map((item) => (
           <FollowUpQuestionCard
             key={item.id}
@@ -73,30 +78,33 @@ export function MissingInfoTab({
       </div>
 
       {/* Re-analyze CTA */}
-      <Card className="p-4 bg-muted/30 border-border/70 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <Card className="p-3.5 bg-muted/30 border-border/70 flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="space-y-0.5 text-center sm:text-left">
           <p className="text-xs font-semibold text-foreground">
-            Ready to integrate answers into differential ranking?
+            {locale === 'bn' ? 'উত্তরসহ পুনর্মূল্যায়ন করতে প্রস্তুত?' : 'Ready to re-evaluate with answers?'}
           </p>
           <p className="text-[11px] text-muted-foreground">
-            Submitting recorded clinical findings triggers Round + 1 reasoning against internal library passages.
+            {locale === 'bn'
+              ? 'উত্তরসমূহ জমা দিলে সম্ভাব্য রোগের তালিকা আপডেট হবে।'
+              : 'Submitting recorded findings updates differential ranking.'}
           </p>
         </div>
 
         <Button
+          size="sm"
           onClick={onReAnalyze}
           disabled={reAnalyzing}
-          className="gap-2 shrink-0 font-semibold text-xs"
+          className="gap-2 shrink-0 font-semibold text-xs h-8"
         >
           {reAnalyzing ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Re-evaluating...
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span>{locale === 'bn' ? 'পুনর্মূল্যায়ন হচ্ছে...' : 'Re-evaluating...'}</span>
             </>
           ) : (
             <>
-              <RefreshCw className="w-4 h-4" />
-              {t('submitAnswers')}
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>{t('submitAnswers')}</span>
             </>
           )}
         </Button>
