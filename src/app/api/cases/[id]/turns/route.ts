@@ -151,39 +151,92 @@ export async function POST(
       // 2. Extract facts from text
       const proposedUpdates = extractClinicalFacts(observationText, patientInput);
 
-      // 3. Identify missing information
+      // 3. Identify smart, context-aware missing information with quick 1-tap responses
       const missingInfo: MissingInformation[] = [];
+      const vitalsObj = patientInput.vitals || {};
       const hasVitals =
-        patientInput.vitals &&
-        Object.values(patientInput.vitals).some((v) => v !== undefined && v !== null && v !== '');
+        Boolean(vitalsObj.blood_pressure) ||
+        Boolean(vitalsObj.temperature_celsius) ||
+        Boolean(vitalsObj.heart_rate);
 
       if (!hasVitals) {
         missingInfo.push({
           id: 'vitals-followup',
           type: 'exam',
           text: tGuard.vitals,
-          why_it_helps: locale === 'bn' ? 'রোগের তীব্রতা এবং কার্ডিওপালমোনারি স্থিতি মূল্যায়ন করতে' : 'To assess disease severity and cardiopulmonary stability',
-          which_diagnoses_it_separates: locale === 'bn' ? ['নিউমোনিয়া (Pneumonia)', 'অ্যাকিউট করোনারি সিন্ড্রোম (ACS)'] : ['Pneumonia', 'Acute Coronary Syndrome'],
+          why_it_helps:
+            locale === 'bn'
+              ? 'রোগের তীব্রতা এবং কার্ডিওপালমোনারি স্থিতি মূল্যায়ন করতে'
+              : 'To assess disease severity and cardiopulmonary stability',
+          which_diagnoses_it_separates:
+            locale === 'bn'
+              ? ['নিউমোনিয়া (Pneumonia)', 'অ্যাকিউট করোনারি সিন্ড্রোম (ACS)']
+              : ['Pneumonia', 'Acute Coronary Syndrome'],
+          quick_answers:
+            locale === 'bn'
+              ? ['বিপি ১২০/৮০, পালস ৭৬, তাপমাত্রা স্বাভাবিক', 'বিপি ১৩০/৮৫, পালস ৮৮', 'অস্থির ভাইটালস']
+              : ['BP 120/80, Pulse 76, Afebrile', 'BP 130/85, HR 88', 'Hemodynamically unstable'],
         });
       }
 
-      missingInfo.push({
-        id: 'exam-followup',
-        type: 'question',
-        text: tGuard.exam,
-        why_it_helps: locale === 'bn' ? 'শ্বাসযন্ত্র বা সিস্টেমিক অনুসন্ধানের ফলাফল লিপিবদ্ধ করতে' : 'To document chest auscultation and systemic examination findings',
-        which_diagnoses_it_separates: locale === 'bn' ? ['সিএপি (CAP)', 'সিওপিডি (COPD)'] : ['CAP', 'COPD exacerbation'],
-      });
+      const isRespiratory = /cough|breath|dyspnea|chest|sputum|কাশি|শ্বাস|বুক|কফ/i.test(
+        `${patientInput.chief_complaint || ''} ${(patientInput.symptoms || []).join(' ')} ${observationText}`
+      );
 
-      // 4. Evidence retrieval and citations if requested or if symptoms are present
+      if (isRespiratory) {
+        missingInfo.push({
+          id: 'chest-auscultation-followup',
+          type: 'exam',
+          text:
+            locale === 'bn'
+              ? 'স্টেথোস্কোপে ফুসফুসের শব্দ (Auscultation) কেমন? কোনো অস্বাভাবিক ক্রেপিটেশন বা হুইজ আছে?'
+              : 'What are the chest auscultation findings? Any localized crackles, bronchial breathing, or wheezing?',
+          why_it_helps:
+            locale === 'bn'
+              ? 'ফুসফুসে কনসলিডেশন (নিউমোনিয়া) বনাম ব্রঙ্কিয়াল বাধা (অ্যাজমা/সিওপিডি) আলাদা করতে'
+              : 'To differentiate localized consolidation (CAP) from bronchospasm (Asthma/COPD)',
+          which_diagnoses_it_separates:
+            locale === 'bn'
+              ? ['কমিউনিটি-অ্যাকওয়ার্ড নিউমোনিয়া (CAP)', 'সিওপিডি / অ্যাজমা (COPD/Asthma)']
+              : ['Community-Acquired Pneumonia (CAP)', 'COPD / Asthma Exacerbation'],
+          quick_answers:
+            locale === 'bn'
+              ? ['ক্রেপিটেশন বিদ্যমান (Crackles present)', 'হুইজ বিদ্যমান (Wheezing present)', 'ফুসফুসের শব্দ স্বাভাবিক (Clear)', 'বায়ু চলাচল হ্রাসপ্রাপ্ত (Decreased air entry)']
+              : ['Crackles present', 'Wheezing present', 'Clear breath sounds', 'Decreased air entry'],
+        });
+      } else {
+        missingInfo.push({
+          id: 'exam-general-followup',
+          type: 'question',
+          text: tGuard.exam,
+          why_it_helps:
+            locale === 'bn'
+              ? 'শারীরিক অনুসন্ধানের ফলাফল লিপিবদ্ধ করতে'
+              : 'To document focused physical examination findings',
+          which_diagnoses_it_separates:
+            locale === 'bn'
+              ? ['ভাইরাল বনাম ব্যাকটেরিয়াল সংক্রমণ']
+              : ['Viral vs Bacterial Etiology'],
+          quick_answers:
+            locale === 'bn'
+              ? ['শারীরিক লক্ষণ স্থিতিশীল', 'তীব্র ব্যথা বিদ্যমান', 'কোনো জরুরি লক্ষণ নেই']
+              : ['Clinically stable', 'Severe acute discomfort', 'No emergent focal signs'],
+        });
+      }
+
+      // 4. Evidence retrieval and citations if requested, question asked, or symptoms present
       let citations: ReturnType<typeof libraryExcerpts> = [];
-      if (action === 'evidence_review' || observationText.length > 5) {
+      const isQuestion = /\?|কী|কি|কোন|কখন|কত|কেন|উপায়|চিকিৎসা|ওষুধ|পরীক্ষা|what|which|how|when|why|where|should|can|could|dose|dosage|guideline|protocol|recommend|suggest|differential|curb|antibiotic/i.test(
+        observationText
+      );
+
+      if (action === 'evidence_review' || isQuestion || observationText.length > 5) {
         try {
           const candidates: Chunk[] = [];
           const queryTerms = [
             ...(patientInput.symptoms || []),
             patientInput.chief_complaint?.split(/[,.\s]+/).find((w) => w.length > 4),
-            observationText?.split(/[,.\s]+/).find((w) => w.length > 4 && !/review|request|please/i.test(w)),
+            observationText?.split(/[,.\s]+/).find((w) => w.length > 4 && !/review|request|please|patient|doctor/i.test(w)),
           ].filter(Boolean) as string[];
 
           for (const term of queryTerms.slice(0, 3)) {
@@ -205,7 +258,7 @@ export async function POST(
 
       // 5. Red-flag clinical safety triggers
       const safetyAlerts: SafetyAlert[] = [];
-      const redFlagRegex = /\b(?:chest\s+pain\s+(?:radiat|spread)|crushing|severe\s+dyspnea|stridor|unconscious|cyanosis|hemoptysis)\b/i;
+      const redFlagRegex = /\b(?:chest\s+pain\s+(?:radiat|spread)|crushing|severe\s+dyspnea|stridor|unconscious|cyanosis|hemoptysis|তীব্র\s+শ্বাসকষ্ট|রক্তবমি|বুকে\s+তীব্র\s+ব্যথা)\b/i;
       if (redFlagRegex.test(observationText) || redFlagRegex.test(patientInput.chief_complaint || '')) {
         safetyAlerts.push({
           id: `redflag-${Date.now()}`,
@@ -213,28 +266,48 @@ export async function POST(
           drug_name: 'Emergency Protocol',
           severity: 'critical',
           type: 'contraindication',
-          title: locale === 'bn' ? 'জরুরি রেড ফ্ল্যাগ: তাৎক্ষণিক মূল্যায়ন প্রয়োজন' : 'Critical Red Flag: Urgent Clinical Escalation Required',
-          description: locale === 'bn' ? 'রোগীর উপসর্গে তীব্র ঝুঁকির লক্ষণ বিদ্যমান। জরুরি অক্সিজেন এবং বিশেষজ্ঞ পরামর্শ গ্রহণ করুন।' : 'Symptoms suggest high-risk cardiopulmonary or vascular instability. Immediate stabilization required.',
+          title:
+            locale === 'bn'
+              ? '🚨 জরুরি রেড ফ্ল্যাগ: তাৎক্ষণিক ক্লিনিকাল হস্তক্ষেপ প্রয়োজন'
+              : '🚨 Critical Red Flag: Immediate Clinical Escalation Required',
+          description:
+            locale === 'bn'
+              ? 'উপসর্গ বা পর্যবেক্ষণে উচ্চ ঝুঁকির লক্ষণ বিদ্যমান। কার্ডিওপালমোনারি স্থায়িত্ব নিশ্চিত করুন এবং জরুরি অক্সিজেন ও সিনিয়র কনসালট্যান্ট কল করুন।'
+              : 'Symptoms indicate acute hemodynamic or respiratory instability. Immediate airway/oxygen stabilization and senior specialist consult required.',
         });
       }
 
-      // 6. Build assistant reply text
+      // 6. Build smart, empathetic, human-friendly assistant reply
       let assistantText = '';
-      if (action === 'evidence_review') {
+      if (isQuestion && citations.length > 0) {
+        const topCitation = citations[0];
+        const excerptSnippet = topCitation.quote
+          ? `"${topCitation.quote.slice(0, 180)}..."`
+          : '';
+
         assistantText =
           locale === 'bn'
-            ? 'অভ্যন্তরীণ মেডিকেল লাইব্রেরি থেকে সংশ্লিষ্ট প্রমাণ পর্যালোচনা সম্পন্ন হয়েছে। নির্ভরযোগ্য ডিফারেনশিয়াল রোগ নির্ণয়ের জন্য অতিরিক্ত শারীরিক পরীক্ষার তথ্য বা টেস্টের ফলাফল প্রয়োজন (Insufficient Evidence)।'
-            : 'Internal medical library evidence review completed. Additional objective findings or laboratory tests are required before a definitive differential diagnosis can be established (Insufficient Evidence).';
+            ? `ডাক্তার, আপনার ক্লিনিকাল জিজ্ঞাসার প্রেক্ষিতে আমাদের অভ্যন্তরীণ মেডিকেল লাইব্রেরি থেকে সংশ্লিষ্ট প্রমাণ পর্যালোচনা করা হয়েছে:\n\n• **লাইব্রেরি প্রমাণ**: ${excerptSnippet || 'সংশ্লিষ্ট ক্লিনিকাল গাইডলাইনে উপযুক্ত প্রটোকল উল্লেখিত রয়েছে।'}\n\nরোগীর বর্তমান ডেটা ও প্রমাণের ওপর ভিত্তি করে প্রস্তাবিত পদক্ষেপ নিচে উল্লেখ করা হলো। বিস্তারিত দেখতে নিচের উদ্ধৃতি চিপে ক্লিক করুন।`
+            : `Doctor, regarding your clinical inquiry, relevant evidence from the internal medical guideline library has been retrieved:\n\n• **Guideline Evidence**: ${excerptSnippet || 'Appropriate clinical management protocols are documented in the approved references.'}\n\nPlease review the citations and follow-up guidance below to support your diagnostic decision.`;
+      } else if (action === 'evidence_review') {
+        assistantText =
+          locale === 'bn'
+            ? 'ডাক্তার, অভ্যন্তরীণ মেডিকেল লাইব্রেরি থেকে রোগীর বর্তমান লক্ষণ ও ডেটার সমন্বিত প্রমাণ পর্যালোচনা সম্পন্ন হয়েছে। চূড়ান্ত ডিফারেনশিয়াল রোগ নির্ণয়ের আগে শারীরিক পরীক্ষার কিছু গুরুত্বপূর্ণ তথ্য বা ল্যাব রেজাল্ট নিশ্চিত করা আবশ্যক (Insufficient Evidence)।'
+            : 'Doctor, comprehensive medical library evidence review has been completed for this patient. Additional objective examination findings or targeted tests are required before finalizing the working differential (Insufficient Evidence).';
       } else if (proposedUpdates.length > 0) {
+        const factNames = proposedUpdates
+          .map((u) => (locale === 'bn' ? u.label_bn : u.label_en))
+          .join(', ');
+
         assistantText =
           locale === 'bn'
-            ? `আপনার পর্যবেক্ষণ থেকে ${proposedUpdates.length}টি ক্লিনিকাল তথ্য পাওয়া গেছে। রোগীর নথিতে যোগ করার জন্য অনুগ্রহ করে নিচের প্রস্তাবনাগুলি পর্যালোচনা করুন।`
-            : `Detected ${proposedUpdates.length} clinical fact(s) from your observation. Review the proposed structured updates below before applying them to the patient record.`;
+            ? `ডাক্তার, আপনার পর্যবেক্ষণ থেকে **${proposedUpdates.length}টি ক্লিনিকাল তথ্য** (${factNames}) সফলভাবে নিষ্কাশন করা হয়েছে। রোগীর নথিতে এই তথ্যগুলো অন্তর্ভুক্ত করার জন্য অনুগ্রহ করে নিচের প্রস্তাবিত কার্ডগুলো নিশ্চিত করুন।`
+            : `Doctor, successfully identified **${proposedUpdates.length} clinical fact(s)** (${factNames}) from your observation. Please review and confirm the proposed structured updates below to apply them directly to the patient record.`;
       } else {
         assistantText =
           locale === 'bn'
-            ? 'পর্যবেক্ষণ কেসের ইতিহাসে লিপিবদ্ধ করা হয়েছে। অতিরিক্ত তথ্য প্রয়োজন হলে নিচে দেখুন।'
-            : 'Clinical observation recorded in the case consultation history. Additional clarifying information is outlined below.';
+            ? 'ডাক্তার, আপনার ক্লিনিকাল পর্যবেক্ষণ কেস হিস্ট্রিতে লিপিবদ্ধ করা হয়েছে। রোগীর নির্ভরযোগ্য মূল্যায়ন নিশ্চিত করতে পরবর্তী প্রাসঙ্গিক প্রশ্নসমূহ নিচে দেওয়া হলো।'
+            : 'Doctor, your clinical findings have been recorded in the case consultation history. Suggested next diagnostic steps and clarifications are outlined below.';
       }
 
       // 7. Insert assistant reply turn
