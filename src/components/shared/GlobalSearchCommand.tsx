@@ -73,7 +73,7 @@ export function GlobalSearchCommand({ role }: { role?: UserRole }) {
     { path: '/dashboard', label: t('dashboard') },
     ...(role === 'doctor' || role === 'super_admin' ? [
       { path: '/cases', label: t('cases') },
-      { path: '/cases/new', label: t('newCase') },
+      { path: '/patients/new', label: t('newCase') },
     ] : []),
     { path: '/library', label: t('library') },
     { path: '/ask', label: t('ask') },

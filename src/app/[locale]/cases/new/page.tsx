@@ -38,6 +38,10 @@ export default function NewCasePage() {
   const locale = useLocale();
   const router = useRouter();
 
+  useEffect(() => {
+    router.replace('/patients/new');
+  }, [router]);
+
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
 

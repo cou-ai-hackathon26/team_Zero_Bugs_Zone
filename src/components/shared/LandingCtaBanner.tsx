@@ -67,7 +67,7 @@ export function LandingCtaBanner({ locale }: LandingCtaBannerProps) {
               <div className="flex flex-wrap items-center gap-3 pt-3">
                 <Button
                   size="default"
-                  onClick={() => router.push('/cases/new')}
+                  onClick={() => router.push('/patients/new')}
                   className="h-10 px-5 font-medium bg-primary hover:bg-primary/90 text-primary-foreground gap-2 shadow-2xs rounded-md text-xs sm:text-sm"
                 >
                   <Stethoscope className="w-4 h-4" />

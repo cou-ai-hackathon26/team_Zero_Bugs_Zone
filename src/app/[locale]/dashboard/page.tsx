@@ -186,7 +186,7 @@ export default async function DashboardPage() {
               : 'Clinical practice, active cases, and digital prescription assistant'
           }
           action={
-            <Link href="/cases/new">
+            <Link href="/patients/new">
               <Button className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs">
                 <PlusCircle className="w-4 h-4" />
                 <span>{tCases('newIntake')}</span>
@@ -310,7 +310,7 @@ export default async function DashboardPage() {
                       <p className="text-base font-semibold text-foreground">
                         {tDash('emptyRunning')}
                       </p>
-                      <Link href="/cases/new" className={buttonVariants({ className: 'min-h-11 mt-2' })}>
+                      <Link href="/patients/new" className={buttonVariants({ className: 'min-h-11 mt-2' })}>
                         <PlusCircle className="w-4 h-4 mr-2" />
                         <span>{tCases('newIntake')}</span>
                       </Link>
