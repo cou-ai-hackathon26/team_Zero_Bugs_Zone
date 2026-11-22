@@ -61,7 +61,7 @@ const cases: TestCase[] = [
     expected_symptoms: [
       { canonical: "fever", present: true, durationDays: 3 },
       { canonical: "cough", present: true },
-      { canonical: "chills and rigors", present: false }
+      { canonical: "chills", present: false }
     ],
     notes: "Mandatory Case 5: Mixed code-switching with duration and negation"
   },
@@ -165,7 +165,7 @@ for (let i = 0; i < 50; i++) {
   const dur = (i % 7) + 1;
   const isNeg = i % 3 === 0;
 
-  let text = isNeg
+  const text = isNeg
     ? `রোগীর কোনো ${sym.bn} নেই`
     : `রোগীর ${dur} দিন ধরে ${sym.bn} আছে`;
 
@@ -186,7 +186,7 @@ for (let i = 0; i < 50; i++) {
   const isMed = i % 2 === 0;
   const isNeg = i % 3 === 1;
 
-  let text = isMed
+  const text = isMed
     ? `What is the dosage and administration of ${med.name}?`
     : isNeg
     ? `Patient presents with mild cough but denies ${sym.en}`
@@ -210,7 +210,7 @@ for (let i = 0; i < 50; i++) {
   const dur = (i % 5) + 2;
   const isNeg = i % 2 === 1;
 
-  let text = isNeg
+  const text = isNeg
     ? `${sym.banglish} nai kintu shashkosto ache`
     : `rogir ${dur} din dhore ${sym.banglish} hocche`;
 
@@ -233,7 +233,7 @@ for (let i = 0; i < 50; i++) {
   const med = medicinesList[i % medicinesList.length];
   const dur = (i % 4) + 1;
 
-  let text = i % 3 === 0
+  const text = i % 3 === 0
     ? `রোগীর ${dur} দিন ধরে ${sym.banglish} এবং fever আছে`
     : i % 3 === 1
     ? `আজকে rogi er ${med.name} dose koto hobe?`

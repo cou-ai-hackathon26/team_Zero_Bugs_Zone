@@ -78,7 +78,7 @@ export default function AdminLanguagePage() {
   const [updatingUnmatchedId, setUpdatingUnmatchedId] = useState<string | null>(null);
 
   // Eval runs
-  const [evalRuns, setEvalRuns] = useState<Array<any>>([
+  const [evalRuns, setEvalRuns] = useState<Array<Record<string, unknown>>>([
     {
       id: 'eval-latest',
       runDate: new Date().toISOString(),
@@ -91,7 +91,7 @@ export default function AdminLanguagePage() {
     },
   ]);
 
-  // Load aliases
+  // Load aliases & unmatched
   const fetchAliases = async () => {
     try {
       setLoading(true);
@@ -111,22 +111,34 @@ export default function AdminLanguagePage() {
     }
   };
 
-  // Load unmatched
-  const fetchUnmatched = async () => {
-    try {
-      const res = await fetch('/api/admin/language/unmatched');
-      if (res.ok) {
-        const data = await res.json();
-        setUnmatched(data.unmatched || []);
-      }
-    } catch {
-      // ignore
-    }
-  };
-
   useEffect(() => {
-    fetchAliases();
-    fetchUnmatched();
+    let ignore = false;
+    async function load() {
+      try {
+        const query = new URLSearchParams();
+        if (aliasCategory !== 'all') query.set('category', aliasCategory);
+
+        const [resAliases, resUnmatched] = await Promise.all([
+          fetch(`/api/admin/language/aliases?${query.toString()}`),
+          fetch('/api/admin/language/unmatched'),
+        ]);
+
+        if (!ignore && resAliases.ok) {
+          const data = await resAliases.json();
+          setAliases(data.aliases || []);
+        }
+        if (!ignore && resUnmatched.ok) {
+          const data = await resUnmatched.json();
+          setUnmatched(data.unmatched || []);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    void load();
+    return () => {
+      ignore = true;
+    };
   }, [aliasCategory]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {

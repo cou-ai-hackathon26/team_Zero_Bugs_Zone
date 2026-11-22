@@ -1,12 +1,41 @@
-import { TtsProvider, TtsSpeakOptions } from './types';
+import { TtsProvider, TtsSpeakOptions, TtsCapabilities, SpeechStyle } from './types';
 import { audioCache } from './audio-cache';
 import { segmentForSpeech } from '../language/speech-segmenter';
+
+/**
+ * Injects gentle breathing pauses (250-400ms) around sentences and numerical doses
+ * to improve clinical comprehension on speech synthesis.
+ */
+export function formatSpeechWithPauses(text: string, style?: SpeechStyle): string {
+  if (!text) return '';
+  let formatted = text;
+
+  // Insert small pause around numbers and doses if style is number_reading or warm
+  if (style === 'number_reading' || style === 'warm' || !style) {
+    // Add comma/ellipsis spacing around multi-digit numbers like "500", "120/80"
+    formatted = formatted.replace(/([০-৯0-9]+)\s+(মিলিগ্রাম|মিগ্রা|mg|ml|কেজি|দিন)/gi, '$1 ... $2');
+  }
+
+  // Add pauses before warnings / alerts
+  if (style === 'calm_urgent') {
+    formatted = formatted.replace(/(সতর্কতা:|জরুরি:|warning:|alert:)/gi, '... $1 ... ');
+  }
+
+  return formatted;
+}
 
 /**
  * Browser Speech Synthesis API implementation of TtsProvider
  */
 export class BrowserSpeechSynthesisTTS implements TtsProvider {
   public name = 'browser_speech_synthesis';
+  public capabilities: TtsCapabilities = {
+    supports_ssml: false,
+    supports_style_instructions: false,
+    supports_rate: true,
+    supports_pitch: true,
+    supports_pause_control: false,
+  };
   private currentUtterance: SpeechSynthesisUtterance | null = null;
 
   public isAvailable(): boolean {
@@ -169,6 +198,13 @@ export class BrowserSpeechSynthesisTTS implements TtsProvider {
  */
 export class OpenAiTTS implements TtsProvider {
   public name = 'openai_tts';
+  public capabilities: TtsCapabilities = {
+    supports_ssml: false,
+    supports_style_instructions: true,
+    supports_rate: true,
+    supports_pitch: false,
+    supports_pause_control: true,
+  };
   private currentAudio: HTMLAudioElement | null = null;
 
   public isAvailable(): boolean {
@@ -236,6 +272,13 @@ export class OpenAiTTS implements TtsProvider {
  */
 export class StubTTS implements TtsProvider {
   public name = 'stub_tts';
+  public capabilities: TtsCapabilities = {
+    supports_ssml: true,
+    supports_style_instructions: true,
+    supports_rate: true,
+    supports_pitch: true,
+    supports_pause_control: true,
+  };
   private timeoutId: ReturnType<typeof setTimeout> | null = null;
 
   public isAvailable(): boolean {

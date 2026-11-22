@@ -38,6 +38,7 @@ export interface VoiceConfig {
   default_speed: number; // 0.8 to 1.2
   private_mode_default: boolean;
   avatar_enabled_default: boolean;
+  sounds_enabled?: boolean;
 }
 
 export interface SttTranscriptionResult {
@@ -64,10 +65,22 @@ export interface SttProvider {
   abortListening(): void;
 }
 
+export type SpeechStyle = 'neutral' | 'warm' | 'calm_urgent' | 'number_reading';
+
+export interface TtsCapabilities {
+  supports_ssml: boolean;
+  supports_style_instructions: boolean;
+  supports_rate: boolean;
+  supports_pitch: boolean;
+  supports_pause_control: boolean;
+}
+
 export interface TtsSpeakOptions {
   text: string;
   locale: 'bn' | 'en';
   rate?: number; // 0.8x to 1.2x
+  pitch?: number; // 0.8 to 1.2
+  style?: SpeechStyle;
   voiceGender?: 'male' | 'female';
   onBoundary?: (charIndex: number, word: string) => void;
   onStart?: () => void;
@@ -77,6 +90,7 @@ export interface TtsSpeakOptions {
 
 export interface TtsProvider {
   name: string;
+  capabilities: TtsCapabilities;
   isAvailable(): boolean;
   speak(options: TtsSpeakOptions): Promise<void>;
   stop(): void;

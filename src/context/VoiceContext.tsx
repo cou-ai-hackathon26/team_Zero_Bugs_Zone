@@ -8,6 +8,7 @@ import { routeVoiceIntent } from '@/lib/voice/intent-router';
 import { makeSpeakable } from '@/lib/voice/speakable';
 import { extractClinicalFacts } from '@/lib/clinical-extractor';
 import { useEvidenceSheet } from '@/context/EvidenceSheetContext';
+import { earconManager } from '@/lib/voice/earcons';
 import { useLocale } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
 
@@ -82,6 +83,11 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   const sttRef = useRef<SttProvider | null>(null);
   const ttsRef = useRef<TtsProvider | null>(null);
   const sessionIntroducedRef = useRef(false);
+  const reassuranceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const interruptionPromptTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const wasSpeakingRef = useRef<boolean>(false);
+  const speakTextRef = useRef<((text: string, onEnd?: () => void) => Promise<void>) | null>(null);
 
   // Initialize providers
   useEffect(() => {
@@ -91,10 +97,13 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     return () => {
       sttRef.current?.abortListening();
       ttsRef.current?.stop();
+      if (reassuranceTimerRef.current) clearTimeout(reassuranceTimerRef.current);
+      if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
+      if (interruptionPromptTimerRef.current) clearTimeout(interruptionPromptTimerRef.current);
     };
   }, [config.stt_provider, config.tts_provider]);
 
-  // Load global voice settings if available
+  // Load global voice settings and doctor persona preferences if available
   useEffect(() => {
     fetch('/api/settings/voice')
       .then((res) => (res.ok ? res.json() : null))
@@ -106,25 +115,53 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         }
       })
       .catch(() => {});
+
+    fetch('/api/settings/assistant')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.prefs) {
+          if (data.prefs.avatar_enabled !== undefined) {
+            setAvatarVisible(Boolean(data.prefs.avatar_enabled));
+          }
+          if (data.prefs.sounds_enabled !== undefined) {
+            setConfig((prev) => ({ ...prev, sounds_enabled: Boolean(data.prefs.sounds_enabled) }));
+          }
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  // Barge-in keyboard shortcut: Esc key stops ongoing speech immediately
+  const stopSpeech = useCallback((isUserInterruption = false) => {
+    if (state === 'speaking') {
+      wasSpeakingRef.current = true;
+    }
+    ttsRef.current?.stop();
+    setState('idle');
+    setAmplitude(0);
+
+    // If doctor interrupted without speaking, offer "Shall I continue?" after 1.2s
+    if (isUserInterruption) {
+      if (interruptionPromptTimerRef.current) clearTimeout(interruptionPromptTimerRef.current);
+      interruptionPromptTimerRef.current = setTimeout(() => {
+        if (wasSpeakingRef.current) {
+          const continueText = locale === 'bn' ? 'চালিয়ে যাব?' : 'Shall I continue?';
+          void speakTextRef.current?.(continueText);
+          wasSpeakingRef.current = false;
+        }
+      }, 1200);
+    }
+  }, [state, locale]);
+
+  // Barge-in keyboard shortcut: Esc key stops ongoing speech immediately (< 200ms)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && state === 'speaking') {
-        ttsRef.current?.stop();
-        setState('idle');
+        stopSpeech(true);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state]);
-
-  const stopSpeech = useCallback(() => {
-    ttsRef.current?.stop();
-    setState('idle');
-    setAmplitude(0);
-  }, []);
+  }, [state, stopSpeech]);
 
   const speakText = useCallback(
     async (text: string, onEnd?: () => void) => {
@@ -133,7 +170,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      stopSpeech();
+      stopSpeech(false);
       setState('speaking');
 
       // Add speech boundary simulator for amplitude if browser doesn't report it
@@ -173,6 +210,10 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     },
     [config.enabled, config.kill_switch, config.default_speed, config.default_voice_gender, locale, stopSpeech]
   );
+
+  useEffect(() => {
+    speakTextRef.current = speakText;
+  }, [speakText]);
 
   // Introduce once per session
   const introduceAssistantIfNeeded = useCallback(async () => {
@@ -214,6 +255,12 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   }, [isOpen, openVoicePanel, closeVoicePanel]);
 
   const startPushToTalk = useCallback(async () => {
+    if (interruptionPromptTimerRef.current) {
+      clearTimeout(interruptionPromptTimerRef.current);
+      interruptionPromptTimerRef.current = null;
+    }
+    wasSpeakingRef.current = false;
+
     if (dailyMinutesRemaining <= 0) {
       const limitText =
         locale === 'bn'
@@ -224,7 +271,8 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    stopSpeech();
+    stopSpeech(false);
+    earconManager.playStart(config.sounds_enabled ?? true);
     setErrorText(null);
     setState('listening');
     setTranscript('');
@@ -272,10 +320,16 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     } catch {
       setState('error');
     }
-  }, [dailyMinutesRemaining, locale, speakText, state, stopSpeech]);
+  }, [dailyMinutesRemaining, locale, speakText, state, stopSpeech, config.sounds_enabled]);
 
   const submitTranscript = useCallback(
     async (textToSubmit?: string) => {
+      if (interruptionPromptTimerRef.current) {
+        clearTimeout(interruptionPromptTimerRef.current);
+        interruptionPromptTimerRef.current = null;
+      }
+      wasSpeakingRef.current = false;
+
       const query = (textToSubmit ?? transcript ?? interimTranscript).trim();
       if (!query) {
         setState('idle');
@@ -294,10 +348,42 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
       ]);
 
       setState('thinking');
+
+      // Clear any previous reassurance or timeout timers
+      if (reassuranceTimerRef.current) clearTimeout(reassuranceTimerRef.current);
+      if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
+
+      // 6-second reassurance timer
+      reassuranceTimerRef.current = setTimeout(() => {
+        const reassureMsg = locale === 'bn' ? 'আর একটু সময় লাগছে।' : 'Taking a bit more time.';
+        void speakText(reassureMsg);
+      }, 6000);
+
+      // 15-second switch-to-typing advisory
+      timeoutTimerRef.current = setTimeout(() => {
+        const advisoryMsg =
+          locale === 'bn'
+            ? 'সময় বেশি লাগছে। টাইপ করে দেখতে পারেন।'
+            : 'Taking longer than usual. You can continue by typing.';
+        setErrorText(advisoryMsg);
+      }, 15000);
+
+      const clearThinkingTimers = () => {
+        if (reassuranceTimerRef.current) {
+          clearTimeout(reassuranceTimerRef.current);
+          reassuranceTimerRef.current = null;
+        }
+        if (timeoutTimerRef.current) {
+          clearTimeout(timeoutTimerRef.current);
+          timeoutTimerRef.current = null;
+        }
+      };
+
       const routing = routeVoiceIntent(query, locale);
 
       // 1. Blocked Action Safety Stop
       if (routing.blocked) {
+        clearThinkingTimers();
         setState('alert');
         const alertMsg = routing.speakableResponse || (locale === 'bn' ? 'এটি স্ক্রিনে নিশ্চিত করুন।' : 'Please confirm this on screen.');
         setMessages((prev) => [
@@ -317,6 +403,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
 
       // 2. Navigation Actions
       if (routing.intent === 'navigate') {
+        clearThinkingTimers();
         if (routing.targetRoute === 'action:open_evidence') {
           openEvidence({
             chunk_id: 'default',
@@ -344,6 +431,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
 
       // 3. Clinical Dictation
       if (routing.intent === 'dictate') {
+        clearThinkingTimers();
         const extracted = extractClinicalFacts(query, {
           age: 35,
           gender: 'male',
@@ -384,6 +472,8 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           body: JSON.stringify({ question: query, locale }),
         });
 
+        clearThinkingTimers();
+
         if (!res.ok) {
           const failMsg = locale === 'bn' ? 'লাইব্রেরি অনুসন্ধানে সমস্যা হয়েছে।' : 'Library query failed.';
           await speakText(failMsg);
@@ -409,6 +499,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
 
         await speakText(speakable);
       } catch {
+        clearThinkingTimers();
         setState('error');
         const errMsg = locale === 'bn' ? 'সংযোগ সমস্যা হয়েছে। টাইপ করে দেখুন।' : 'Network error. Please try typing.';
         setErrorText(errMsg);
@@ -419,13 +510,14 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   );
 
   const stopPushToTalk = useCallback(async () => {
+    earconManager.playStop(config.sounds_enabled ?? true);
     setState('transcribing');
     await sttRef.current?.stopListening();
     // Submit after short debounce for speech finalization
     setTimeout(() => {
       submitTranscript();
     }, 250);
-  }, [submitTranscript]);
+  }, [submitTranscript, config.sounds_enabled]);
 
   const resetSession = useCallback(() => {
     stopSpeech();

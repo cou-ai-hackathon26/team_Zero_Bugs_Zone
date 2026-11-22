@@ -187,8 +187,8 @@ export async function runLanguageEvaluation() {
   console.log(`OVERALL BENCHMARK STATUS: ${allPassed ? '🎉 ALL THRESHOLDS PASSED' : '⚠️ THRESHOLD NOT MET'}\n`);
 
   if (failures.length > 0 && !allPassed) {
-    console.log(`Sample Failures (${Math.min(failures.length, 5)}):`);
-    for (const f of failures.slice(0, 5)) {
+    console.log(`Sample Failures (${Math.min(failures.length, 20)}):`);
+    for (const f of failures.slice(0, 20)) {
       console.log(`- Case #${f.id} "${f.input}": ${f.reason}`);
     }
     console.log('');

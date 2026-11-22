@@ -33,6 +33,10 @@ import {
   AlertTriangle,
   Loader2,
   Mic,
+  ThumbsUp,
+  ThumbsDown,
+  Pencil,
+  RotateCcw,
 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
@@ -109,6 +113,47 @@ export function CaseConversationTab({
   const [answeringQuestionId, setAnsweringQuestionId] = useState<string | null>(null);
   const [expandedUpdates, setExpandedUpdates] = useState<Record<string, boolean>>({});
   const [copiedTurnId, setCopiedTurnId] = useState<string | null>(null);
+  const [thinkingLabelIdx, setThinkingLabelIdx] = useState(0);
+  const [feedbackGiven, setFeedbackGiven] = useState<Record<string, 'helpful' | 'unhelpful'>>({});
+  const [feedbackOpenId, setFeedbackOpenId] = useState<string | null>(null);
+
+  // Rotate thinking labels every 1.8s
+  useEffect(() => {
+    if (!submitting && !requestingReview) return;
+    const timer = setInterval(() => {
+      setThinkingLabelIdx((prev) => (prev + 1) % 3);
+    }, 1800);
+    return () => clearInterval(timer);
+  }, [submitting, requestingReview]);
+
+  const thinkingLabelsBn = ['একটু দেখছি...', 'লাইব্রেরিতে খুঁজছি...', 'প্রমাণ মিলিয়ে দেখছি...'];
+  const thinkingLabelsEn = ['Checking now...', 'Searching the library...', 'Verifying evidence...'];
+
+  const handleFeedback = async (messageId: string, rating: 'helpful' | 'unhelpful', reason?: string) => {
+    setFeedbackGiven((prev) => ({ ...prev, [messageId]: rating }));
+    if (rating === 'unhelpful' && !reason) {
+      setFeedbackOpenId(messageId);
+      return;
+    }
+    setFeedbackOpenId(null);
+    try {
+      await fetch('/api/assistant/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message_id: messageId, rating, reason, locale }),
+      });
+      toast.success(locale === 'bn' ? 'মতামত সংরক্ষিত হয়েছে। ধন্যবাদ!' : 'Feedback recorded. Thank you!');
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleEditDoctorTurn = (text: string) => {
+    setInputObservation(text);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  };
   const [replyLanguage, setReplyLanguage] = useState<'auto' | 'bn' | 'en'>('auto');
   const [phoneticTyping, setPhoneticTyping] = useState<boolean>(false);
 
@@ -404,19 +449,54 @@ export function CaseConversationTab({
         className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-3.5 focus:outline-none"
       >
         {turns.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-3">
-            <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-xs">
-              <Sparkles className="w-5 h-5" />
+          <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-xs">
+              <Sparkles className="w-6 h-6" />
             </div>
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-foreground">
-                {locale === 'bn' ? 'ক্লিনিকাল পরামর্শ প্রস্তুত' : 'Clinical Consultation Ready'}
+            <div className="space-y-1 max-w-md">
+              <h4 className="text-base font-bold text-foreground">
+                {locale === 'bn' ? 'স্বাগতম, ডাক্তার! কীভাবে সাহায্য করতে পারি?' : 'Welcome, Doctor! How can I assist?'}
               </h4>
-              <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 {locale === 'bn'
-                  ? 'রোগীর শারীরিক লক্ষণ, ভাইটালস বা পরীক্ষা লিখুন। অভ্যন্তরীণ মেডিকেল লাইব্রেরি থেকে যাচাইকৃত প্রমাণসহ সহায়তা পাবেন।'
-                  : 'Enter patient symptoms, physical exam, or clinical questions. The system retrieves verified proofs from closed internal medical guidelines.'}
+                  ? 'রোগীর শারীরিক লক্ষণ, ভাইটালস বা গাইডলাইন প্রশ্ন লিখুন। নিচের উদাহরণগুলোতে ক্লিক করেও শুরু করতে পারেন।'
+                  : 'Enter patient findings, vitals, or guideline queries. You can also tap an example below to begin.'}
               </p>
+            </div>
+
+            {/* 3 Clickable Example Questions */}
+            <div className="flex flex-col sm:flex-row items-center gap-2 max-w-lg w-full pt-2">
+              {[
+                {
+                  labelBn: 'সম্ভাব্য ডিফারেনশিয়াল রোগসমূহ কী কী?',
+                  labelEn: 'What are the top differentials?',
+                  query: locale === 'bn' ? 'বর্তমান উপসর্গের ভিত্তিতে সবচেয়ে সম্ভাব্য ডিফারেনশিয়াল রোগসমূহ কী কী?' : 'What are the top differential diagnoses based on these findings?',
+                },
+                {
+                  labelBn: 'প্রথম সারির চিকিৎসা গাইডলাইন কী?',
+                  labelEn: 'What is the first-line treatment?',
+                  query: locale === 'bn' ? 'প্রথম সারির নির্দেশিত চিকিৎসা ও ওষুধ নির্দেশিকা কী?' : 'What is the recommended first-line treatment regimen?',
+                },
+                {
+                  labelBn: 'জরুরি রেড ফ্ল্যাগ লক্ষণসমূহ কী কী?',
+                  labelEn: 'What are the red-flag signs?',
+                  query: locale === 'bn' ? 'এই রোগীর জরুরি রেড ফ্ল্যাগ সতর্কতা তাৎক্ষণিকভাবে যাচাই করা প্রয়োজন?' : 'What critical red-flag emergency signs must be monitored?',
+                },
+              ].map((ex, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => void handleSend('observation', ex.query)}
+                  className="w-full sm:flex-1 p-2.5 rounded-xl border border-border/80 bg-card hover:bg-primary/5 hover:border-primary/40 text-xs text-left font-medium text-foreground transition-all shadow-2xs hover:shadow-xs group"
+                >
+                  <span className="text-[10px] text-primary font-bold block mb-0.5">
+                    {locale === 'bn' ? `প্রশ্ন ${i + 1}` : `Question ${i + 1}`}
+                  </span>
+                  <span className="line-clamp-2 text-muted-foreground group-hover:text-foreground">
+                    {locale === 'bn' ? ex.labelBn : ex.labelEn}
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
         ) : (
@@ -473,6 +553,15 @@ export function CaseConversationTab({
                           {langBadge}
                         </span>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => handleEditDoctorTurn(obsText)}
+                        title={locale === 'bn' ? 'মেসেজ এডিট করুন' : 'Edit message'}
+                        aria-label={locale === 'bn' ? 'মেসেজ এডিট করুন' : 'Edit message'}
+                        className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
                       <span className="font-semibold text-foreground">
                         {locale === 'bn' ? 'চিকিৎসক (Physician)' : 'Physician'}
                       </span>
@@ -514,31 +603,103 @@ export function CaseConversationTab({
                   {/* Main Speech Bubble with Copy Action */}
                   {assistantText && (
                     <div className="relative group max-w-[92%] sm:max-w-[85%] rounded-2xl rounded-tl-xs bg-card border border-border/80 px-4 py-3.5 shadow-xs text-xs sm:text-sm leading-relaxed text-foreground">
-                      {/* Copy Action Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleCopyText(turnIdentifier, assistantText)}
-                        aria-label={t('copyNote')}
-                        title={t('copyNote')}
-                        className="absolute right-2.5 top-2.5 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        {copiedTurnId === turnIdentifier ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
+                      {/* Action Buttons: Copy & Helpful/Unhelpful Feedback */}
+                      <div className="absolute right-2.5 top-2.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyText(turnIdentifier, assistantText)}
+                          aria-label={t('copyNote')}
+                          title={t('copyNote')}
+                          className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                        >
+                          {copiedTurnId === turnIdentifier ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
 
-                      <p className="whitespace-pre-wrap pr-6">{assistantText}</p>
+                        <button
+                          type="button"
+                          onClick={() => void handleFeedback(turnIdentifier, 'helpful')}
+                          aria-label={locale === 'bn' ? 'সাহায্য হয়েছে' : 'Helpful'}
+                          title={locale === 'bn' ? 'সাহায্য হয়েছে' : 'Helpful'}
+                          className={`p-1 rounded-md text-muted-foreground hover:text-emerald-600 hover:bg-muted/60 ${
+                            feedbackGiven[turnIdentifier] === 'helpful' ? 'text-emerald-600 font-bold' : ''
+                          }`}
+                        >
+                          <ThumbsUp className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => void handleFeedback(turnIdentifier, 'unhelpful')}
+                          aria-label={locale === 'bn' ? 'সাহায্য হয়নি' : 'Not helpful'}
+                          title={locale === 'bn' ? 'সাহায্য হয়নি' : 'Not helpful'}
+                          className={`p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-muted/60 ${
+                            feedbackGiven[turnIdentifier] === 'unhelpful' ? 'text-destructive font-bold' : ''
+                          }`}
+                        >
+                          <ThumbsDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <p className="whitespace-pre-wrap pr-16">{assistantText}</p>
+
+                      {/* Unhelpful Feedback Reason Chips */}
+                      {feedbackOpenId === turnIdentifier && (
+                        <div className="mt-2.5 pt-2 border-t border-border/60 space-y-1.5 animate-fadeIn">
+                          <span className="text-[10px] font-semibold text-muted-foreground block">
+                            {locale === 'bn' ? 'কী কারণে সাহায্য হয়নি? নির্বাচন করুন:' : 'Why was this not helpful?'}
+                          </span>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {[
+                              { id: 'too_long', labelBn: 'অনেক বড়', labelEn: 'Too long' },
+                              { id: 'too_formal', labelBn: 'বেশি আনুষ্ঠানিক', labelEn: 'Too formal' },
+                              { id: 'did_not_understand', labelBn: 'বুঝতে পারিনি', labelEn: 'Did not understand' },
+                              { id: 'wrong_tone', labelBn: 'টোন ঠিক নেই', labelEn: 'Wrong tone' },
+                              { id: 'other', labelBn: 'অন্যান্য', labelEn: 'Other' },
+                            ].map((r) => (
+                              <button
+                                key={r.id}
+                                type="button"
+                                onClick={() => void handleFeedback(turnIdentifier, 'unhelpful', r.id)}
+                                className="px-2 py-0.5 rounded-full text-[10px] font-medium border border-border bg-background hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors"
+                              >
+                                {locale === 'bn' ? r.labelBn : r.labelEn}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Inline Verbatim Citations - opens EvidenceSheet on click */}
                       {citations.length > 0 && (
                         <div className="mt-3 pt-2.5 border-t border-border/60 flex items-center flex-wrap gap-1.5">
                           <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mr-1">
-                            {locale === 'bn' ? 'যাচাইকৃত প্রমাণ উদ্ধৃতি:' : 'Verified Evidence:'}
+                            {locale === 'bn' ? 'কেন (যাচাইকৃত প্রমাণ):' : 'Why (Verified Evidence):'}
                           </span>
                           {citations.map((claim, cIdx) => (
                             <CitationChip key={claim.chunk_id || cIdx} index={cIdx + 1} claim={claim} />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Next Step Suggestion Chips (Max 3) */}
+                      {Boolean((content.next_steps as Array<{ label: string; query: string }>)?.length) && (
+                        <div className="mt-2.5 pt-2 border-t border-border/60 flex items-center flex-wrap gap-1.5">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mr-1">
+                            {locale === 'bn' ? 'পরবর্তী পদক্ষেপ:' : 'Next steps:'}
+                          </span>
+                          {(content.next_steps as Array<{ label: string; query: string }>).slice(0, 3).map((ns, nsIdx) => (
+                            <button
+                              key={nsIdx}
+                              type="button"
+                              onClick={() => void handleSend('observation', ns.query)}
+                              className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition-colors active:scale-95"
+                            >
+                              {ns.label}
+                            </button>
                           ))}
                         </div>
                       )}
@@ -818,7 +979,9 @@ export function CaseConversationTab({
                 </div>
                 <div className="max-w-[85%] rounded-2xl rounded-tl-xs bg-muted/70 border border-border/80 px-4 py-3 text-xs text-muted-foreground flex items-center gap-2.5 shadow-2xs">
                   <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
-                  <span className="font-medium">{t('analyzingGuidelines')}</span>
+                  <span className="font-medium animate-fadeIn">
+                    {locale === 'bn' ? thinkingLabelsBn[thinkingLabelIdx] : thinkingLabelsEn[thinkingLabelIdx]}
+                  </span>
                 </div>
               </div>
             )}

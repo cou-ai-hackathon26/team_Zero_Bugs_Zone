@@ -81,8 +81,8 @@ export function humanize(
   const signals = analyzeDoctorInput(doctorInputText, context, safetyAlerts);
 
   const reactions: string[] = [];
-  let urgentActive = signals.isUrgent;
-  let hurryActive = signals.isHurry || prefs.verbosity === 'brief';
+  const urgentActive = signals.isUrgent;
+  const hurryActive = signals.isHurry || prefs.verbosity === 'brief';
 
   // Extract core verified clinical text
   const rawClinicalAnswer = verifiedResult.answer || verifiedResult.summary || verifiedResult.text || '';

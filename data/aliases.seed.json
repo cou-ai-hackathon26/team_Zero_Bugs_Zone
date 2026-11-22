@@ -63,7 +63,7 @@
     "canonical_en": "chest pain",
     "category": "symptom",
     "variants": {
-      "bn": ["বুক ব্যথা", "বুকে চাপ", "বুকে ভার"],
+      "bn": ["বুক ব্যথা", "বুকে ব্যথা", "বুকে চাপ", "বুকে ভার"],
       "banglish": ["buk betha", "buk byatha", "buke chap", "buke betha"],
       "en": ["chest pain", "angina", "thoracic pain", "substernal pain"],
       "bn_translit_en": ["চেস্ট পেইন", "এনজাইনা"]
@@ -2842,5 +2842,29 @@
     },
     "status": "active",
     "notes": "Geriatric demographic"
+  },
+  {
+    "canonical_en": "esomeprazole",
+    "category": "medicine_brand",
+    "variants": {
+      "bn": ["সারজেল", "সারজেল ২০", "সারজেল ৪০"],
+      "banglish": ["sergel", "sergel 20", "sergel 40"],
+      "en": ["Sergel", "Sergel 20", "Sergel 40"],
+      "bn_translit_en": ["সারজেল"]
+    },
+    "status": "active",
+    "notes": "Square Esomeprazole brand"
+  },
+  {
+    "canonical_en": "vitamin c",
+    "category": "medicine_brand",
+    "variants": {
+      "bn": ["সিভিট"],
+      "banglish": ["ceevit", "cevit", "c-vit"],
+      "en": ["Ceevit", "Cevit", "C-Vit"],
+      "bn_translit_en": ["সিভিট"]
+    },
+    "status": "active",
+    "notes": "Square Vitamin C chewable brand"
   }
 ]

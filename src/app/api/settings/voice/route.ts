@@ -20,6 +20,14 @@ const configSchema = z.object({
   default_speed: z.number().min(0.8).max(1.2).optional(),
   private_mode_default: z.boolean().optional(),
   avatar_enabled_default: z.boolean().optional(),
+  persona_preset: z.enum(['reserved', 'friendly']).optional(),
+  default_greeting_morning_bn: z.string().min(1).max(500).optional(),
+  default_greeting_afternoon_bn: z.string().min(1).max(500).optional(),
+  default_greeting_evening_bn: z.string().min(1).max(500).optional(),
+  default_greeting_morning_en: z.string().min(1).max(500).optional(),
+  default_greeting_afternoon_en: z.string().min(1).max(500).optional(),
+  default_greeting_evening_en: z.string().min(1).max(500).optional(),
+  sounds_enabled: z.boolean().optional(),
 });
 
 export async function GET() {

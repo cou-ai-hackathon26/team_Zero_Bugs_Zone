@@ -16,6 +16,7 @@ import { CachedEmbeddingService } from './embedding-provider';
 import { scanChunksForPromptInjection } from './safety-scanner';
 import { computeSimhash64 } from './simhash';
 import { linkAndDoiConnector } from './connectors';
+import { runOcrOnPdfBuffer } from './ocr';
 import { recordAuditLog } from '@/lib/audit';
 
 const connectionString = process.env.DATABASE_URL || 'postgresql://apple@localhost:5432/docmate';
@@ -170,13 +171,39 @@ export class IngestionPipeline {
 
       // Stage 4: OCR (Feature flag check)
       await jobQueue.updateProgress(jobId, 'ocring', 35);
-      // OCR hook: Tesseract ben+eng when enabled in system settings
       const { rows: ocrSettings } = await pool.query<{ value: unknown }>(
         `SELECT value FROM system_settings WHERE key = 'ingest.ocr_enabled';`
       );
       const ocrEnabled = ocrSettings[0]?.value === true || ocrSettings[0]?.value === 'true';
-      if (!ocrEnabled && doc.fullText.length < 100 && doc.pageCount > 1) {
-        // Document has minimal text and OCR is off -> flagged in quality check
+
+      const isScannedPdf =
+        mime === 'application/pdf' &&
+        doc.pageCount > 1 &&
+        doc.fullText.trim().length / doc.pageCount < 30;
+
+      if (isScannedPdf) {
+        if (!ocrEnabled) {
+          throw new Error(
+            `Needs OCR: Scanned PDF contains ${doc.pageCount} pages of photographic images without an embedded text layer, but OCR is disabled in Library Ingestion Settings. Toggle 'Enable OCR' in Ingestion Settings to process scanned books, or upload a text-searchable PDF.`
+          );
+        }
+
+        // Run OCR with Tesseract
+        const ocrPages = await runOcrOnPdfBuffer(buffer, {
+          jobId,
+          onProgress: async (current, total) => {
+            const pct = Math.min(44, Math.round(35 + (current / total) * 9));
+            await jobQueue.updateProgress(jobId, 'ocring', pct);
+          },
+        });
+
+        if (ocrPages.length > 0 && ocrPages.some((p) => p.text.trim().length > 0)) {
+          doc = {
+            ...doc,
+            pages: ocrPages,
+            fullText: ocrPages.map((p) => p.text).join('\n\n'),
+          };
+        }
       }
 
       // Stage 5: Clean Document Pages
@@ -211,7 +238,7 @@ export class IngestionPipeline {
       if (chunksList.length === 0) {
         if (doc.pageCount > 1 && doc.fullText.length < 500) {
           throw new Error(
-            `Scanned Image PDF: Document contains ${doc.pageCount} pages of scanned photographic images without an embedded text layer. DocMate AI requires machine-readable text to generate verified clinical citations.`
+            `Needs OCR: Document contains ${doc.pageCount} pages of scanned photographic images without an embedded text layer. DocMate AI requires machine-readable text to generate verified clinical citations.`
           );
         }
         throw new Error('Chunking produced zero usable chunks. Document contains insufficient text.');

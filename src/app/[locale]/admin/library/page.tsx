@@ -35,6 +35,7 @@ import {
   Check,
   ShieldAlert,
   Loader2,
+  AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -915,12 +916,25 @@ export default function AdminLibraryPage() {
                                 </Badge>
                               ) : isFailed ? (
                                 <div className="space-y-1 max-w-sm">
-                                  <Badge variant="destructive" className="text-[10px] flex items-center gap-1 w-fit">
-                                    <XCircle className="w-2.5 h-2.5" />
-                                    Failed
-                                  </Badge>
+                                  {job.error?.includes('Needs OCR') ? (
+                                    <Badge variant="outline" className="text-[10px] border-amber-500 bg-amber-500/10 text-amber-800 dark:text-amber-300 flex items-center gap-1 w-fit font-semibold">
+                                      <AlertTriangle className="w-2.5 h-2.5 text-amber-600" />
+                                      Needs OCR
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="destructive" className="text-[10px] flex items-center gap-1 w-fit">
+                                      <XCircle className="w-2.5 h-2.5" />
+                                      Failed
+                                    </Badge>
+                                  )}
                                   {job.error && (
-                                    <p className="text-[11px] text-destructive/90 font-medium leading-relaxed bg-destructive/10 p-1.5 rounded-md border border-destructive/20 break-words">
+                                    <p
+                                      className={`text-[11px] font-medium leading-relaxed p-1.5 rounded-md border break-words ${
+                                        job.error?.includes('Needs OCR')
+                                          ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200'
+                                          : 'bg-destructive/10 border-destructive/20 text-destructive/90'
+                                      }`}
+                                    >
                                       {job.error}
                                     </p>
                                   )}

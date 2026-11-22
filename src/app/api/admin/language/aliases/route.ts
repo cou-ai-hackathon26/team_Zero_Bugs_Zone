@@ -9,6 +9,7 @@ import { boundedJson } from '@/lib/api-input';
 import { desc, ilike, eq, and } from 'drizzle-orm';
 import { z } from 'zod';
 import { initTermMatcher } from '@/lib/language/term-matcher';
+import { TermAliasRecord } from '@/lib/language/types';
 
 const aliasCreateSchema = z.object({
   canonicalEn: z.string().trim().min(1).max(150),
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
         .select()
         .from(termAliases)
         .where(eq(termAliases.status, 'active'));
-      initTermMatcher(allActive as any);
+      initTermMatcher(allActive as unknown as TermAliasRecord[]);
     } catch {}
 
     return NextResponse.json({ success: true, alias: saved });
