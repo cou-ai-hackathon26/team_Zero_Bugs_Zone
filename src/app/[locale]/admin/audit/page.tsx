@@ -111,8 +111,8 @@ export default function AdminAuditPage() {
           <h1 className="text-xl font-bold text-foreground tracking-tight">{t('audit')}</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             {locale === 'bn'
-              ? 'SHA-256 ক্রিপ্টোগ্রাফিক হ্যাশ চেইনে সংরক্ষিত অপরিবর্তনীয় অডিট লগ ও ব্রেক-গ্লাস অ্যাক্সেস ট্রেইল।'
-              : 'Tamper-evident, hash-chained audit records verifying all administrative and emergency break-glass events.'}
+              ? 'SHA-256 হ্যাশ চেইনে সংরক্ষিত নিরাপদ অডিট লগ ও জরুরি অ্যাক্সেস রেকর্ড।'
+              : 'Tamper-evident, hash-chained records of admin and emergency events.'}
           </p>
         </div>
 
@@ -140,12 +140,12 @@ export default function AdminAuditPage() {
             </div>
             <div>
               <h2 className="text-sm font-bold text-foreground">
-                {locale === 'bn' ? 'ক্রিপ্টোগ্রাফিক অখণ্ডতা পরীক্ষক (Hash-Chain Verifier)' : 'Cryptographic Chain Integrity Verifier'}
+                {locale === 'bn' ? 'হ্যাশ-চেইন অখণ্ডতা পরীক্ষক' : 'Hash-Chain Integrity Verifier'}
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
                 {locale === 'bn'
-                  ? 'প্রতিটি অডিট রেকর্ড তার পূর্ববর্তী রেকর্ডের SHA-256 হ্যাশের সাথে ক্রিপ্টোগ্রাফিকভাবে সংযুক্ত। যেকোনো ডাটা পরিবর্তন অবিলম্বে ধরা পড়ে।'
-                  : 'Validates that every single audit row in PostgreSQL links sequentially from Genesis without tampering or backdated insertions.'}
+                  ? 'প্রতিটি অডিট রেকর্ড ক্রিপ্টোগ্রাফিকভাবে সংযুক্ত। কোনো পরিবর্তন হলে সাথে সাথে ধরা পড়বে।'
+                  : 'Validates that all audit rows link sequentially without tampering or backdating.'}
               </p>
             </div>
           </div>

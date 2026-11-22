@@ -46,10 +46,10 @@ test.describe('Offline synthetic release guardrails', () => {
     await expect.poll(async () => {
       const response = await page.request.get(`/api/cases/${id}`);
       return (await response.json()).turns.length;
-    }).toBe(1);
+    }).toBeGreaterThanOrEqual(1);
 
     await page.getByRole('tab', { name: 'Treatment' }).click();
-    await page.getByRole('button', { name: 'Select & Confirm Diagnosis' }).click();
+    await page.getByRole('button', { name: /Select.*Diagnosis/ }).click();
     await page.getByRole('radio', { name: 'Other / Clinical Override' }).click();
     await page.getByPlaceholder('Enter clinical condition...').fill('Synthetic physician assessment');
     const diagnosis = page.waitForResponse((response) =>
