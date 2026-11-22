@@ -41,79 +41,83 @@ export function SafetyTab({
   const infoAlerts = alerts.filter((a) => a.severity === 'info');
 
   return (
-    <div className="space-y-4">
+    <div className="h-full min-h-0 flex flex-col overflow-hidden space-y-2">
       {/* Overview Status Banner */}
-      {criticalAlerts.length > 0 ? (
-        <Alert variant="destructive" className="border-2 shadow-xs">
-          <ShieldAlert className="w-5 h-5 text-destructive" />
-          <AlertTitle className="text-sm font-bold">
-            {criticalAlerts.length} Critical Safety Alerts Detected
-          </AlertTitle>
-          <AlertDescription className="text-xs mt-1">
-            Deterministic drug rules identified high-risk allergies, severe drug interactions, or absolute contraindications. Each critical alert must be acknowledged.
-          </AlertDescription>
-        </Alert>
-      ) : alerts.length > 0 ? (
-        <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200">
-          <AlertTriangle className="w-5 h-5 text-amber-600" />
-          <AlertTitle className="text-sm font-semibold">
-            {alerts.length} Clinical Safety Flags &amp; Monitoring Recommendations
-          </AlertTitle>
-          <AlertDescription className="text-xs mt-1 text-amber-800 dark:text-amber-300">
-            Review cautionary adjustments, monitoring parameters, and minor interactions below.
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <Alert className="border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200">
-          <ShieldCheck className="w-5 h-5 text-emerald-600" />
-          <AlertTitle className="text-sm font-semibold">
-            Zero Safety Conflicts Detected
-          </AlertTitle>
-          <AlertDescription className="text-xs mt-1 text-emerald-800 dark:text-emerald-300">
-            All candidate medications pass patient allergy screens, drug-drug interaction matrix checks, and renal dosing criteria.
-          </AlertDescription>
-        </Alert>
-      )}
+      <div className="shrink-0">
+        {criticalAlerts.length > 0 ? (
+          <Alert variant="destructive" className="border-2 shadow-xs py-2">
+            <ShieldAlert className="w-4 h-4 text-destructive" />
+            <AlertTitle className="text-xs font-bold">
+              {criticalAlerts.length} Critical Safety Alerts Detected
+            </AlertTitle>
+            <AlertDescription className="text-xs mt-0.5">
+              Deterministic drug rules identified high-risk allergies, severe drug interactions, or absolute contraindications. Each critical alert must be acknowledged.
+            </AlertDescription>
+          </Alert>
+        ) : alerts.length > 0 ? (
+          <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 py-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600" />
+            <AlertTitle className="text-xs font-semibold">
+              {alerts.length} Clinical Safety Flags &amp; Monitoring Recommendations
+            </AlertTitle>
+            <AlertDescription className="text-xs mt-0.5 text-amber-800 dark:text-amber-300">
+              Review cautionary adjustments, monitoring parameters, and minor interactions below.
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <Alert className="border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200 py-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <AlertTitle className="text-xs font-semibold">
+              Zero Safety Conflicts Detected
+            </AlertTitle>
+            <AlertDescription className="text-xs mt-0.5 text-emerald-800 dark:text-emerald-300">
+              All candidate medications pass patient allergy screens, drug-drug interaction matrix checks, and renal dosing criteria.
+            </AlertDescription>
+          </Alert>
+        )}
+      </div>
 
-      {/* Patient Clinical Baseline Profile */}
-      <Card className="p-4 border-border/80 bg-card shadow-2xs space-y-3">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Patient Safety Baseline
-        </h4>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-          <div className="p-2.5 rounded-md bg-muted/40 border border-border/50 space-y-1">
-            <span className="text-muted-foreground text-[10px] uppercase font-bold flex items-center gap-1">
-              <ShieldAlert className="w-3 h-3 text-rose-500" /> Allergies
-            </span>
-            <p className="font-semibold text-foreground">
-              {input.allergies?.length ? input.allergies.join(', ') : t('noAllergiesRecorded')}
-            </p>
+      {/* Scrollable Alerts and Baseline Profile */}
+      <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-3 pb-2">
+        {/* Patient Clinical Baseline Profile */}
+        <Card className="p-3 border-border/80 bg-card shadow-2xs space-y-2">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Patient Safety Baseline
+          </h4>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+            <div className="p-2 rounded-md bg-muted/40 border border-border/50 space-y-0.5">
+              <span className="text-muted-foreground text-[10px] uppercase font-bold flex items-center gap-1">
+                <ShieldAlert className="w-3 h-3 text-rose-500" /> Allergies
+              </span>
+              <p className="font-semibold text-foreground truncate">
+                {input.allergies?.length ? input.allergies.join(', ') : t('noAllergiesRecorded')}
+              </p>
+            </div>
+
+            <div className="p-2 rounded-md bg-muted/40 border border-border/50 space-y-0.5">
+              <span className="text-muted-foreground text-[10px] uppercase font-bold flex items-center gap-1">
+                <Activity className="w-3 h-3 text-primary" /> Renal eGFR
+              </span>
+              <p className="font-semibold text-foreground truncate">
+                {input.egfr ? `${input.egfr} mL/min/1.73m²` : 'Not specified (assumed > 60)'}
+              </p>
+            </div>
+
+            <div className="p-2 rounded-md bg-muted/40 border border-border/50 space-y-0.5">
+              <span className="text-muted-foreground text-[10px] uppercase font-bold flex items-center gap-1">
+                <Baby className="w-3 h-3 text-amber-500" /> Pregnancy Status
+              </span>
+              <p className="font-semibold text-foreground truncate">
+                {input.is_pregnant
+                  ? `Pregnant (Trimester ${input.pregnancy_trimester || 1})`
+                  : 'Not Pregnant / N/A'}
+              </p>
+            </div>
           </div>
+        </Card>
 
-          <div className="p-2.5 rounded-md bg-muted/40 border border-border/50 space-y-1">
-            <span className="text-muted-foreground text-[10px] uppercase font-bold flex items-center gap-1">
-              <Activity className="w-3 h-3 text-primary" /> Renal eGFR
-            </span>
-            <p className="font-semibold text-foreground">
-              {input.egfr ? `${input.egfr} mL/min/1.73m²` : 'Not specified (assumed > 60)'}
-            </p>
-          </div>
-
-          <div className="p-2.5 rounded-md bg-muted/40 border border-border/50 space-y-1">
-            <span className="text-muted-foreground text-[10px] uppercase font-bold flex items-center gap-1">
-              <Baby className="w-3 h-3 text-amber-500" /> Pregnancy Status
-            </span>
-            <p className="font-semibold text-foreground">
-              {input.is_pregnant
-                ? `Pregnant (Trimester ${input.pregnancy_trimester || 1})`
-                : 'Not Pregnant / N/A'}
-            </p>
-          </div>
-        </div>
-      </Card>
-
-      {/* Categorized Alerts List */}
-      <div className="space-y-4">
+        {/* Categorized Alerts List */}
+        <div className="space-y-3">
         {criticalAlerts.length > 0 && (
           <div className="space-y-2">
             <h4 className="text-xs font-bold uppercase tracking-wider text-destructive flex items-center gap-1.5">
@@ -179,6 +183,7 @@ export function SafetyTab({
             </p>
           </Card>
         )}
+        </div>
       </div>
     </div>
   );

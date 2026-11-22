@@ -114,15 +114,15 @@ export function DifferentialsTab({
     : [];
 
   return (
-    <div className="space-y-3.5">
+    <div className="h-full min-h-0 flex flex-col overflow-hidden space-y-2">
       {/* Red Flag Emergency Banner */}
       {analysis.status === 'red_flag' && (
-        <Alert variant="destructive" className="border shadow-xs">
+        <Alert variant="destructive" className="border shadow-xs shrink-0 py-2">
           <ShieldAlert className="w-4 h-4 text-destructive" />
           <AlertTitle className="text-xs font-bold">
             {t('redFlagBanner')}
           </AlertTitle>
-          <AlertDescription className="text-xs mt-1 space-y-1.5">
+          <AlertDescription className="text-xs mt-1 space-y-1">
             <p className="font-medium">
               {locale === 'bn' ? 'জরুরি ক্লিনিকাল ঝুঁকি সনাক্ত হয়েছে:' : 'Emergency safety criteria triggered:'}
             </p>
@@ -139,7 +139,7 @@ export function DifferentialsTab({
 
       {/* Insufficient Evidence Alert */}
       {analysis.status === 'insufficient_evidence' && (
-        <Alert className="border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200">
+        <Alert className="border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200 shrink-0 py-2">
           <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
           <div className="flex-1">
             <AlertTitle className="text-xs font-semibold">
@@ -162,9 +162,9 @@ export function DifferentialsTab({
       )}
 
       {/* Confidence Header & Summary */}
-      <Card className="p-3.5 border-border/70 bg-card shadow-2xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div className="space-y-0.5">
+      <Card className="p-2.5 sm:p-3 border-border/70 bg-card shadow-2xs shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="space-y-0.5 min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 {t('confidence')}:
@@ -174,7 +174,7 @@ export function DifferentialsTab({
                 score={analysis.confidence.score}
               />
             </div>
-            <p className="text-xs text-muted-foreground leading-relaxed">
+            <p className="text-xs text-muted-foreground leading-relaxed truncate">
               {analysis.confidence.reasoning}
             </p>
           </div>
@@ -182,7 +182,7 @@ export function DifferentialsTab({
             size="sm"
             variant="outline"
             onClick={onRunAnalysis}
-            className="shrink-0 text-xs gap-1.5 h-8 self-start sm:self-auto"
+            className="shrink-0 text-xs gap-1.5 h-7"
           >
             <Stethoscope className="w-3.5 h-3.5 text-primary" />
             <span>{t('reAnalyze')}</span>
@@ -190,9 +190,9 @@ export function DifferentialsTab({
         </div>
       </Card>
 
-      {/* Differentials Accordion */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between px-1">
+      {/* Differentials Accordion Area */}
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden space-y-1.5 pt-1">
+        <div className="flex items-center justify-between px-1 shrink-0">
           <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
             {locale === 'bn' ? 'সম্ভাব্য রোগের তালিকা' : 'Ranked Differential Diagnoses'} ({analysis.differentials.length})
           </h3>
@@ -201,10 +201,11 @@ export function DifferentialsTab({
           </span>
         </div>
 
-        <Accordion
-          defaultValue={defaultAccordionValue}
-          className="space-y-2.5"
-        >
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+          <Accordion
+            defaultValue={defaultAccordionValue}
+            className="space-y-2 pb-2"
+          >
           {analysis.differentials.map((diff: DifferentialDiagnosis, idx: number) => {
             const verifiedCitationCount =
               (diff.supporting_claims?.filter((c) => c.verified !== false).length || 0) +
@@ -335,6 +336,7 @@ export function DifferentialsTab({
             );
           })}
         </Accordion>
+        </div>
       </div>
     </div>
   );

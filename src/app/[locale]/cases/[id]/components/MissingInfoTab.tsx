@@ -49,9 +49,9 @@ export function MissingInfoTab({
   }
 
   return (
-    <div className="space-y-3.5">
+    <div className="h-full min-h-0 flex flex-col overflow-hidden space-y-2">
       {/* Principle of Abstention Explanation */}
-      <Alert className="border-primary/30 bg-primary/5 text-foreground py-2.5">
+      <Alert className="border-primary/30 bg-primary/5 text-foreground py-2 shrink-0">
         <Info className="w-4 h-4 text-primary shrink-0" />
         <div className="space-y-0.5">
           <AlertTitle className="text-xs font-semibold">
@@ -65,8 +65,8 @@ export function MissingInfoTab({
         </div>
       </Alert>
 
-      {/* List of Questions */}
-      <div className="space-y-2.5">
+      {/* List of Questions (Scrollable) */}
+      <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2 pb-1">
         {missingInfo.map((item) => (
           <FollowUpQuestionCard
             key={item.id}
@@ -78,7 +78,7 @@ export function MissingInfoTab({
       </div>
 
       {/* Re-analyze CTA */}
-      <Card className="p-3.5 bg-muted/30 border-border/70 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <Card className="p-2.5 sm:p-3 bg-muted/30 border-border/70 flex flex-col sm:flex-row items-center justify-between gap-2.5 shrink-0">
         <div className="space-y-0.5 text-center sm:text-left">
           <p className="text-xs font-semibold text-foreground">
             {locale === 'bn' ? 'উত্তরসহ পুনর্মূল্যায়ন করতে প্রস্তুত?' : 'Ready to re-evaluate with answers?'}

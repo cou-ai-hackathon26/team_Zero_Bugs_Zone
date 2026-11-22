@@ -56,23 +56,24 @@ export function ReportTab({
   ) || [];
 
   return (
-    <div className="space-y-4">
+    <div className="h-full min-h-0 flex flex-col overflow-hidden space-y-2">
       {/* Top action bar (hidden on print) */}
-      <div className="flex items-center justify-between no-print bg-card p-3 rounded-lg border border-border/80 shadow-2xs">
+      <div className="flex items-center justify-between no-print bg-card p-2 sm:p-2.5 rounded-lg border border-border/80 shadow-2xs shrink-0">
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-primary" />
           <span className="text-xs font-semibold text-foreground">
             {t('draftPreview')}
           </span>
         </div>
-        <Button disabled size="sm" className="gap-1.5 text-xs font-semibold">
+        <Button disabled size="sm" className="gap-1.5 text-xs font-semibold h-7">
           <Printer className="w-3.5 h-3.5" />
           {tTreatment('printReport')}
         </Button>
       </div>
 
-      {/* Printable Report Document */}
-      <Card className="no-print border border-border shadow-xs bg-white text-black p-6 sm:p-8 space-y-6">
+      {/* Printable Report Document (Scrollable) */}
+      <div className="flex-1 min-h-0 overflow-y-auto pr-1 pb-2">
+        <Card className="no-print border border-border shadow-xs bg-white text-black p-5 sm:p-7 space-y-5">
         {/* Header */}
         <div className="flex items-start justify-between border-b pb-4">
           <div className="space-y-1">
@@ -271,6 +272,7 @@ export function ReportTab({
 
         <p className="text-xs text-muted-foreground">{t('unsignedDraft')}</p>
       </Card>
+      </div>
     </div>
   );
 }

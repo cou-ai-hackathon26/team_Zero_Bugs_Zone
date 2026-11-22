@@ -245,25 +245,25 @@ export function TreatmentTab({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="h-full min-h-0 flex flex-col overflow-hidden space-y-2">
       {/* Header Info */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3.5 rounded-lg bg-card border border-border/80 shadow-2xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 sm:p-3 rounded-lg bg-card border border-border/80 shadow-2xs shrink-0">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-foreground">
+            <h3 className="text-xs sm:text-sm font-bold text-foreground">
               {t('title')}
             </h3>
-            <Badge className="bg-emerald-600 text-white text-[10px]">
+            <Badge className="bg-emerald-600 text-white text-[10px] h-5 px-1.5">
               {confirmedDiagnosis}
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[11px] text-muted-foreground">
             {t('subtitle')}
           </p>
         </div>
 
         {isFinalized && (
-          <Badge variant="outline" className="text-emerald-700 dark:text-emerald-400 border-emerald-500/30 gap-1 bg-emerald-500/10">
+          <Badge variant="outline" className="text-emerald-700 dark:text-emerald-400 border-emerald-500/30 gap-1 bg-emerald-500/10 text-xs">
             <Lock className="w-3 h-3" />
             <span>{locale === 'bn' ? 'প্রেসক্রিপশন চূড়ান্ত' : 'Prescription Finalized'}</span>
           </Badge>
@@ -272,58 +272,59 @@ export function TreatmentTab({
 
       {/* Critical Safety Block Banner */}
       {criticalAlerts.length > 0 && (
-        <Alert variant="destructive" className="border shadow-xs">
+        <Alert variant="destructive" className="border shadow-xs shrink-0 py-2">
           <ShieldAlert className="w-4 h-4 text-destructive" />
           <AlertTitle className="text-xs font-bold">
             {criticalAlerts.length} Critical Safety Alerts
           </AlertTitle>
-          <AlertDescription className="text-xs mt-1">
+          <AlertDescription className="text-xs mt-0.5">
             {t('criticalAlertWarning')}
           </AlertDescription>
         </Alert>
       )}
 
-      {/* First-Line Therapeutic Regimens */}
-      {treatmentPlan.first_line && treatmentPlan.first_line.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
-            {t('firstLine')} ({treatmentPlan.first_line.length})
-          </h4>
-          <div className="space-y-2">
-            {treatmentPlan.first_line.map((drug) => renderDrugCard(drug, true))}
+      {/* Middle Scrollable Section: Drugs, Lifestyle, Doctor Notes */}
+      <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2.5 pb-1">
+        {/* First-Line Therapeutic Regimens */}
+        {treatmentPlan.first_line && treatmentPlan.first_line.length > 0 && (
+          <div className="space-y-1.5">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
+              {t('firstLine')} ({treatmentPlan.first_line.length})
+            </h4>
+            <div className="space-y-2">
+              {treatmentPlan.first_line.map((drug) => renderDrugCard(drug, true))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Alternative Regimens */}
-      {treatmentPlan.alternatives && treatmentPlan.alternatives.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
-            {t('alternatives')} ({treatmentPlan.alternatives.length})
-          </h4>
-          <div className="space-y-2">
-            {treatmentPlan.alternatives.map((drug) => renderDrugCard(drug, false))}
+        {/* Alternative Regimens */}
+        {treatmentPlan.alternatives && treatmentPlan.alternatives.length > 0 && (
+          <div className="space-y-1.5">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
+              {t('alternatives')} ({treatmentPlan.alternatives.length})
+            </h4>
+            <div className="space-y-2">
+              {treatmentPlan.alternatives.map((drug) => renderDrugCard(drug, false))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Non-Pharmacological Care */}
-      {treatmentPlan.non_pharmacological && treatmentPlan.non_pharmacological.length > 0 && (
-        <Card className="p-3.5 border-border/80 bg-card shadow-2xs space-y-2 text-xs">
-          <h4 className="font-bold text-foreground">
-            {t('nonPharmacological')}
-          </h4>
-          <ul className="list-disc list-inside space-y-1 text-muted-foreground leading-relaxed">
-            {treatmentPlan.non_pharmacological.map((item, idx) => (
-              <li key={idx}>{item}</li>
-            ))}
-          </ul>
-        </Card>
-      )}
+        {/* Non-Pharmacological Care */}
+        {treatmentPlan.non_pharmacological && treatmentPlan.non_pharmacological.length > 0 && (
+          <Card className="p-3 border-border/80 bg-card shadow-2xs space-y-1.5 text-xs">
+            <h4 className="font-bold text-foreground">
+              {t('nonPharmacological')}
+            </h4>
+            <ul className="list-disc list-inside space-y-0.5 text-muted-foreground leading-relaxed">
+              {treatmentPlan.non_pharmacological.map((item, idx) => (
+                <li key={idx}>{item}</li>
+              ))}
+            </ul>
+          </Card>
+        )}
 
-      {/* Doctor Notes & Finalize CTA */}
-      <Card className="p-3.5 border-border/80 bg-card shadow-2xs space-y-3">
-        <div className="space-y-1">
+        {/* Doctor Notes Box */}
+        <Card className="p-3 border-border/80 bg-card shadow-2xs space-y-1.5">
           <label htmlFor="doc-notes" className="text-xs font-semibold text-foreground block">
             {locale === 'bn' ? 'চিকিৎসকের অতিরিক্ত নির্দেশনা ও পরামর্শ:' : 'Attending Physician Notes & Advice:'}
           </label>
@@ -336,31 +337,32 @@ export function TreatmentTab({
             rows={2}
             className="text-xs resize-none"
           />
-        </div>
+        </Card>
+      </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-border/60">
-          <div className="text-[11px] text-muted-foreground">
-            {approvedDrugIds.size} {locale === 'bn' ? 'ওষুধ নির্বাচিত' : 'drug(s) selected'}
-            {unacknowledgedCriticalCount > 0 && (
-              <span className="text-destructive font-semibold ml-1">
-                • {unacknowledgedCriticalCount} critical alert(s) unacknowledged
-              </span>
-            )}
-          </div>
-
-          {!isFinalized && (
-            <Button
-              size="sm"
-              onClick={onFinalizePrescription}
-              disabled={approvedDrugIds.size === 0 || finalizing}
-              className="gap-1.5 text-xs font-semibold h-8"
-            >
-              <FileCheck className="w-3.5 h-3.5" />
-              <span>{t('finalizePrescription')}</span>
-            </Button>
+      {/* Pinned Bottom Finalize CTA */}
+      <div className="p-2.5 rounded-lg border border-border/80 bg-card/90 backdrop-blur-xs flex items-center justify-between gap-3 shrink-0">
+        <div className="text-[11px] text-muted-foreground">
+          <span className="font-semibold text-foreground">{approvedDrugIds.size}</span> {locale === 'bn' ? 'ওষুধ নির্বাচিত' : 'drug(s) selected'}
+          {unacknowledgedCriticalCount > 0 && (
+            <span className="text-destructive font-semibold ml-1">
+              • {unacknowledgedCriticalCount} critical alert(s) unacknowledged
+            </span>
           )}
         </div>
-      </Card>
+
+        {!isFinalized && (
+          <Button
+            size="sm"
+            onClick={onFinalizePrescription}
+            disabled={approvedDrugIds.size === 0 || finalizing}
+            className="gap-1.5 text-xs font-semibold h-7.5 px-3"
+          >
+            <FileCheck className="w-3.5 h-3.5" />
+            <span>{t('finalizePrescription')}</span>
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
