@@ -34,10 +34,6 @@ import {
   ArrowLeft,
   MessagesSquare,
   User,
-  Heart,
-  Activity,
-  Thermometer,
-  Wind,
   Columns,
   Maximize2,
   CheckCircle2,
@@ -335,7 +331,6 @@ function CaseWorkspaceContent({ params }: CaseWorkspacePageProps) {
   const input = ((caseData.structured_input ||
     (caseData as unknown as Record<string, unknown>).structuredInput) ||
     {}) as unknown as StructuredPatientInput;
-  const vitals = input.vitals || {};
 
   const criticalAlerts =
     treatmentPlan?.safety_alerts.filter((a) => a.severity === 'critical') || [];
@@ -375,52 +370,12 @@ function CaseWorkspaceContent({ params }: CaseWorkspacePageProps) {
               </Badge>
             </div>
 
-            <span className="text-[11px] sm:text-xs text-muted-foreground hidden sm:inline shrink-0 capitalize">
-              {input.age ? `${input.age} yrs, ` : ''}
-              {input.gender}
-              {input.weight_kg ? ` • ${input.weight_kg} kg` : ''}
-            </span>
-
             {input.chief_complaint && (
-              <div className="hidden xl:flex items-center gap-1 text-xs text-muted-foreground min-w-0 overflow-hidden">
+              <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground min-w-0 overflow-hidden">
                 <span className="h-3 w-px bg-border/60 shrink-0 mx-1" />
                 <span className="font-medium text-foreground shrink-0">{tIntake('chiefComplaint')}:</span>
                 <span className="truncate max-w-xs">{input.chief_complaint}</span>
               </div>
-            )}
-          </div>
-
-          {/* Middle: Quick Vitals Badges */}
-          <div className="hidden md:flex items-center gap-1.5 shrink-0">
-            {vitals.blood_pressure_systolic && (
-              <Badge variant="outline" className="text-[10px] gap-1 font-mono font-semibold h-5 px-1.5 py-0">
-                <Heart className="w-3 h-3 text-rose-500" />
-                {vitals.blood_pressure_systolic}/{vitals.blood_pressure_diastolic}
-              </Badge>
-            )}
-            {vitals.heart_rate && (
-              <Badge variant="outline" className="text-[10px] gap-1 font-mono font-semibold h-5 px-1.5 py-0">
-                <Activity className="w-3 h-3 text-primary" />
-                {vitals.heart_rate} bpm
-              </Badge>
-            )}
-            {vitals.temperature_celsius && (
-              <Badge
-                variant={vitals.temperature_celsius >= 38.5 ? 'destructive' : 'outline'}
-                className="text-[10px] gap-1 font-mono font-semibold h-5 px-1.5 py-0"
-              >
-                <Thermometer className="w-3 h-3 text-amber-500" />
-                {vitals.temperature_celsius}°C
-              </Badge>
-            )}
-            {vitals.spo2_percent && (
-              <Badge
-                variant={vitals.spo2_percent < 95 ? 'secondary' : 'outline'}
-                className="text-[10px] gap-1 font-mono font-semibold h-5 px-1.5 py-0"
-              >
-                <Wind className="w-3 h-3 text-teal-600" />
-                {vitals.spo2_percent}%
-              </Badge>
             )}
           </div>
 

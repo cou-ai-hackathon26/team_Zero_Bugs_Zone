@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   PatientCase,
   CaseTurn,
@@ -28,9 +28,19 @@ import {
   FileCheck,
   ChevronDown,
   Stethoscope,
+  Copy,
+  Check,
+  Activity,
+  Pill,
+  AlertTriangle,
+  Loader2,
 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
+
+function generateClientDraftId(): string {
+  return `draft-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
 
 interface CaseConversationTabProps {
   caseId: string;
@@ -68,6 +78,7 @@ export function CaseConversationTab({
   const [inlineAnswers, setInlineAnswers] = useState<Record<string, string>>({});
   const [answeringQuestionId, setAnsweringQuestionId] = useState<string | null>(null);
   const [expandedUpdates, setExpandedUpdates] = useState<Record<string, boolean>>({});
+  const [copiedTurnId, setCopiedTurnId] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -97,8 +108,8 @@ export function CaseConversationTab({
   }, [turns.length, submitting, requestingReview]);
 
   // Send natural language observation or request evidence review
-  const handleSend = async (action: 'observation' | 'evidence_review' = 'observation') => {
-    const textToSend = inputObservation.trim();
+  const handleSend = useCallback(async (action: 'observation' | 'evidence_review' = 'observation', customText?: string) => {
+    const textToSend = (customText !== undefined ? customText : inputObservation).trim();
     if (!textToSend && action === 'observation') return;
     if (submitting || requestingReview) return;
 
@@ -108,7 +119,7 @@ export function CaseConversationTab({
       setSubmitting(true);
     }
 
-    const draftId = `draft-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const draftId = generateClientDraftId();
 
     try {
       const res = await fetch(`/api/cases/${caseId}/turns`, {
@@ -155,13 +166,23 @@ export function CaseConversationTab({
       setSubmitting(false);
       setRequestingReview(false);
     }
-  };
+  }, [caseId, draftStorageKey, inputObservation, locale, onTurnsUpdate, requestingReview, submitting, turns]);
 
   // Keyboard shortcut: Enter sends, Shift+Enter new line
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       void handleSend('observation');
+    }
+  };
+
+  // Copy clinical note to clipboard
+  const handleCopyText = (turnId: string, text: string) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedTurnId(turnId);
+      toast.success(t('copiedToClipboard'));
+      setTimeout(() => setCopiedTurnId(null), 2000);
     }
   };
 
@@ -207,9 +228,9 @@ export function CaseConversationTab({
     }
   };
 
-  // Submit inline answer to a follow-up question
-  const handleAnswerSubmit = async (questionId: string, questionText: string) => {
-    const answer = (inlineAnswers[questionId] || '').trim();
+  // Submit answer to a follow-up question (supports typed text or 1-click chip)
+  const handleAnswerSubmit = async (questionId: string, questionText: string, customAnswer?: string) => {
+    const answer = (customAnswer !== undefined ? customAnswer : (inlineAnswers[questionId] || '')).trim();
     if (!answer) return;
 
     setAnsweringQuestionId(questionId);
@@ -263,6 +284,42 @@ export function CaseConversationTab({
     }
   };
 
+  // Quick Action Prompt Chips for doctors
+  const promptChips = [
+    {
+      icon: Stethoscope,
+      label: t('promptDifferentials'),
+      query:
+        locale === 'bn'
+          ? 'বর্তমান উপসর্গের ভিত্তিতে সবচেয়ে সম্ভাব্য ডিফারেনশিয়াল রোগসমূহ কী কী?'
+          : 'What are the top differential diagnoses based on these clinical findings?',
+    },
+    {
+      icon: Activity,
+      label: t('promptLabs'),
+      query:
+        locale === 'bn'
+          ? 'এই রোগীর জন্য কোন কোন ল্যাব টেস্ট ও রেডিওলজি পরীক্ষা নির্দেশিত?'
+          : 'What laboratory or diagnostic imaging tests should be prioritized?',
+    },
+    {
+      icon: Pill,
+      label: t('promptTreatment'),
+      query:
+        locale === 'bn'
+          ? 'জাতীয় গাইডলাইন ও ডিজিডিএ ফর্মুলারি অনুসারে প্রথম সারির চিকিৎসা নির্দেশনা কী?'
+          : 'What is the recommended first-line treatment regimen according to guidelines?',
+    },
+    {
+      icon: AlertTriangle,
+      label: t('promptRedFlags'),
+      query:
+        locale === 'bn'
+          ? 'এই রোগীর ক্ষেত্রে কোন কোন জরুরি রেড ফ্ল্যাগ সতর্কতা তাৎক্ষণিকভাবে যাচাই করা প্রয়োজন?'
+          : 'What critical red-flag emergency signs must be monitored closely?',
+    },
+  ];
+
   return (
     <div className="flex flex-col h-full min-h-0 bg-background rounded-lg border border-border/80 shadow-2xs overflow-hidden">
       {/* Clean Chat Header */}
@@ -311,7 +368,7 @@ export function CaseConversationTab({
         ref={scrollRef}
         tabIndex={0}
         aria-label="Case conversation stream"
-        className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-3 focus:outline-none"
+        className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-3.5 focus:outline-none"
       >
         {turns.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-4">
@@ -324,308 +381,380 @@ export function CaseConversationTab({
               </h4>
               <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">
                 {locale === 'bn'
-                  ? 'রোগীর লক্ষণ বা ক্লিনিকাল নোট লিখুন। সিস্টেম লাইব্রেরি থেকে প্রমাণ উদ্ধার করে সম্ভাব্য কারণ দেখাবে।'
-                  : 'Enter patient findings or clinical observations. The system searches the internal medical library to provide verified insights.'}
+                  ? 'রোগীর শারীরিক লক্ষণ, ভাইটালস বা পরীক্ষা লিখুন। অভ্যন্তরীণ মেডিকেল লাইব্রেরি থেকে যাচাইকৃত প্রমাণসহ সহায়তা পাবেন।'
+                  : 'Enter patient symptoms, physical exam, or clinical questions. The system retrieves verified proofs from closed internal medical guidelines.'}
               </p>
             </div>
 
-            <div className="pt-2 flex flex-wrap gap-2 justify-center">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void handleSend('evidence_review')}
-                disabled={requestingReview}
-                className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10"
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>{t('requestEvidenceReview')}</span>
-              </Button>
+            <div className="pt-2 flex flex-wrap gap-2 justify-center max-w-md">
+              {promptChips.map((chip, idx) => {
+                const IconComponent = chip.icon;
+                return (
+                  <Button
+                    key={idx}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleSend('observation', chip.query)}
+                    disabled={submitting || requestingReview}
+                    className="gap-1.5 text-xs border-primary/20 hover:border-primary/50 text-foreground hover:bg-primary/5"
+                  >
+                    <IconComponent className="w-3.5 h-3.5 text-primary" />
+                    <span>{chip.label}</span>
+                  </Button>
+                );
+              })}
             </div>
           </div>
         ) : (
-          turns.map((turn, turnIdx) => {
-            const content = (turn.content || {}) as Record<string, unknown>;
-            const turnType = content.type as string;
-            const isDoctor = turn.role === 'doctor';
-            const rawDate = turn.created_at || (turn as unknown as Record<string, unknown>).createdAt || new Date();
-            const timestamp = new Date(rawDate as string | number | Date).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            });
+          <>
+            {turns.map((turn, turnIdx) => {
+              const content = (turn.content || {}) as Record<string, unknown>;
+              const turnType = content.type as string;
+              const isDoctor = turn.role === 'doctor';
+              const rawDate = turn.created_at || (turn as unknown as Record<string, unknown>).createdAt || new Date();
+              const timestamp = new Date(rawDate as string | number | Date).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              });
 
-            // 1. Audit / Event Log Pill
-            if (turnType === 'case_event' || turnType === 'status_change') {
-              return (
-                <div key={turn.id || turnIdx} className="flex justify-center my-1.5">
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted/70 border border-border/60 text-[11px] text-muted-foreground font-medium">
-                    <FileCheck className="w-3.5 h-3.5 text-primary" />
-                    <span>{(content.description as string) || (content.note as string) || t('confirmedObservation')}</span>
-                    <span className="text-[10px] opacity-70">• {timestamp}</span>
+              // 1. Audit / Event Log Pill
+              if (turnType === 'case_event' || turnType === 'status_change') {
+                return (
+                  <div key={turn.id || turnIdx} className="flex justify-center my-1.5">
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted/70 border border-border/60 text-[11px] text-muted-foreground font-medium">
+                      <FileCheck className="w-3.5 h-3.5 text-primary" />
+                      <span>{(content.description as string) || (content.note as string) || t('confirmedObservation')}</span>
+                      <span className="text-[10px] opacity-70">• {timestamp}</span>
+                    </div>
                   </div>
-                </div>
-              );
-            }
+                );
+              }
 
-            // 2. Doctor Message (Right)
-            if (isDoctor) {
-              const obsText =
-                (content.text as string) ||
-                (content.observation as string) ||
-                (content.note as string) ||
-                (content.answer ? `Q: ${content.question}\nA: ${content.answer}` : '');
+              // 2. Doctor Message (Right)
+              if (isDoctor) {
+                const obsText =
+                  (content.text as string) ||
+                  (content.observation as string) ||
+                  (content.note as string) ||
+                  (content.answer ? `Q: ${content.question}\nA: ${content.answer}` : '');
+
+                return (
+                  <div key={turn.id || turnIdx} className="flex flex-col items-end space-y-1">
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-medium pr-1">
+                      <span className="font-semibold text-foreground">
+                        {locale === 'bn' ? 'চিকিৎসক (Physician)' : 'Physician'}
+                      </span>
+                      <Clock className="w-3 h-3" />
+                      <span>{timestamp}</span>
+                    </div>
+                    <div className="max-w-[85%] sm:max-w-[75%] rounded-2xl rounded-tr-xs bg-primary text-primary-foreground px-4 py-3 shadow-xs text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">
+                      {obsText}
+                    </div>
+                  </div>
+                );
+              }
+
+              // 3. Assistant Message (Left)
+              const assistantText = (content.text as string) || '';
+              const proposedUpdates = (content.proposed_updates as ProposedUpdate[]) || [];
+              const followUps = (content.follow_ups as MissingInformation[]) || [];
+              const citations = (content.citations as VerifiedClaim[]) || [];
+              const safetyAlerts = (content.safety_alerts as SafetyAlert[]) || [];
+              const turnIdentifier = turn.id || String(turnIdx);
 
               return (
-                <div key={turn.id || turnIdx} className="flex flex-col items-end space-y-1">
-                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-medium pr-1">
-                    <span className="font-semibold text-foreground">
-                      {locale === 'bn' ? 'চিকিৎসক' : 'Physician'}
-                    </span>
-                    <Clock className="w-3 h-3" />
+                <div key={turnIdentifier} className="flex flex-col items-start space-y-2.5">
+                  {/* Assistant Identity */}
+                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-medium pl-1">
+                    <div className="w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                      <Bot className="w-2.5 h-2.5" />
+                    </div>
+                    <span className="font-bold text-foreground">DocMate AI</span>
+                    <Badge variant="outline" className="text-[9px] py-0 px-1 border-primary/20 text-primary font-semibold">
+                      {t('draftSuggestion')}
+                    </Badge>
+                    <Clock className="w-3 h-3 ml-1" />
                     <span>{timestamp}</span>
                   </div>
-                  <div className="max-w-[85%] sm:max-w-[75%] rounded-2xl rounded-tr-xs bg-primary text-primary-foreground px-4 py-3 shadow-xs text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">
-                    {obsText}
-                  </div>
-                </div>
-              );
-            }
 
-            // 3. Assistant Message (Left)
-            const assistantText = (content.text as string) || '';
-            const proposedUpdates = (content.proposed_updates as ProposedUpdate[]) || [];
-            const followUps = (content.follow_ups as MissingInformation[]) || [];
-            const citations = (content.citations as VerifiedClaim[]) || [];
-            const safetyAlerts = (content.safety_alerts as SafetyAlert[]) || [];
-
-            return (
-              <div key={turn.id || turnIdx} className="flex flex-col items-start space-y-2.5">
-                {/* Assistant Identity */}
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-medium pl-1">
-                  <div className="w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-                    <Bot className="w-2.5 h-2.5" />
-                  </div>
-                  <span className="font-bold text-foreground">DocMate AI</span>
-                  <Badge variant="outline" className="text-[9px] py-0 px-1 border-primary/20 text-primary font-semibold">
-                    {t('draftSuggestion')}
-                  </Badge>
-                  <Clock className="w-3 h-3 ml-1" />
-                  <span>{timestamp}</span>
-                </div>
-
-                {/* Main Speech Bubble */}
-                {assistantText && (
-                  <div className="max-w-[92%] sm:max-w-[85%] rounded-2xl rounded-tl-xs bg-card border border-border/80 px-4 py-3.5 shadow-xs text-xs sm:text-sm leading-relaxed text-foreground">
-                    <p className="whitespace-pre-wrap">{assistantText}</p>
-
-                    {/* Inline Verbatim Citations - opens EvidenceSheet on click */}
-                    {citations.length > 0 && (
-                      <div className="mt-2.5 pt-2 border-t border-border/60 flex items-center flex-wrap gap-1">
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mr-1">
-                          {locale === 'bn' ? 'প্রমাণ উদ্ধৃতি:' : 'Evidence:'}
-                        </span>
-                        {citations.map((claim, cIdx) => (
-                          <CitationChip key={claim.chunk_id || cIdx} index={cIdx + 1} claim={claim} />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Compact Safety Warning Banner */}
-                {safetyAlerts.length > 0 && (
-                  <div className="w-full max-w-[92%] sm:max-w-[85%] space-y-1.5">
-                    {safetyAlerts.map((alert) => (
-                      <div
-                        key={alert.id}
-                        className={`px-3 py-2 rounded-lg border text-xs flex items-start gap-2 ${
-                          alert.severity === 'critical'
-                            ? 'bg-destructive/10 border-destructive/30 text-destructive'
-                            : 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-300'
-                        }`}
+                  {/* Main Speech Bubble with Copy Action */}
+                  {assistantText && (
+                    <div className="relative group max-w-[92%] sm:max-w-[85%] rounded-2xl rounded-tl-xs bg-card border border-border/80 px-4 py-3.5 shadow-xs text-xs sm:text-sm leading-relaxed text-foreground">
+                      {/* Copy Action Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleCopyText(turnIdentifier, assistantText)}
+                        aria-label={t('copyNote')}
+                        title={t('copyNote')}
+                        className="absolute right-2.5 top-2.5 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
-                        <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
-                        <div className="space-y-0.5">
-                          <span className="font-bold block">{alert.title}</span>
-                          <span className="text-[11px] leading-relaxed block">{alert.description}</span>
+                        {copiedTurnId === turnIdentifier ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+
+                      <p className="whitespace-pre-wrap pr-6">{assistantText}</p>
+
+                      {/* Inline Verbatim Citations - opens EvidenceSheet on click */}
+                      {citations.length > 0 && (
+                        <div className="mt-3 pt-2.5 border-t border-border/60 flex items-center flex-wrap gap-1.5">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mr-1">
+                            {locale === 'bn' ? 'যাচাইকৃত প্রমাণ উদ্ধৃতি:' : 'Verified Evidence:'}
+                          </span>
+                          {citations.map((claim, cIdx) => (
+                            <CitationChip key={claim.chunk_id || cIdx} index={cIdx + 1} claim={claim} />
+                          ))}
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      )}
+                    </div>
+                  )}
 
-                {/* Proposed Patient Record Updates - Expandable Section */}
-                {proposedUpdates.length > 0 && (
-                  <div className="w-full max-w-[92%] sm:max-w-[85%] space-y-2">
-                    {proposedUpdates.map((update) => {
-                      const isExpanded = expandedUpdates[update.id] ?? (update.status === 'pending');
-                      return (
-                        <Card
-                          key={update.id}
-                          className="border-primary/20 bg-primary/5 p-3 text-xs space-y-2 shadow-2xs"
+                  {/* Compact Safety Warning Banner */}
+                  {safetyAlerts.length > 0 && (
+                    <div className="w-full max-w-[92%] sm:max-w-[85%] space-y-1.5">
+                      {safetyAlerts.map((alert) => (
+                        <div
+                          key={alert.id}
+                          className={`px-3 py-2 rounded-lg border text-xs flex items-start gap-2 ${
+                            alert.severity === 'critical'
+                              ? 'bg-destructive/10 border-destructive/30 text-destructive'
+                              : 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-300'
+                          }`}
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
-                              <span className="font-bold text-foreground truncate">
-                                {locale === 'bn' ? update.label_bn : update.label_en}:
-                              </span>
-                              <span className="font-semibold text-primary truncate">
-                                {update.display_value}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <Badge
-                                variant={
-                                  update.status === 'confirmed'
-                                    ? 'default'
-                                    : update.status === 'dismissed'
-                                    ? 'secondary'
-                                    : 'outline'
-                                }
-                                className={`text-[10px] py-0 px-1.5 font-semibold ${
-                                  update.status === 'confirmed'
-                                    ? 'bg-emerald-600 text-white'
-                                    : update.status === 'dismissed'
-                                    ? 'bg-muted text-muted-foreground'
-                                    : 'border-amber-500/40 text-amber-700 dark:text-amber-400 bg-amber-500/10'
-                                }`}
-                              >
-                                {update.status === 'confirmed'
-                                  ? t('statusConfirmed')
-                                  : update.status === 'dismissed'
-                                  ? t('statusDismissed')
-                                  : t('statusPending')}
-                              </Badge>
-
-                              <button
-                                type="button"
-                                onClick={() => toggleUpdateExpanded(update.id)}
-                                className="p-1 rounded hover:bg-muted text-muted-foreground"
-                                aria-label="Toggle details"
-                              >
-                                <ChevronDown
-                                  className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                                />
-                              </button>
-                            </div>
+                          <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+                          <div className="space-y-0.5">
+                            <span className="font-bold block">{alert.title}</span>
+                            <span className="text-[11px] leading-relaxed block">{alert.description}</span>
                           </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
-                          {isExpanded && (
-                            <div className="pt-2 border-t border-border/60 space-y-2">
-                              <div className="text-[11px] text-muted-foreground">
-                                <span className="font-semibold text-foreground mr-1">
-                                  {t('originalWording')}:
+                  {/* Proposed Patient Record Updates - Expandable Section */}
+                  {proposedUpdates.length > 0 && (
+                    <div className="w-full max-w-[92%] sm:max-w-[85%] space-y-2">
+                      {proposedUpdates.map((update) => {
+                        const isExpanded = expandedUpdates[update.id] ?? (update.status === 'pending');
+                        return (
+                          <Card
+                            key={update.id}
+                            className="border-primary/20 bg-primary/5 p-3 text-xs space-y-2 shadow-2xs"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+                                <span className="font-bold text-foreground truncate">
+                                  {locale === 'bn' ? update.label_bn : update.label_en}:
                                 </span>
-                                &ldquo;{update.original_wording}&rdquo;
+                                <span className="font-semibold text-primary truncate">
+                                  {update.display_value}
+                                </span>
                               </div>
 
-                              {update.status === 'pending' && (
-                                <div className="flex items-center gap-2 pt-1">
-                                  <Button
-                                    size="sm"
-                                    onClick={() => void handleConfirmUpdate(turn.id, update.id, 'confirm')}
-                                    className="h-7 px-2.5 text-xs font-semibold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs"
-                                  >
-                                    <CheckCircle2 className="w-3.5 h-3.5" />
-                                    <span>{t('confirmUpdate')}</span>
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => void handleConfirmUpdate(turn.id, update.id, 'dismiss')}
-                                    className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-                                  >
-                                    <XCircle className="w-3.5 h-3.5" />
-                                    <span>{t('dismissUpdate')}</span>
-                                  </Button>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Badge
+                                  variant={
+                                    update.status === 'confirmed'
+                                      ? 'default'
+                                      : update.status === 'dismissed'
+                                      ? 'secondary'
+                                      : 'outline'
+                                  }
+                                  className={`text-[10px] py-0 px-1.5 font-semibold ${
+                                    update.status === 'confirmed'
+                                      ? 'bg-emerald-600 text-white'
+                                      : update.status === 'dismissed'
+                                      ? 'bg-muted text-muted-foreground'
+                                      : 'border-amber-500/40 text-amber-700 dark:text-amber-400 bg-amber-500/10'
+                                  }`}
+                                >
+                                  {update.status === 'confirmed'
+                                    ? t('statusConfirmed')
+                                    : update.status === 'dismissed'
+                                    ? t('statusDismissed')
+                                    : t('statusPending')}
+                                </Badge>
+
+                                <button
+                                  type="button"
+                                  onClick={() => toggleUpdateExpanded(update.id)}
+                                  className="p-1 rounded hover:bg-muted text-muted-foreground"
+                                  aria-label="Toggle details"
+                                >
+                                  <ChevronDown
+                                    className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                  />
+                                </button>
+                              </div>
+                            </div>
+
+                            {isExpanded && (
+                              <div className="pt-2 border-t border-border/60 space-y-2">
+                                <div className="text-[11px] text-muted-foreground">
+                                  <span className="font-semibold text-foreground mr-1">
+                                    {t('originalWording')}:
+                                  </span>
+                                  &ldquo;{update.original_wording}&rdquo;
                                 </div>
+
+                                {update.status === 'pending' && (
+                                  <div className="flex items-center gap-2 pt-1">
+                                    <Button
+                                      size="sm"
+                                      onClick={() => void handleConfirmUpdate(turn.id, update.id, 'confirm')}
+                                      className="h-7 px-2.5 text-xs font-semibold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs"
+                                    >
+                                      <CheckCircle2 className="w-3.5 h-3.5" />
+                                      <span>{t('confirmUpdate')}</span>
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => void handleConfirmUpdate(turn.id, update.id, 'dismiss')}
+                                      className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                    >
+                                      <XCircle className="w-3.5 h-3.5" />
+                                      <span>{t('dismissUpdate')}</span>
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Follow-up Questions with 1-Click Quick Answer Chips */}
+                  {followUps.length > 0 && (
+                    <div className="w-full max-w-[92%] sm:max-w-[85%] space-y-2">
+                      {followUps.map((question) => (
+                        <Card
+                          key={question.id}
+                          className="p-3 border-amber-500/30 bg-amber-500/5 space-y-2 text-xs"
+                        >
+                          <div className="flex items-start gap-2">
+                            <HelpCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                            <div className="space-y-0.5 flex-1">
+                              <span className="font-bold text-foreground block">{question.text}</span>
+                              {question.why_it_helps && (
+                                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                  <span className="font-semibold">{t('whyItHelps')}</span> {question.why_it_helps}
+                                </p>
                               )}
                             </div>
-                          )}
-                        </Card>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Follow-up Questions (Clarifications) - Clean compact prompt */}
-                {followUps.length > 0 && (
-                  <div className="w-full max-w-[92%] sm:max-w-[85%] space-y-2">
-                    {followUps.map((question) => (
-                      <Card
-                        key={question.id}
-                        className="p-3 border-amber-500/30 bg-amber-500/5 space-y-2 text-xs"
-                      >
-                        <div className="flex items-start gap-2">
-                          <HelpCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                          <div className="space-y-0.5 flex-1">
-                            <span className="font-bold text-foreground block">{question.text}</span>
-                            {question.why_it_helps && (
-                              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                <span className="font-semibold">{t('whyItHelps')}</span> {question.why_it_helps}
-                              </p>
-                            )}
                           </div>
-                        </div>
 
-                        <div className="flex items-center gap-2 pt-1">
-                          <input
-                            type="text"
-                            placeholder={locale === 'bn' ? 'ক্লিনিকাল ফলাফল লিখুন...' : 'Enter clinical finding...'}
-                            value={inlineAnswers[question.id] || ''}
-                            onChange={(e) =>
-                              setInlineAnswers((prev) => ({
-                                ...prev,
-                                [question.id]: e.target.value,
-                              }))
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                void handleAnswerSubmit(question.id, question.text);
+                          {/* 1-Tap Quick Answer Chips */}
+                          {question.quick_answers && question.quick_answers.length > 0 && (
+                            <div className="flex items-center flex-wrap gap-1.5 pt-1">
+                              {question.quick_answers.map((quickChip) => (
+                                <button
+                                  key={quickChip}
+                                  type="button"
+                                  onClick={() => void handleAnswerSubmit(question.id, question.text, quickChip)}
+                                  disabled={answeringQuestionId === question.id}
+                                  className="px-2.5 py-1 rounded-md text-[11px] font-medium bg-background border border-border/80 hover:bg-primary/10 hover:border-primary/40 text-foreground transition-all flex items-center gap-1 active:scale-95 shadow-2xs"
+                                >
+                                  <span>{quickChip}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Custom manual answer input */}
+                          <div className="flex items-center gap-2 pt-1">
+                            <input
+                              type="text"
+                              placeholder={locale === 'bn' ? 'বা কাস্টম ক্লিনিকাল ফলাফল লিখুন...' : 'Or enter custom findings...'}
+                              value={inlineAnswers[question.id] || ''}
+                              onChange={(e) =>
+                                setInlineAnswers((prev) => ({
+                                  ...prev,
+                                  [question.id]: e.target.value,
+                                }))
                               }
-                            }}
-                            className="flex-1 h-8 px-2.5 rounded-md border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                          />
-                          <Button
-                            size="sm"
-                            onClick={() => void handleAnswerSubmit(question.id, question.text)}
-                            disabled={answeringQuestionId === question.id || !inlineAnswers[question.id]?.trim()}
-                            className="h-8 px-3 text-xs font-semibold gap-1"
-                          >
-                            <span>{t('submitInlineAnswer')}</span>
-                          </Button>
-                        </div>
-                      </Card>
-                    ))}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  void handleAnswerSubmit(question.id, question.text);
+                                }
+                              }}
+                              className="flex-1 h-8 px-2.5 rounded-md border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                            <Button
+                              size="sm"
+                              onClick={() => void handleAnswerSubmit(question.id, question.text)}
+                              disabled={answeringQuestionId === question.id || !inlineAnswers[question.id]?.trim()}
+                              className="h-8 px-3 text-xs font-semibold gap-1"
+                            >
+                              <span>{t('submitInlineAnswer')}</span>
+                            </Button>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Smart Thinking / Guideline Analyzing State */}
+            {(submitting || requestingReview) && (
+              <div className="flex flex-col items-start space-y-2 animate-fadeIn">
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-medium pl-1">
+                  <div className="w-4 h-4 rounded-full bg-primary/20 text-primary flex items-center justify-center animate-pulse">
+                    <Sparkles className="w-2.5 h-2.5" />
                   </div>
-                )}
+                  <span className="font-bold text-foreground">DocMate AI</span>
+                  <Badge variant="outline" className="text-[9px] py-0 px-1 border-primary/30 text-primary animate-pulse">
+                    {requestingReview ? t('requestingReview') : t('analyzing')}
+                  </Badge>
+                </div>
+                <div className="max-w-[85%] rounded-2xl rounded-tl-xs bg-muted/70 border border-border/80 px-4 py-3 text-xs text-muted-foreground flex items-center gap-2.5 shadow-2xs">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
+                  <span className="font-medium">{t('analyzingGuidelines')}</span>
+                </div>
               </div>
-            );
-          })
+            )}
+          </>
         )}
       </div>
 
-      {/* Clean Floating Input Bar */}
-      <div className="p-2 sm:p-2.5 shrink-0 border-t border-border/70 bg-card/70 backdrop-blur-xs space-y-1.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void handleSend('evidence_review')}
-              disabled={submitting || requestingReview}
-              className="h-6 px-2 text-[11px] font-medium gap-1 border-primary/30 text-primary hover:bg-primary/10"
-            >
-              <BookOpen className="w-3 h-3" />
-              <span>{requestingReview ? t('requestingReview') : t('requestEvidenceReview')}</span>
-            </Button>
-          </div>
+      {/* Clean Floating Input Bar with Clinical Quick Prompts */}
+      <div className="p-2 sm:p-2.5 shrink-0 border-t border-border/70 bg-card/70 backdrop-blur-xs space-y-2">
+        {/* Horizontal Quick Prompts Bar */}
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void handleSend('evidence_review')}
+            disabled={submitting || requestingReview}
+            className="h-6 px-2 text-[11px] font-semibold gap-1 border-primary/30 text-primary hover:bg-primary/10 shrink-0"
+          >
+            <BookOpen className="w-3 h-3" />
+            <span>{requestingReview ? t('requestingReview') : t('requestEvidenceReview')}</span>
+          </Button>
 
-          <span className="text-[10px] text-muted-foreground hidden sm:inline">
-            {locale === 'bn' ? 'Enter পাঠাবে • Shift+Enter নতুন লাইন' : 'Enter to send • Shift+Enter for new line'}
-          </span>
+          {promptChips.map((chip, idx) => {
+            const ChipIcon = chip.icon;
+            return (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => void handleSend('observation', chip.query)}
+                disabled={submitting || requestingReview}
+                className="h-6 px-2 rounded-md border border-border/70 bg-background/80 hover:bg-muted text-[11px] text-muted-foreground hover:text-foreground font-medium flex items-center gap-1 shrink-0 transition-colors"
+              >
+                <ChipIcon className="w-3 h-3 text-primary" />
+                <span>{chip.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         <div className="flex items-end gap-2">
@@ -634,10 +763,10 @@ export function CaseConversationTab({
             value={inputObservation}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder={locale === 'bn' ? 'ক্লিনিকাল পর্যবেক্ষণ বা প্রশ্ন লিখুন... (Enter চাপলে পাঠানো হবে)' : 'Type clinical findings or questions... (Enter to send)'}
+            placeholder={t('inputPlaceholder')}
             disabled={submitting || requestingReview}
             rows={1}
-            className="flex-1 min-h-[38px] max-h-24 text-xs sm:text-sm resize-none rounded-lg p-2 border-border/80 focus-visible:ring-1 focus-visible:ring-primary"
+            className="flex-1 min-h-[38px] max-h-28 text-xs sm:text-sm resize-none rounded-lg p-2 border-border/80 focus-visible:ring-1 focus-visible:ring-primary bg-background"
             aria-label="Clinical observation input"
           />
           <Button
@@ -650,6 +779,11 @@ export function CaseConversationTab({
             <Send className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">{submitting ? t('submitting') : t('send')}</span>
           </Button>
+        </div>
+
+        <div className="flex items-center justify-between text-[10px] text-muted-foreground px-1">
+          <span>{locale === 'bn' ? '💡 এআই চিকিৎসকের সিদ্ধান্ত সহায়তাকারী হিসেবে কাজ করে।' : '💡 AI acts as clinical decision support. The physician retains final authority.'}</span>
+          <span className="hidden sm:inline">Enter ↵ পাঠাবে • Shift+Enter ↵ নতুন লাইন</span>
         </div>
       </div>
     </div>

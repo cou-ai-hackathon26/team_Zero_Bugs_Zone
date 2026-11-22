@@ -155,7 +155,7 @@ export async function POST(
       const missingInfo: MissingInformation[] = [];
       const vitalsObj = patientInput.vitals || {};
       const hasVitals =
-        Boolean(vitalsObj.blood_pressure) ||
+        Boolean(vitalsObj.blood_pressure_systolic) ||
         Boolean(vitalsObj.temperature_celsius) ||
         Boolean(vitalsObj.heart_rate);
 
