@@ -64,6 +64,23 @@ For detailed workflow documentation:
 
 The demo physician owns three fixtures: `P-101` (fever and cough), `P-102` (chest pain), and `P-103` (vague malaise without recorded vitals). Use them only to exercise the application. Automated clinical assessment currently returns `insufficient_evidence`.
 
+### Voice assistant demo
+
+Open the voice panel and choose **Auto**, **বাংলা**, or **English** under **Conversation language**. Auto follows each typed or transcribed turn, including common Banglish phrases. Its microphone starts in the page language and follows the most recent reply language. For spoken input, select Bangla or English before recording if you want to switch. The page language stays as selected in the app. Library excerpts retain the source wording and language.
+
+In Settings, use **Sample Voice** to compare the Friendly and Reserved presets and adjust the speaking rate. The default engine uses installed Bangla and English device voices. Super admins can select **Expressive cloud voice for assistant messages** under **Engine & Routing** on `/en/admin/voice` (or `/bn/admin/voice`) when an OpenAI key is configured. It applies to scripted assistant messages and previews. Case and medication read-aloud use device voices. If cloud playback fails, DocMate tries the installed voice for the spoken language and displays a translated message if that voice is unavailable.
+
+The Maya option includes short, pre-rendered Bangla and English greetings with the Friendly female voice. Select **Maya neural voice (local)** in **Engine & Routing** to hear them. Settings previews use clips generated from DocMate’s public greeting text using Maya’s Jahnavi preset. They play without downloading a model. To synthesize the other replies and voice presets locally, use [Maya 2 Native](https://huggingface.co/maya-research/maya2-native). On Apple Silicon install the [MLX port](https://github.com/AkashKhamkar/maya2-mlx) in a separate Python environment. The first startup downloads about 5 GB of model weights plus the codec. No API key is required.
+
+```sh
+python3.12 -m venv data/storage/voice-runtime/venv
+data/storage/voice-runtime/venv/bin/pip install 'maya2-mlx @ git+https://github.com/AkashKhamkar/maya2-mlx.git@b722de398cec5c51e78190017971d18fa0c90726'
+HF_HOME="$PWD/data/storage/voice-runtime/hf" data/storage/voice-runtime/venv/bin/maya2 serve --host 127.0.0.1 --port 8319
+```
+
+Set `DOCMATE_MAYA_PORT=8319` in `.env.local` and restart DocMate. In **Engine & Routing** on `/en/admin/voice`, select **Maya neural voice (local)**, click **Test Audio**, then save. DocMate sends scripted assistant speech to the loopback engine. The live greeting and replies use the same Maya speaker. If Maya is unavailable before a message starts playing, DocMate uses the installed voice for each language for the rest of the conversation. Reload the page to let Maya try again. The reply stays visible if playback is unavailable. Speech is labelled AI-generated.
+
+
 ## 5. System architecture
 
 The Next.js workspace stores cases, physician follow-up turns and audit events in PostgreSQL. Case API reads and writes are scoped to the authenticated physician. Library ingestion stores source metadata, chunks and full-text vectors. The active Ask route searches text and displays verbatim, verified source excerpts. Optional pgvector embeddings are available to the offline evaluation harness when provider access is configured.

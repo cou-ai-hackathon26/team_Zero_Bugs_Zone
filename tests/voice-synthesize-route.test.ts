@@ -37,7 +37,10 @@ describe('expressive speech endpoint', () => {
     mocks.synthesize.mockResolvedValue(new Response(new Uint8Array([1, 2, 3])));
   });
 
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
 
   it('sends allowlisted style, language and speed and prevents response caching', async () => {
     const text = 'আমি কীভাবে সাহায্য করতে পারি?';
@@ -72,6 +75,64 @@ describe('expressive speech endpoint', () => {
     mocks.getConfig.mockResolvedValue([{ value: { tts_provider: 'openai', kill_switch: true } }]);
     expect((await post()).status).toBe(403);
     expect(mocks.synthesize).not.toHaveBeenCalled();
+  });
+
+  it('sends Maya only the spoken script and selects a warm Bangla voice without an OpenAI key', async () => {
+    vi.stubEnv('OPENAI_API_KEY', '');
+    vi.stubEnv('DOCMATE_MAYA_PORT', '8319');
+    mocks.getConfig.mockResolvedValue([{ value: { tts_provider: 'maya' } }]);
+    const synthesizeMaya = vi.fn<typeof fetch>().mockResolvedValue(new Response('WAV', {
+      headers: { 'Content-Type': 'audio/wav' },
+    }));
+    vi.stubGlobal('fetch', synthesizeMaya);
+    const text = 'আমি এখানে আছি। আজ কী নিয়ে কথা বলতে চান?';
+    const response = await post({ provider: 'maya', locale: 'bn', text });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('audio/wav');
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    const [target, payload] = synthesizeMaya.mock.calls[0];
+    expect(target).toBe('http://127.0.0.1:8319/v1/audio/speech');
+    expect(payload?.redirect).toBe('error');
+    expect(JSON.parse(payload?.body as string)).toEqual({
+      input: text, language: 'bn', voice: 'Jahnavi', response_format: 'wav',
+    });
+    expect(mocks.synthesize).not.toHaveBeenCalled();
+  });
+
+  it('does not switch providers when Maya cannot return audio', async () => {
+    vi.stubEnv('DOCMATE_MAYA_PORT', '8319');
+    mocks.getConfig.mockResolvedValue([{ value: { tts_provider: 'maya' } }]);
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(new Response('busy', { status: 503 })));
+    expect((await post({ provider: 'maya' })).status).toBe(502);
+    expect(mocks.synthesize).not.toHaveBeenCalled();
+  });
+
+  it('serves only a matching fixed neural greeting without requiring a model server', async () => {
+    vi.stubEnv('DOCMATE_MAYA_PORT', '');
+    mocks.getConfig.mockResolvedValue([{ value: { tts_provider: 'maya' } }]);
+    const args = { provider: 'maya', text: 'হ্যালো! আমি আছি। কী খুঁজে দেখতে চান?' };
+    const response = await post(args);
+    expect(response.status).toBe(303);
+    expect(response.headers.get('location')).toBe('/voice/maya/bn-conversationGreeting.mp3');
+    expect((await post({ ...args, conversationTone: 'warm' })).status).toBe(503);
+    expect((await post({ ...args, gender: 'male' })).status).toBe(503);
+    expect((await post({ ...args, text: `${args.text} Extra text` })).status).toBe(503);
+  });
+
+  it.each([['warm', 'Jahnavi'], ['neutral', 'Vaidehi']])('keeps the %s Maya speaker the same across live reply styles', async (conversationTone, voice) => {
+    vi.stubEnv('DOCMATE_MAYA_PORT', '8319');
+    mocks.getConfig.mockResolvedValue([{ value: { tts_provider: 'maya' } }]);
+    const synthesizeMaya = vi.fn<typeof fetch>(() => Promise.resolve(new Response('WAV', {
+      headers: { 'Content-Type': 'audio/wav' },
+    })));
+    vi.stubGlobal('fetch', synthesizeMaya);
+
+    for (const style of ['neutral', 'calm_urgent']) {
+      expect((await post({ provider: 'maya', conversationTone, style })).status).toBe(200);
+    }
+
+    expect(synthesizeMaya.mock.calls.map(([, request]) => JSON.parse(request?.body as string).voice))
+      .toEqual([voice, voice]);
   });
 
   it('returns a generic provider failure without echoing provider details', async () => {

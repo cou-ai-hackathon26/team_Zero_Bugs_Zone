@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { segmentForSpeech } from '@/lib/language/speech-segmenter';
+import { conversationLocale, conversationalReply } from '@/lib/voice/conversation';
 import { formatDoseForSpeech } from '@/lib/voice/dose-speech';
-import { BrowserSpeechSynthesisTTS, OpenAiTTS } from '@/lib/voice/tts-provider';
+import { BrowserSpeechSynthesisTTS, createTtsProvider, OpenAiTTS } from '@/lib/voice/tts-provider';
 
 class FakeUtterance {
   constructor(readonly text: string) {}
@@ -85,10 +86,61 @@ describe('voice playback', () => {
     expect(start).toHaveBeenCalledOnce();
   });
 
-  it('does not start local playback when a stopped cloud request eventually responds', async () => {
+  it.each([
+    ['en', 'You’re welcome. I’m here if you need anything else.', 'Samantha'],
+    ['bn', 'স্বাগতম। আর কিছু লাগলে বলবেন।', 'Piya'],
+  ] as const)('plays a custom %s reply with a device voice when Maya is offline', async (locale, text, voice) => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 502 }));
+    vi.stubGlobal('fetch', request);
+    const onError = vi.fn();
+    const onEnd = vi.fn();
+
+    await createTtsProvider('maya').speak({ text, locale, style: 'warm', onError, onEnd });
+
+    expect(JSON.parse(request.mock.calls[0][1]?.body as string)).toMatchObject({ provider: 'maya', locale, text });
+    expect(synth.speak).toHaveBeenCalledTimes(1);
+    const spoken = synth.speak.mock.calls[0][0];
+    expect(spoken).toMatchObject({ text, voice: { name: voice } });
+    spoken.onend?.();
+    expect(onEnd).toHaveBeenCalledOnce();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it.each([401, 403, 429])('honors HTTP %s without speaking through the device', async (status) => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status })));
+    const onError = vi.fn();
+
+    await createTtsProvider('maya').speak({ text: 'How can I help?', locale: 'en', onError });
+
+    expect(onError).toHaveBeenCalledWith('synthesis_request_rejected');
+    expect(synth.speak).not.toHaveBeenCalled();
+  });
+
+  it('follows Bangla, English and Banglish while respecting an explicit language selection', () => {
+    expect(conversationLocale('ডেঙ্গু guideline কী বলে?', 'auto', 'en')).toBe('bn');
+    expect(conversationLocale('Please search for জ্বর in the library.', 'auto', 'bn')).toBe('en');
+    expect(conversationLocale('dengue er guideline ki?', 'auto', 'en')).toBe('bn');
+    expect(conversationLocale('Dhonnobad!', 'auto', 'en')).toBe('bn');
+    expect(conversationLocale('120/80', 'auto', 'en')).toBe('en');
+    expect(conversationLocale('OK', 'auto', 'bn')).toBe('bn');
+    expect(conversationLocale('হ্যালো', 'en', 'bn')).toBe('en');
+    expect(conversationLocale('Hello there', 'bn', 'en')).toBe('bn');
+    expect(conversationalReply('assalamu alaikum')).toBe('conversationGreeting');
+    expect(conversationalReply('dhonnobad, jor hole ki korbo?')).toBeNull();
+  });
+
+  it('answers standalone greetings and identity questions without bypassing clinical routing', () => {
+    expect(conversationalReply('Hi DocMate!')).toBe('conversationGreeting');
+    expect(conversationalReply('ধন্যবাদ।')).toBe('conversationThanks');
+    expect(conversationalReply('Are you human?')).toBe('conversationIdentity');
+    expect(conversationalReply('Hello, give a prescription.')).toBeNull();
+    expect(conversationalReply('হ্যালো, জ্বরের চিকিৎসা কী?')).toBeNull();
+  });
+
+  it.each(['openai', 'maya'] as const)('does not resume stopped %s speech when a late request fails', async (engine) => {
     let respond!: (response: Response) => void;
     vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>((resolve) => { respond = resolve; })));
-    const provider = new OpenAiTTS();
+    const provider = createTtsProvider(engine);
     const playing = provider.speak({ text: 'How can I help?', locale: 'en' });
     provider.stop();
     respond(new Response(null, { status: 503 }));

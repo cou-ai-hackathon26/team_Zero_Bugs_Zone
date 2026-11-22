@@ -229,7 +229,9 @@ export default function AdminVoiceSettingsPage() {
 
   const handleTestTts = () => {
     setTestingTts(true);
-    const testPhrase = isBn ? config.persona_greeting_bn : config.persona_greeting_en;
+    const testPhrase = config.tts_provider === 'maya'
+      ? t('conversationGreeting')
+      : isBn ? config.persona_greeting_bn : config.persona_greeting_en;
 
     void speakText(testPhrase, (error) => {
       setTestingTts(false);
@@ -608,6 +610,7 @@ export default function AdminVoiceSettingsPage() {
                     size="sm"
                     onClick={handleTestTts}
                     disabled={testingTts}
+                    aria-describedby="admin-voice-disclosure"
                     className="h-7 px-2.5 text-xs font-semibold gap-1 text-primary border-primary/30"
                   >
                     {testingTts ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
@@ -616,12 +619,14 @@ export default function AdminVoiceSettingsPage() {
                 </div>
                 <select
                   value={config.tts_provider}
-                  onChange={(e) => setConfig((p) => ({ ...p, tts_provider: e.target.value as 'browser' | 'openai' | 'custom_stub' }))}
+                  onChange={(e) => setConfig((p) => ({ ...p, tts_provider: e.target.value as VoiceConfig['tts_provider'] }))}
                   className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm focus:ring-1 focus:ring-primary"
                 >
                   <option value="browser">{t("deviceVoice")}</option>
+                  <option value="maya">{t("localNeuralVoice")}</option>
                   <option value="openai">{t("expressiveCloudVoice")}</option>
                 </select>
+                <p id="admin-voice-disclosure" className="text-xs text-muted-foreground">{t('generatedVoice')}</p>
               </div>
             </CardContent>
           </Card>

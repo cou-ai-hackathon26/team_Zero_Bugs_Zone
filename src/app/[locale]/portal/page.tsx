@@ -260,7 +260,7 @@ export default function PatientPortalPage() {
       mealTiming: s.mealRelation,
     }));
     const speech = formatPrescriptionSpeech(doseItems, isBn ? 'bn' : 'en');
-    speakText(speech, undefined, { style: 'number_reading' });
+    void speakText(speech, (error) => { if (error) toast.error(error); }, { style: 'number_reading' });
   };
 
   const handleReadAloudPrescription = (rx: Prescription) => {
@@ -274,7 +274,7 @@ export default function PatientPortalPage() {
       durationText: it.durationText,
     }));
     const speech = formatPrescriptionSpeech(doseItems, isBn ? 'bn' : 'en');
-    speakText(speech, undefined, { style: 'number_reading' });
+    void speakText(speech, (error) => { if (error) toast.error(error); }, { style: 'number_reading' });
   };
 
   // Add Dependent Profile

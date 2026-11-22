@@ -76,7 +76,7 @@ export function makeSpeakable(
   const cleaned = cleanMarkdown(rawText);
 
   // If citations exist and verified
-  const hasCitations = result.citations && result.citations.length > 0;
+  const hasCitations = Boolean(result.citations && result.citations.length > 0);
   // Filter out any citation specifically marked verified === false
   const validCitations = result.citations?.filter((c) => c.verified !== false) || [];
 
@@ -87,9 +87,20 @@ export function makeSpeakable(
       : 'No verified library evidence was confirmed. Details on screen.';
   }
 
+  // Check if text is just the generic placeholder header
+  const isGenericExcerptsHeader =
+    /^(?:The library contains the following matching source excerpts\.?|লাইব্রেরিতে অনুসন্ধানের সঙ্গে মেলে এমন উৎসের অংশ নিচে দেওয়া হয়েছে।?)$/i.test(
+      cleaned
+    );
+
+  let speechBase = cleaned;
+  if ((!speechBase || isGenericExcerptsHeader) && validCitations.length > 0 && validCitations[0].quote) {
+    speechBase = cleanMarkdown(validCitations[0].quote);
+  }
+
   // Cap length to at most 2 to 3 sentences
   const sentenceDelimiter = locale === 'bn' ? /[।!?]\s+/ : /[.!?]\s+/;
-  const sentences = cleaned.split(sentenceDelimiter).filter((s) => s.trim().length > 0);
+  const sentences = speechBase.split(sentenceDelimiter).filter((s) => s.trim().length > 0);
   const cappedSentences = sentences.slice(0, 2);
 
   const proofPhrase =
@@ -100,7 +111,10 @@ export function makeSpeakable(
   if (cappedSentences.length > 0) {
     const endPunctuation = locale === 'bn' ? '।' : '.';
     const joined = cappedSentences.join(locale === 'bn' ? '। ' : '. ') + endPunctuation;
-    return `${joined} ${proofPhrase}`;
+    if (hasCitations && validCitations.length > 0) {
+      return `${joined} ${proofPhrase}`;
+    }
+    return joined;
   }
 
   return proofPhrase;

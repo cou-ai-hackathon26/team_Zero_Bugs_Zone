@@ -20,15 +20,17 @@ export type VoiceIntent =
   | 'navigate'
   | 'read_aloud'
   | 'blocked_action'
+  | 'system_query'
   | 'other';
 
 export type VoiceProviderType = 'browser' | 'openai' | 'custom_stub';
+export type SpeechProviderType = VoiceProviderType | 'maya';
 
 export interface VoiceConfig {
   enabled: boolean;
   kill_switch: boolean;
   stt_provider: VoiceProviderType;
-  tts_provider: VoiceProviderType;
+  tts_provider: SpeechProviderType;
   persona_name: string;
   persona_preset?: 'friendly' | 'reserved';
   persona_greeting_bn: string;
@@ -83,6 +85,8 @@ export interface TtsSpeakOptions {
   pitch?: number; // 0.8 to 1.2
   style?: SpeechStyle;
   voiceGender?: 'male' | 'female';
+  conversationTone?: 'warm' | 'neutral';
+  onDeviceFallback?: () => void;
   onBoundary?: (charIndex: number, word: string) => void;
   onStart?: () => void;
   onEnd?: () => void;
@@ -102,6 +106,7 @@ export interface TtsProvider {
 export interface VoiceMessage {
   id: string;
   sender: 'doctor' | 'assistant';
+  locale?: 'bn' | 'en';
   text: string;
   speakableText?: string;
   citations?: Array<{

@@ -10,7 +10,7 @@ const configSchema = z.object({
   enabled: z.boolean().optional(),
   kill_switch: z.boolean().optional(),
   stt_provider: z.enum(['browser', 'openai', 'custom_stub']).optional(),
-  tts_provider: z.enum(['browser', 'openai', 'custom_stub']).optional(),
+  tts_provider: z.enum(['browser', 'openai', 'custom_stub', 'maya']).optional(),
   persona_name: z.string().min(1).max(100).optional(),
   persona_greeting_bn: z.string().min(1).max(500).optional(),
   persona_greeting_en: z.string().min(1).max(500).optional(),

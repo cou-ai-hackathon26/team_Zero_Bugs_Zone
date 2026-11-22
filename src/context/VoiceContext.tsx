@@ -5,13 +5,16 @@ import { VoiceState, VoiceConfig, VoiceMessage, SttProvider, TtsProvider, TtsSpe
 import { createSttProvider } from '@/lib/voice/stt-provider';
 import { createTtsProvider } from '@/lib/voice/tts-provider';
 import { routeVoiceIntent } from '@/lib/voice/intent-router';
+import { conversationLocale, conversationalReply, type ConversationLanguage, type ConversationLocale } from '@/lib/voice/conversation';
+import bn from '../../messages/bn.json';
+import en from '../../messages/en.json';
 import { extractClinicalFacts } from '@/lib/clinical-extractor';
 import { useEvidenceSheet } from '@/context/EvidenceSheetContext';
 import { earconManager } from '@/lib/voice/earcons';
 import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
 
-type SpeechOverrides = Pick<TtsSpeakOptions, 'rate' | 'voiceGender' | 'style'> & {
+type SpeechOverrides = Partial<Pick<TtsSpeakOptions, 'rate' | 'voiceGender' | 'style' | 'locale'>> & {
   provider?: VoiceConfig['tts_provider'];
   preview?: boolean;
   scripted?: boolean;
@@ -34,6 +37,10 @@ interface VoiceContextType {
   interimTranscript: string;
   messages: VoiceMessage[];
   config: VoiceConfig;
+  voiceSettingsLoaded: boolean;
+  conversationLanguage: ConversationLanguage;
+  setConversationLanguage: (language: ConversationLanguage) => void;
+  microphoneLocale: ConversationLocale;
   privateMode: boolean;
   avatarVisible: boolean;
   dailyMinutesRemaining: number;
@@ -46,6 +53,7 @@ interface VoiceContextType {
   toggleVoicePanel: () => void;
   startPushToTalk: () => Promise<void>;
   stopPushToTalk: () => Promise<void>;
+  cancelPushToTalk: () => void;
   speakText: (text: string, onEnd?: (error?: string) => void, overrides?: SpeechOverrides) => Promise<void>;
   stopSpeech: () => void;
   setTranscript: (text: string) => void;
@@ -89,7 +97,11 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   const [transcript, setTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
   const [messages, setMessages] = useState<VoiceMessage[]>([]);
+  const [conversationLanguage, setConversationLanguage] = useState<ConversationLanguage>('auto');
+  const [lastTurnLocale, setLastTurnLocale] = useState<ConversationLocale | null>(null);
+  const microphoneLocale = conversationLanguage === 'auto' ? lastTurnLocale ?? locale : conversationLanguage;
   const [systemConfig, setSystemConfig] = useState<VoiceConfig>(DEFAULT_CONFIG);
+  const [voiceSettingsLoaded, setVoiceSettingsLoaded] = useState(false);
   const [speechPreferences, setSpeechPreferences] = useState<SpeechPreferences | null>(null);
   const [speedOverride, setSpeedOverride] = useState<number>();
   const config: VoiceConfig = {
@@ -115,8 +127,10 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     interval?: ReturnType<typeof setInterval>;
     complete?: (error?: string) => void;
     preview?: boolean;
+    locale: ConversationLocale;
   } | null>(null);
   const sessionIntroducedRef = useRef(false);
+  const mayaFallbackRef = useRef(false);
   const reassuranceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutTimerRef = useRef<NodeJS.Timeout | null>(null);
   const interruptionPromptTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -175,6 +189,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         if (personal.status === 'fulfilled' && personal.value?.persisted) {
           applySpeechPreferences(personal.value.preferences);
         }
+        setVoiceSettingsLoaded(true);
       });
     return () => { active = false; };
   }, [applySpeechPreferences]);
@@ -189,10 +204,11 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     // Offer to continue when a live voice turn is interrupted with Escape.
     if (isUserInterruption && playback && !playback.preview) {
       interruptionPromptTimerRef.current = setTimeout(() => {
-        void speakTextRef.current?.(t('continueSpeaking'), undefined, { scripted: true });
+        const phrases = playback.locale === 'bn' ? bn.voice : en.voice;
+        void speakTextRef.current?.(phrases.continueSpeaking, undefined, { scripted: true, locale: playback.locale });
       }, 1200);
     }
-  }, [releaseSpeech, t]);
+  }, [releaseSpeech]);
 
   // Barge-in keyboard shortcut: Esc key stops ongoing speech immediately (< 200ms)
   useEffect(() => {
@@ -214,16 +230,20 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
       stopSpeech();
       setState('speaking');
       setErrorText(null);
-      // Only scripted messages use an expressive cloud model. Readback of
+      // Only scripted messages use an expressive synthesis model. Readback of
       // case text, doses and library excerpts stays on the device.
-      const providerType = overrides?.preview || overrides?.scripted
+      const conversation = overrides?.scripted === true && !overrides.preview;
+      const preferredTone = tone === 'reserved' ? 'neutral' : 'warm';
+      const providerType = overrides?.preview || conversation
         ? overrides?.provider ?? config.tts_provider
         : 'browser';
-      const provider = createTtsProvider(providerType === 'custom_stub' ? 'browser' : providerType);
+      const useDevice = providerType === 'custom_stub' || (conversation && providerType === 'maya' && mayaFallbackRef.current);
+      const provider = createTtsProvider(useDevice ? 'browser' : providerType);
       const playback: NonNullable<typeof playbackRef.current> = {
         provider,
         complete: onEnd,
         preview: overrides?.preview,
+        locale: overrides?.locale ?? locale,
       };
       playbackRef.current = playback;
 
@@ -239,16 +259,23 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
       try {
         await provider.speak({
           text,
-          locale,
+          locale: playback.locale,
           rate: overrides?.rate ?? config.default_speed,
           voiceGender: overrides?.voiceGender ?? config.default_voice_gender,
-          style: overrides?.style ?? (tone === 'reserved' ? 'neutral' : 'warm'),
+          conversationTone: conversation ? preferredTone : undefined,
+          onDeviceFallback: () => {
+            if (conversation && providerType === 'maya') mayaFallbackRef.current = true;
+          },
+          style: overrides?.style ?? preferredTone,
           onStart: () => {
             if (playbackRef.current !== playback || playback.interval) return;
             playback.interval = setInterval(() => setAmplitude(0.3 + Math.random() * 0.5), 120);
           },
           onEnd: () => finish(),
-          onError: (code) => finish(t(code === 'local_voice_unavailable' ? 'localVoiceUnavailable' : 'speechPlaybackFailed')),
+          onError: (code) => {
+            const key = code === 'local_voice_unavailable' ? 'localVoiceUnavailable' : 'speechPlaybackFailed';
+            finish(t(key));
+          },
         });
       } catch {
         finish(t('speechPlaybackFailed'));
@@ -266,10 +293,15 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   const introduceAssistantIfNeeded = useCallback(async () => {
     if (sessionIntroducedRef.current) return;
     sessionIntroducedRef.current = true;
+    if (playbackRef.current) return;
 
     const greeting = locale === 'bn' ? systemConfig.persona_greeting_bn : systemConfig.persona_greeting_en;
     const intro = locale === 'bn' ? systemConfig.intro_disclaimer_bn : systemConfig.intro_disclaimer_en;
-    const fullIntro = `${greeting} ${intro}`;
+    const defaultGreeting = locale === 'bn' ? DEFAULT_CONFIG.persona_greeting_bn : DEFAULT_CONFIG.persona_greeting_en;
+    const defaultIntro = locale === 'bn' ? DEFAULT_CONFIG.intro_disclaimer_bn : DEFAULT_CONFIG.intro_disclaimer_en;
+    const fullIntro = systemConfig.tts_provider === 'maya' && greeting === defaultGreeting && intro === defaultIntro
+      ? t(locale === 'bn' ? 'conversationGreeting' : 'conversationWelcome')
+      : `${greeting} ${intro}`;
 
     setMessages((prev) => [
       ...prev,
@@ -277,18 +309,27 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         id: `msg-${Date.now()}`,
         sender: 'assistant',
         text: fullIntro,
+        locale,
         timestamp: Date.now(),
         verified: true,
       },
     ]);
 
     await speakText(fullIntro, undefined, { scripted: true });
-  }, [systemConfig, locale, speakText]);
+  }, [systemConfig, locale, speakText, t]);
+
+  useEffect(() => {
+    if (!isOpen || !voiceSettingsLoaded) return;
+    let active = true;
+    queueMicrotask(() => {
+      if (active) void introduceAssistantIfNeeded();
+    });
+    return () => { active = false; };
+  }, [isOpen, voiceSettingsLoaded, introduceAssistantIfNeeded]);
 
   const openVoicePanel = useCallback(() => {
     setIsOpen(true);
-    introduceAssistantIfNeeded();
-  }, [introduceAssistantIfNeeded]);
+  }, []);
 
   const closeVoicePanel = useCallback(() => {
     stopSpeech();
@@ -329,7 +370,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
 
     try {
       await sttRef.current?.startListening({
-        locale,
+        locale: microphoneLocale,
         hints: ['Dengue', 'Pneumonia', 'Amoxicillin', 'Azithromycin', 'Paracetamol', 'রক্তচাপ', 'জ্বর', 'কাশি', 'শ্বাসকষ্ট'],
         onVolume: (vol) => {
           setAmplitude(vol);
@@ -368,7 +409,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     } catch {
       setState('error');
     }
-  }, [dailyMinutesRemaining, locale, speakText, stopSpeech, config.sounds_enabled]);
+  }, [dailyMinutesRemaining, locale, microphoneLocale, speakText, stopSpeech, config.sounds_enabled]);
 
   const submitTranscript = useCallback(
     async (textToSubmit?: string) => {
@@ -376,12 +417,17 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         clearTimeout(interruptionPromptTimerRef.current);
         interruptionPromptTimerRef.current = null;
       }
-  
+
       const query = (textToSubmit ?? transcript).trim();
       if (!query) {
         setState('idle');
         return;
       }
+
+      const replyLocale = conversationLocale(query, conversationLanguage, lastTurnLocale ?? locale);
+      const phrases = replyLocale === 'bn' ? bn.voice : en.voice;
+      const scripted = { scripted: true, locale: replyLocale } as const;
+      setLastTurnLocale(replyLocale);
 
       // Add doctor message to bubble stream
       setMessages((prev) => [
@@ -402,17 +448,13 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
 
       // 6-second reassurance timer
       reassuranceTimerRef.current = setTimeout(() => {
-        const reassureMsg = locale === 'bn' ? 'আর একটু সময় লাগছে।' : 'Taking a bit more time.';
-        void speakText(reassureMsg, undefined, { scripted: true });
+        const reassureMsg = phrases.conversationWait;
+        void speakText(reassureMsg, undefined, scripted);
       }, 6000);
 
       // 15-second switch-to-typing advisory
       timeoutTimerRef.current = setTimeout(() => {
-        const advisoryMsg =
-          locale === 'bn'
-            ? 'সময় বেশি লাগছে। টাইপ করে দেখতে পারেন।'
-            : 'Taking longer than usual. You can continue by typing.';
-        setErrorText(advisoryMsg);
+        setErrorText(phrases.conversationSlow);
       }, 15000);
 
       const clearThinkingTimers = () => {
@@ -426,25 +468,68 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         }
       };
 
-      const routing = routeVoiceIntent(query, locale);
+      const quickReply = conversationalReply(query);
+      if (quickReply) {
+        clearThinkingTimers();
+        const reply = phrases[quickReply];
+        setMessages((previous) => [...previous, {
+          id: crypto.randomUUID(),
+          sender: 'assistant',
+          locale: replyLocale,
+          text: reply,
+          timestamp: Date.now(),
+        }]);
+        await speakText(reply, undefined, scripted);
+        return;
+      }
+
+      const routing = routeVoiceIntent(query, replyLocale);
 
       // 1. Blocked Action Safety Stop
       if (routing.blocked) {
         clearThinkingTimers();
         setState('alert');
-        const alertMsg = routing.speakableResponse || (locale === 'bn' ? 'এটি স্ক্রিনে নিশ্চিত করুন।' : 'Please confirm this on screen.');
+        const alertMsg = routing.speakableResponse || phrases.actionRequiresScreen;
         setMessages((prev) => [
           ...prev,
           {
             id: `msg-${Date.now()}`,
             sender: 'assistant',
+            locale: replyLocale,
             text: alertMsg,
             timestamp: Date.now(),
             intent: 'blocked_action',
             verified: true,
           },
         ]);
-        await speakText(alertMsg, undefined, { style: 'calm_urgent', scripted: true });
+        await speakText(alertMsg, undefined, { ...scripted, style: 'calm_urgent' });
+        return;
+      }
+
+      // 1b. System Query (Date, Time, Identity) or Direct Capabilities Explanation
+      if (routing.intent === 'system_query' || (routing.speakableResponse && routing.actionPayload)) {
+        clearThinkingTimers();
+        const payload = routing.actionPayload as Record<string, string> | undefined;
+        const displayText =
+          replyLocale === 'bn'
+            ? payload?.answerBn || routing.speakableResponse!
+            : payload?.answerEn || routing.speakableResponse!;
+        const speakable = routing.speakableResponse!;
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg-${Date.now()}`,
+            sender: 'assistant',
+            locale: replyLocale,
+            text: displayText,
+            speakableText: speakable,
+            timestamp: Date.now(),
+            intent: routing.intent,
+            verified: true,
+          },
+        ]);
+        await speakText(speakable, undefined, scripted);
         return;
       }
 
@@ -458,27 +543,28 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           if (citation) {
             openEvidence(citation);
           } else {
-            navText = t('noEvidenceToOpen');
+            navText = phrases.noEvidenceToOpen;
           }
         } else if (routing.targetRoute === 'action:go_back') {
           router.back();
         } else if (routing.targetRoute?.startsWith('/')) {
           router.push(routing.targetRoute);
         } else {
-          navText = t('useScreenControls');
+          navText = phrases.useScreenControls;
         }
         setMessages((prev) => [
           ...prev,
           {
             id: `msg-${Date.now()}`,
             sender: 'assistant',
+            locale: replyLocale,
             text: navText,
             timestamp: Date.now(),
             intent: 'navigate',
             verified: true,
           },
         ]);
-        await speakText(navText, undefined, { scripted: true });
+        await speakText(navText, undefined, scripted);
         return;
       }
 
@@ -497,7 +583,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           lab_values: [],
         });
         const dictateMsg =
-          locale === 'bn'
+          replyLocale === 'bn'
             ? `আমি যা শুনলাম: ${extracted.length > 0 ? extracted.map((e) => e.display_value).join(', ') : query}। নিশ্চিত করতে স্ক্রিন দেখুন।`
             : `I understood: ${extracted.length > 0 ? extracted.map((e) => e.display_value).join(', ') : query}. Please confirm on screen.`;
 
@@ -506,6 +592,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           {
             id: `msg-${Date.now()}`,
             sender: 'assistant',
+            locale: replyLocale,
             text: dictateMsg,
             timestamp: Date.now(),
             intent: 'dictate',
@@ -514,39 +601,50 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           },
         ]);
         if (privateMode) {
-          await speakText(t('reviewDictation'), undefined, { scripted: true });
+          await speakText(phrases.reviewDictation, undefined, scripted);
         } else {
-          await speakText(dictateMsg);
+          await speakText(dictateMsg, undefined, { locale: replyLocale });
         }
         return;
       }
+
+      const showLibraryError = async (text: string) => {
+        setMessages((previous) => [...previous, {
+          id: crypto.randomUUID(),
+          sender: 'assistant',
+          locale: replyLocale,
+          text,
+          timestamp: Date.now(),
+        }]);
+        await speakText(text, undefined, scripted);
+      };
 
       // 4. Default: Ask Library via verified /api/ask pipeline
       try {
         const res = await fetch('/api/ask', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question: query, locale }),
+          body: JSON.stringify({ question: query, locale: replyLocale }),
         });
 
         clearThinkingTimers();
 
         if (!res.ok) {
-          const failMsg = locale === 'bn' ? 'লাইব্রেরি অনুসন্ধানে সমস্যা হয়েছে।' : 'Library query failed.';
-          await speakText(failMsg, undefined, { scripted: true });
+          await showLibraryError(phrases.conversationLibraryError);
           return;
         }
 
         const data = await res.json();
         const speakable = data.found === true && data.citations?.length
-          ? t('reviewLibraryEvidence')
-          : t('libraryAbstained');
+          ? phrases.reviewLibraryEvidence
+          : phrases.libraryAbstained;
 
         setMessages((prev) => [
           ...prev,
           {
             id: `msg-${Date.now()}`,
             sender: 'assistant',
+            locale: replyLocale,
             text: data.answer || speakable,
             speakableText: speakable,
             citations: data.citations || [],
@@ -556,19 +654,13 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           },
         ]);
 
-        await speakText(speakable, undefined, {
-          // Ask returns fixed status text alongside the on-screen verbatim excerpts.
-          scripted: true,
-        });
+        await speakText(speakable, undefined, scripted);
       } catch {
         clearThinkingTimers();
-        setState('error');
-        const errMsg = locale === 'bn' ? 'সংযোগ সমস্যা হয়েছে। টাইপ করে দেখুন।' : 'Network error. Please try typing.';
-        setErrorText(errMsg);
-        await speakText(errMsg);
+        await showLibraryError(phrases.noConnection);
       }
     },
-    [transcript, locale, messages, privateMode, speakText, openEvidence, router, t]
+    [transcript, locale, conversationLanguage, lastTurnLocale, messages, privateMode, speakText, openEvidence, router]
   );
 
   const stopPushToTalk = useCallback(async () => {
@@ -586,6 +678,13 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     }, 250);
   }, [submitTranscript, config.sounds_enabled]);
 
+  const cancelPushToTalk = useCallback(() => {
+    clearTimeout(pendingSubmitRef.current);
+    sttRef.current?.abortListening();
+    setState((current) => current === 'listening' || current === 'transcribing' ? 'idle' : current);
+    setAmplitude(0);
+  }, []);
+
   const resetSession = useCallback(() => {
     stopSpeech();
     sttRef.current?.abortListening();
@@ -599,6 +698,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
 
   const clearMessages = useCallback(() => {
     setMessages([]);
+    setLastTurnLocale(null);
   }, []);
 
   const setSpeechSpeed = useCallback((speed: number) => {
@@ -615,6 +715,10 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         interimTranscript,
         messages,
         config,
+        voiceSettingsLoaded,
+        conversationLanguage,
+        setConversationLanguage,
+        microphoneLocale,
         privateMode,
         avatarVisible,
         dailyMinutesRemaining,
@@ -625,6 +729,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         toggleVoicePanel,
         startPushToTalk,
         stopPushToTalk,
+        cancelPushToTalk,
         speakText,
         stopSpeech,
         setTranscript,

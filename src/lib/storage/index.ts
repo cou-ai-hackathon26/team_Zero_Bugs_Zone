@@ -13,7 +13,8 @@ export class LocalStorageDriver implements StorageDriver {
   private baseDir: string;
 
   constructor(baseDir?: string) {
-    this.baseDir = baseDir || path.join(process.cwd(), 'data', 'storage');
+    const defaultStorageSegments = ['data', 'storage'];
+    this.baseDir = baseDir || process.env.STORAGE_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), ...defaultStorageSegments);
     if (!fs.existsSync(this.baseDir)) {
       fs.mkdirSync(this.baseDir, { recursive: true });
     }

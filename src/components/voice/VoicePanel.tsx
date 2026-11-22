@@ -27,11 +27,14 @@ import {
   Lock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
+import type { ConversationLanguage } from '@/lib/voice/conversation';
 import { useEvidenceSheet } from '@/context/EvidenceSheetContext';
 
 export function VoicePanel() {
   const locale = useLocale();
   const t = useTranslations('voice');
+  const isMobile = useIsMobile();
   const { openEvidence } = useEvidenceSheet();
   const {
     isOpen,
@@ -42,11 +45,15 @@ export function VoicePanel() {
     interimTranscript,
     messages,
     config,
+    conversationLanguage,
+    setConversationLanguage,
+    microphoneLocale,
     privateMode,
     avatarVisible,
     errorText,
     startPushToTalk,
     stopPushToTalk,
+    cancelPushToTalk,
     stopSpeech,
     submitTranscript,
     setPrivateMode,
@@ -93,15 +100,19 @@ export function VoicePanel() {
   }, [transcript]);
 
   // Push-to-talk touch / mouse handlers
-  const handlePointerDown = () => {
+  const handlePress = () => {
+    if (state === 'speaking') {
+      stopSpeech();
+      return;
+    }
     setIsPressing(true);
-    startPushToTalk();
+    void startPushToTalk();
   };
 
-  const handlePointerUp = () => {
+  const handleRelease = () => {
     if (isPressing) {
       setIsPressing(false);
-      stopPushToTalk();
+      void stopPushToTalk();
     }
   };
 
@@ -140,7 +151,8 @@ export function VoicePanel() {
                 AI Assistant
               </Badge>
             </h3>
-            <p className="text-[11px] text-muted-foreground">{getStateLabel()}</p>
+            <p className="text-[11px] text-muted-foreground">{t('generatedVoice')}</p>
+            <p className="text-[11px] text-muted-foreground" role="status">{getStateLabel()}</p>
           </div>
         </div>
 
@@ -350,7 +362,7 @@ export function VoicePanel() {
                     : 'bg-muted/80 text-foreground border border-border/70 rounded-bl-xs'
                 )}
               >
-                <p className="leading-relaxed whitespace-pre-wrap">{m.text}</p>
+                <p lang={m.locale} className="leading-relaxed whitespace-pre-wrap">{m.text}</p>
 
                 {/* Verbatim Citations Chip */}
                 {m.citations && m.citations.length > 0 && (
@@ -373,7 +385,7 @@ export function VoicePanel() {
                 )}
               </div>
               <span className="text-[9px] text-muted-foreground mt-0.5 px-1">
-                {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {new Date(m.timestamp).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
           ))
@@ -394,30 +406,49 @@ export function VoicePanel() {
       {/* Quick Action Suggestion Chips */}
       <div className="shrink-0 px-3 py-1.5 border-t border-border/50 bg-muted/10 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
         {[
-          { labelBn: 'নতুন রোগী', labelEn: 'New Patient', query: 'নতুন রোগী গ্রহণ পাতা' },
-          { labelBn: 'ডেঙ্গু গাইডলাইন', labelEn: 'Dengue Guidelines', query: 'ডেঙ্গু জ্বরের ক্লিনিকাল ব্যবস্থাপনা কী?' },
-          { labelBn: 'প্রেসক্রিপশন পড়ুন', labelEn: 'Read Prescription', query: 'প্রেসক্রিপশন পড়ুন' },
-          { labelBn: 'প্রমাণ দেখুন', labelEn: 'View Proof', query: 'প্রমাণ দেখুন' },
-        ].map((chip, idx) => (
+          { label: t('quickNewPatient'), query: t('conversationNewPatientQuery') },
+          { label: t('conversationDengue'), query: t('conversationDengueQuery') },
+          { label: t('readPrescription'), query: t('conversationPrescriptionQuery') },
+          { label: t('conversationEvidence'), query: t('conversationEvidenceQuery') },
+        ].map((chip) => (
           <button
-            key={idx}
+            key={chip.query}
             onClick={() => submitTranscript(chip.query)}
             className="shrink-0 px-2.5 py-1 text-[11px] rounded-full border border-border bg-card hover:bg-primary/10 hover:border-primary/40 text-foreground transition-colors"
           >
-            {locale === 'bn' ? chip.labelBn : chip.labelEn}
+            {chip.label}
           </button>
         ))}
       </div>
 
       {/* Editable Transcript Input & Microphone Action Bar */}
       <div className="shrink-0 p-3 sm:p-4 border-t border-border/60 bg-card space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <label className="flex flex-wrap items-center gap-2 text-xs font-medium">
+            {t('conversationLanguage')}
+            <select
+              value={conversationLanguage}
+              onChange={(event) => setConversationLanguage(event.currentTarget.value as ConversationLanguage)}
+              disabled={isPressing || state === 'listening' || state === 'transcribing'}
+              className="min-h-11 rounded-md border border-input bg-background px-2 text-xs"
+            >
+              <option value="auto">{t('conversationAuto')}</option>
+              <option value="bn" lang="bn">{t('conversationBangla')}</option>
+              <option value="en" lang="en">{t('conversationEnglish')}</option>
+            </select>
+          </label>
+          <span className="text-xs text-muted-foreground">
+            {t(microphoneLocale === 'bn' ? 'conversationMicBangla' : 'conversationMicEnglish')}
+          </span>
+        </div>
+
         {/* Editable Heard Input */}
         <div className="flex items-center gap-2">
           <Input
             value={editedInput}
             onChange={(e) => setEditedInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
                 submitTranscript(editedInput);
                 setEditedInput('');
               }
@@ -447,11 +478,32 @@ export function VoicePanel() {
         <div className="flex flex-col items-center justify-center">
           <button
             type="button"
-            onPointerDown={handlePointerDown}
-            onPointerUp={handlePointerUp}
-            onTouchStart={handlePointerDown}
-            onTouchEnd={handlePointerUp}
-            aria-label={locale === 'bn' ? 'মাইক চেপে ধরে বলুন' : 'Hold mic to speak'}
+            onPointerDown={(event) => {
+              if (event.button !== 0) return;
+              event.currentTarget.setPointerCapture(event.pointerId);
+              handlePress();
+            }}
+            onPointerUp={handleRelease}
+            onPointerCancel={() => {
+              setIsPressing(false);
+              cancelPushToTalk();
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== ' ' && event.key !== 'Enter') return;
+              event.preventDefault();
+              if (!event.repeat) handlePress();
+            }}
+            onKeyUp={(event) => {
+              if (event.key !== ' ' && event.key !== 'Enter') return;
+              event.preventDefault();
+              handleRelease();
+            }}
+            onBlur={() => {
+              if (!isPressing) return;
+              setIsPressing(false);
+              cancelPushToTalk();
+            }}
+            aria-label={state === 'speaking' ? t('tapToStop') : t('holdToSpeak')}
             className={cn(
               'w-16 h-16 sm:w-18 sm:h-18 rounded-full flex items-center justify-center transition-all duration-200 select-none touch-none shadow-lg',
               state === 'listening'
@@ -494,11 +546,11 @@ export function VoicePanel() {
     <>
       {/* Mobile Vaul Drawer */}
       <div className="md:hidden">
-        <Drawer open={isOpen} onOpenChange={(open) => !open && closeVoicePanel()}>
+        <Drawer open={isMobile && isOpen} onOpenChange={(open) => !open && closeVoicePanel()}>
           <DrawerContent className="h-[85vh] max-h-[90vh] p-0 flex flex-col focus:outline-hidden">
             <DrawerHeader className="sr-only">
               <DrawerTitle>{config.persona_name}</DrawerTitle>
-              <DrawerDescription>Voice Assistant Panel</DrawerDescription>
+              <DrawerDescription>{t('title')}</DrawerDescription>
             </DrawerHeader>
             <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
               {panelContent}
@@ -515,7 +567,7 @@ export function VoicePanel() {
           isOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
         )}
       >
-        {isOpen && panelContent}
+        {!isMobile && isOpen && panelContent}
       </div>
     </>
   );

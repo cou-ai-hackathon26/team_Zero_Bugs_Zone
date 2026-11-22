@@ -1,4 +1,4 @@
-import { TtsProvider, TtsSpeakOptions, TtsCapabilities } from './types';
+import { TtsProvider, TtsSpeakOptions, TtsCapabilities, SpeechProviderType } from './types';
 import { segmentForSpeech, type SpeechSegment } from '../language/speech-segmenter';
 
 const voiceNames = {
@@ -127,8 +127,12 @@ export class BrowserSpeechSynthesisTTS implements TtsProvider {
   }
 }
 
-export class OpenAiTTS implements TtsProvider {
-  public name = 'openai_tts';
+class ServerSpeechTTS implements TtsProvider {
+  public readonly name: string;
+
+  constructor(private readonly engine: 'openai' | 'maya') {
+    this.name = `${engine}_tts`;
+  }
   public capabilities: TtsCapabilities = {
     supports_ssml: false,
     supports_style_instructions: true,
@@ -162,6 +166,7 @@ export class OpenAiTTS implements TtsProvider {
       if (started) {
         options.onError?.('playback_failed');
       } else {
+        options.onDeviceFallback?.();
         await this.local.speak(options);
       }
     };
@@ -172,6 +177,7 @@ export class OpenAiTTS implements TtsProvider {
         headers: { 'Content-Type': 'application/json' },
         signal: request.signal,
         body: JSON.stringify({
+          ...(this.engine === 'maya' ? { provider: 'maya', conversationTone: options.conversationTone } : {}),
           text,
           locale: segmentForSpeech(text, options.locale)[0]?.lang ?? options.locale,
           rate: options.rate ?? 1,
@@ -179,12 +185,23 @@ export class OpenAiTTS implements TtsProvider {
           style: options.style ?? 'neutral',
         }),
       });
-      if (!response.ok) throw new Error('synthesize_api_failed');
+      if (!response.ok) {
+        // Recover from an unavailable engine, but honor authentication,
+        // permissions and the voice kill switch enforced by the server.
+        if (response.status >= 500) {
+          await fallback();
+        } else if (this.request === request) {
+          this.stop();
+          options.onError?.('synthesis_request_rejected');
+        }
+        return;
+      }
       const blob = await response.blob();
       if (this.request !== request) return;
 
       this.audioUrl = URL.createObjectURL(blob);
       const audio = new Audio(this.audioUrl);
+      if (this.engine === 'maya') audio.playbackRate = options.rate ?? 1;
       this.audio = audio;
       audio.onplaying = () => {
         if (this.request !== request || started) return;
@@ -233,6 +250,12 @@ export class OpenAiTTS implements TtsProvider {
   }
 }
 
+export class OpenAiTTS extends ServerSpeechTTS {
+  constructor() {
+    super('openai');
+  }
+}
+
 /**
  * Stub TTS Provider for testing or server-side execution
  */
@@ -266,7 +289,8 @@ export class StubTTS implements TtsProvider {
   }
 }
 
-export function createTtsProvider(type: 'browser' | 'openai' | 'custom_stub' = 'browser'): TtsProvider {
+export function createTtsProvider(type: SpeechProviderType = 'browser'): TtsProvider {
+  if (type === 'maya') return new ServerSpeechTTS('maya');
   if (type === 'openai') return new OpenAiTTS();
   if (type === 'custom_stub') return new StubTTS();
   return new BrowserSpeechSynthesisTTS();

@@ -8,6 +8,7 @@ import { extractClinicalFacts } from '@/lib/clinical-extractor';
 import { hybridRetrieve } from '@/lib/retrieval';
 import { libraryExcerpts } from '@/lib/library-excerpts';
 import { understandText } from '@/lib/language';
+import { detectSystemQuery } from '@/lib/system-query';
 import { MissingInformation, SafetyAlert, StructuredPatientInput } from '@/types';
 import { desc, eq } from 'drizzle-orm';
 import { humanize, UserAssistantPreferences } from '@/lib/persona/humanize';
@@ -254,6 +255,7 @@ export async function POST(
       }
 
       // 4. Multi-query hybrid retrieval using language layer canonical queries
+      const sysQuery = detectSystemQuery(observationText);
       let citations: ReturnType<typeof libraryExcerpts> = [];
       const isQuestion =
         languageResult.intent === 'ask_library' ||
@@ -262,7 +264,7 @@ export async function POST(
           observationText
         );
 
-      if (action === 'evidence_review' || isQuestion || observationText.length > 5) {
+      if (!sysQuery && (action === 'evidence_review' || isQuestion || observationText.length > 5)) {
         try {
           const retrievalQueries =
             languageResult.retrievalQueries && languageResult.retrievalQueries.length > 0
@@ -339,7 +341,9 @@ export async function POST(
       };
 
       let baseClinicalAnswer = '';
-      if (languageResult.intent === 'ask_capabilities') {
+      if (sysQuery) {
+        baseClinicalAnswer = effectiveLocale === 'bn' ? sysQuery.answerBn : sysQuery.answerEn;
+      } else if (languageResult.intent === 'ask_capabilities') {
         baseClinicalAnswer =
           effectiveLocale === 'bn'
             ? 'আমি শুধুমাত্র এই মুহূর্তে খোলা রোগীর কেস এবং আমাদের অভ্যন্তরীণ ভেরিফাইড ক্লিনিক্যাল লাইব্রেরির রেফারেন্স দেখতে পারি। আমি আপনার স্ক্রিন, ক্যামেরা বা ইন্টারনেট দেখতে পারি না।'
@@ -377,11 +381,11 @@ export async function POST(
 
       const humanized = humanize(
         {
-          found: citations.length > 0 || proposedUpdates.length > 0,
-          status: 'insufficient_evidence',
+          found: Boolean(sysQuery) || citations.length > 0 || proposedUpdates.length > 0,
+          status: sysQuery ? 'analyzed' : 'insufficient_evidence',
           answer: baseClinicalAnswer,
           citations,
-          missing_information: missingInfo,
+          missing_information: sysQuery ? [] : missingInfo,
         },
         undefined,
         userPrefs,

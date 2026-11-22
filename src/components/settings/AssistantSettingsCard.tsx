@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -13,19 +13,20 @@ import { useVoice } from '@/context/VoiceContext';
 
 interface AssistantPrefs {
   address_style: 'doctor' | 'doctor_sahib' | 'doctor_madam' | 'name';
-  tone_preset: 'reserved' | 'friendly';
+  tone_preset?: 'reserved' | 'friendly';
   verbosity: 'brief' | 'normal' | 'detailed';
   sounds_enabled: boolean;
   hints_enabled: boolean;
   avatar_enabled: boolean;
-  speech_rate: number;
+  speech_rate?: number;
   voice_id: string;
 }
 
 export function AssistantSettingsCard({ userName }: { userName?: string }) {
   const locale = useLocale() as 'bn' | 'en';
   const isBn = locale === 'bn';
-  const { speakText, config, applySpeechPreferences } = useVoice();
+  const t = useTranslations('voice');
+  const { speakText, config, voiceSettingsLoaded, applySpeechPreferences } = useVoice();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -33,22 +34,21 @@ export function AssistantSettingsCard({ userName }: { userName?: string }) {
 
   const [prefs, setPrefs] = useState<AssistantPrefs>({
     address_style: 'doctor',
-    tone_preset: 'friendly',
     verbosity: 'normal',
     sounds_enabled: true,
     hints_enabled: true,
     avatar_enabled: true,
-    speech_rate: 1.0,
     voice_id: 'default',
   });
+
+  const speechRate = prefs.speech_rate ?? config.default_speed;
+  const tonePreset = prefs.tone_preset ?? config.persona_preset ?? 'friendly';
 
   useEffect(() => {
     fetch('/api/settings/assistant')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.preferences) {
-          setPrefs(data.preferences);
-        }
+        if (data?.preferences && data.persisted) setPrefs(data.preferences);
       })
       .catch(() => toast.error(isBn ? 'সেটিংস লোড ব্যর্থ' : 'Failed to load assistant settings'))
       .finally(() => setLoading(false));
@@ -56,15 +56,16 @@ export function AssistantSettingsCard({ userName }: { userName?: string }) {
 
   const handleSave = async () => {
     setSaving(true);
+    const preferences = { ...prefs, speech_rate: speechRate, tone_preset: tonePreset };
     try {
       const res = await fetch('/api/settings/assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(prefs),
+        body: JSON.stringify(preferences),
       });
 
       if (!res.ok) throw new Error('Save failed');
-      applySpeechPreferences(prefs);
+      applySpeechPreferences(preferences);
       toast.success(isBn ? 'সহকারী সেটিংস সফলভাবে সংরক্ষিত হয়েছে' : 'Assistant preferences saved');
     } catch {
       toast.error(isBn ? 'সংরক্ষণ ব্যর্থ হয়েছে' : 'Failed to save preferences');
@@ -86,8 +87,8 @@ export function AssistantSettingsCard({ userName }: { userName?: string }) {
         ? 'ডাক্তার ম্যাডাম'
         : (isBn ? 'ডাক্তার' : 'Doctor');
 
-    const sampleText = selectPhrase('greeting', locale, {
-      preset: prefs.tone_preset,
+    const sampleText = config.tts_provider === 'maya' ? t('conversationGreeting') : selectPhrase('greeting', locale, {
+      preset: tonePreset,
       doctorTitle,
       seed: 7,
     });
@@ -97,11 +98,11 @@ export function AssistantSettingsCard({ userName }: { userName?: string }) {
       if (error) toast.error(error);
     }, {
       preview: true,
-      rate: prefs.speech_rate,
+      rate: speechRate,
       voiceGender: prefs.voice_id === 'male' || prefs.voice_id === 'female'
         ? prefs.voice_id
         : config.default_voice_gender,
-      style: prefs.tone_preset === 'reserved' ? 'neutral' : 'warm',
+      style: tonePreset === 'reserved' ? 'neutral' : 'warm',
     });
   };
 
@@ -178,7 +179,7 @@ export function AssistantSettingsCard({ userName }: { userName?: string }) {
                 type="button"
                 onClick={() => setPrefs({ ...prefs, tone_preset: 'friendly' })}
                 className={`py-1.5 px-2.5 text-xs rounded-md border font-medium transition-colors ${
-                  prefs.tone_preset === 'friendly'
+                  tonePreset === 'friendly'
                     ? 'bg-primary text-primary-foreground border-primary font-semibold'
                     : 'bg-background hover:bg-muted text-muted-foreground border-border'
                 }`}
@@ -189,7 +190,7 @@ export function AssistantSettingsCard({ userName }: { userName?: string }) {
                 type="button"
                 onClick={() => setPrefs({ ...prefs, tone_preset: 'reserved' })}
                 className={`py-1.5 px-2.5 text-xs rounded-md border font-medium transition-colors ${
-                  prefs.tone_preset === 'reserved'
+                  tonePreset === 'reserved'
                     ? 'bg-primary text-primary-foreground border-primary font-semibold'
                     : 'bg-background hover:bg-muted text-muted-foreground border-border'
                 }`}
@@ -198,7 +199,7 @@ export function AssistantSettingsCard({ userName }: { userName?: string }) {
               </button>
             </div>
             <p className="text-[10px] text-muted-foreground">
-              {prefs.tone_preset === 'friendly'
+              {tonePreset === 'friendly'
                 ? (isBn ? 'পেশাদার ও উষ্ণ যোগাযোগ।' : 'Professional warmth and courteous phrasing.')
                 : (isBn ? 'অতিরিক্ত শিষ্টাচারবিহীন সংক্ষিপ্ত রূপ।' : 'Minimal pleasantries, direct clinical answers.')}
             </p>
@@ -255,7 +256,8 @@ export function AssistantSettingsCard({ userName }: { userName?: string }) {
                 variant="outline"
                 size="sm"
                 onClick={handleListenSample}
-                disabled={playingSample}
+                disabled={playingSample || !voiceSettingsLoaded}
+                aria-describedby="sample-voice-disclosure"
                 className="h-8 px-2.5 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10"
               >
                 {playingSample ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
@@ -264,6 +266,7 @@ export function AssistantSettingsCard({ userName }: { userName?: string }) {
             </div>
           </div>
 
+          <p id="sample-voice-disclosure" className="text-xs text-muted-foreground">{t('generatedVoice')}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs text-muted-foreground">{isBn ? 'সহকারী ভয়েস:' : 'Voice:'}</span>
@@ -272,6 +275,7 @@ export function AssistantSettingsCard({ userName }: { userName?: string }) {
                 onChange={(e) => setPrefs({ ...prefs, voice_id: e.target.value })}
                 className="text-xs h-8 px-2 rounded-md border border-input bg-background font-medium"
               >
+                <option value="default">{t("defaultVoice")}</option>
                 <option value="female">{isBn ? 'নারী কণ্ঠ (Female)' : 'Female'}</option>
                 <option value="male">{isBn ? 'পুরুষ কণ্ঠ (Male)' : 'Male'}</option>
               </select>
@@ -286,7 +290,7 @@ export function AssistantSettingsCard({ userName }: { userName?: string }) {
                     type="button"
                     onClick={() => setPrefs({ ...prefs, speech_rate: spd })}
                     className={`px-2 py-0.5 rounded text-[10px] font-mono border ${
-                      prefs.speech_rate === spd
+                      speechRate === spd
                         ? 'bg-primary text-primary-foreground border-primary font-bold'
                         : 'bg-background text-muted-foreground border-border'
                     }`}

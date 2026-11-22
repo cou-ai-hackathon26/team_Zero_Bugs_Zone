@@ -436,3 +436,86 @@ The 10-query offline retrieval check used the fixed seeded dataset and the `hybr
 | Additional Playwright/axe scan of English light, using signed-out login and separate synthetic role contexts | Signed-out login had one contrast issue. Study and patient portal each had one unnamed progress indicator. Research had one unnamed progress indicator, 16 unlabeled form controls and two unnamed selects. Controller had one unnamed progress indicator and two unnamed selects. Admin had one unnamed progress indicator and one contrast issue. |
 
 **R10 · P0 · AI provider credentials · Open.** Commit `aa23287` arrived after the isolated browser snapshot. Source review found that the connection-test handler accepts any authenticated session and can attach a stored or environment API key to an unvalidated custom provider destination. The save helper stores the key in the database settings JSON. Keep provider testing disabled until authorization, destination validation, and the approved secret-storage boundary are enforced. Evidence is in `src/app/api/settings/ai-credentials/test/route.ts:6–27` and `src/lib/ai-credentials.ts:104–121,143–172`. No provider call was made. The live credentials-route edit and the new combined feature-seed script were outside end-to-end verification.
+
+## Voice assistant follow-up, 22 November 2026
+
+**Release verdict. Go for the synthetic voice demo. No-go for clinical or business deployment.** This check covers voice playback, the settings previews, and the assistant’s spoken library response. The README still defines the app as a synthetic-data demo. This check did not validate automated treatment, prescription finalization, or production clinical use.
+
+| ID | Severity | Area | Reproduction | Expected and observed before the fix | Evidence and fix | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| VOICE-01 | P1 | Medication read-aloud | Read a medication with a missing schedule or meal instruction. | Missing data should lead to the written prescription. Playback inserted a twice-daily schedule or after-meal instruction. | `src/lib/voice/dose-speech.ts`, `src/app/[locale]/portal/page.tsx`. Removed inferred schedule and meal timing and kept dose playback on the device. | Fixed and regression-tested |
+| VOICE-02 | P1 | Evidence and dictation | Request evidence before a library result or dictate with private mode active. | The assistant should open a real citation and let the user review private dictation on screen. It built a placeholder citation from the question and read dictation back. | `src/context/VoiceContext.tsx`. Opens citations returned by Ask and uses a spoken review prompt in private mode. | Fixed in code |
+| VOICE-03 | P2 | Delivery and localization | Play an English question in Bangla UI or a Bangla sentence with an English term. | Sentences should retain pacing and punctuation. Playback switched voices mid-sentence or used the UI language regardless of the text. | `src/lib/language/speech-segmenter.ts`, `src/lib/voice/tts-provider.ts`. Selects installed voices at sentence boundaries and uses their native locale. | Fixed and verified on both local voices |
+| VOICE-04 | P2 | Preferences and provider | Save a personal voice, use both previews, then make the cloud engine unavailable. | Live playback and previews should share settings, and provider failure should recover locally. Settings read the wrong response field and previews bypassed the configured provider. | `src/context/VoiceContext.tsx`, `src/components/settings/AssistantSettingsCard.tsx`, `src/app/[locale]/admin/voice/page.tsx`. Shared playback, cancellation and fallback. | Fixed and verified in Chromium |
+| VOICE-05 | P2 | Cloud rollout | Enable expressive speech on a configured deployment. | The provider needs a validated Bangla and English listening check and a supported model. Provider requests were mocked for QA, and OpenAI schedules the current Speech API model for shutdown on 6 January 2027. | `src/app/api/voice/synthesize/route.ts`. Device speech is the default. [OpenAI model deprecations](https://developers.openai.com/api/docs/deprecations) | Open for cloud rollout |
+
+### Verification
+
+| Command | Observed result |
+| --- | --- |
+| `npm run lint` | Exit 0. No errors and 32 existing warnings. |
+| `npm run typecheck` | Exit 0. No diagnostics. |
+| `npm run build` | Turbopack failed while binding a local worker port with `Operation not permitted`. |
+| `npm --prefix "$qa_copy" run build -- --webpack` | Exit 0 in an isolated copy. Compiled and generated all 64 build-time pages. |
+| `npm test -- tests/voice-playback.test.ts tests/voice-synthesize-route.test.ts tests/voice-state-machine.test.ts tests/language-layer.test.ts` | 58 passed. |
+| `DATABASE_URL=postgresql://127.0.0.1:55439/docmate_complete_qa OPENAI_API_KEY= DOCMATE_QA_SYNTHETIC=1 npm test` | 275 passed across 30 files. The first run had three governance failures because the fixture lacked `cases.entered_by_voice`. The current voice, language and persona migrations were applied to the isolated database. |
+| `npm run eval:voice` | All 50 text-transcript benchmark cases passed. |
+| `DOCMATE_QA_SYNTHETIC=1 DOCMATE_QA_BASE_URL=http://127.0.0.1:3117 npm run test:e2e -- e2e/voice-assistant.spec.ts --workers=1 --output=/tmp/docmate-voice-e2e` | Two Chromium tests passed against the isolated production build. Checked shared preview and live preferences, actual Ask abstention, desktop-to-mobile drawer behavior, and Bangla fallback from a simulated cloud failure. One earlier run exposed missing library columns in the fixture. The fixture was brought up to date for the retrieval query. |
+| `node /tmp/docmate-voice-native.cjs` | Headed Chromium reported actual start and end events for Samantha (`en-US`) and Piya (`bn-IN`). |
+
+### Regression checks
+
+- Compare Friendly and Reserved delivery in both languages on supported devices with native listeners. Include speech with clinical abbreviations, drug names and Bangla pronunciation.
+- Verify typed and microphone turns, stop and restart, mobile drawer closure, and provider fallback. The current verification covered typed turns and speech playback. Live microphone recognition and subjective delivery were outside this run.
+- Keep medication schedules and timing tied to the recorded values. Check missing schedules, unsupported forms, and voice playback on devices without a local Bangla voice.
+
+## Maya neural voice follow-up, 22 November 2026
+
+Maya was selected on the local synthetic demo. The Friendly female preview and welcome use bundled audio generated from fixed DocMate greetings. The interface labels the voice AI-generated. The assistant handles standalone greetings, thanks and identity questions without a library request. Clinical questions still use the existing library and safety routing.
+
+| Check | Result |
+| --- | --- |
+| `node /tmp/docmate-live-maya.cjs` against `http://localhost:3000` | Actual HTML audio playback completed for the English preview (2.40 s), English welcome (4.08 s), Bangla preview (2.88 s) and Bangla welcome (2.88 s). The check measured playback, and naturalness needs a listening review. |
+| `npm test -- tests/voice-playback.test.ts tests/voice-synthesize-route.test.ts tests/language-layer.test.ts tests/voice-state-machine.test.ts tests/i18n-parity.test.ts` | 69 passed. Covers fixed audio matching, loopback provider requests, locale, fallback handling, and clinical queries that begin with greetings. |
+| `DATABASE_URL=postgresql://127.0.0.1:55439/docmate_complete_qa OPENAI_API_KEY= DOCMATE_QA_SYNTHETIC=1 npm test` | 280 passed in the isolated synthetic fixture. |
+| `DOCMATE_QA_SYNTHETIC=1 DOCMATE_QA_BASE_URL=http://127.0.0.1:3118 npm run test:e2e -- e2e/voice-assistant.spec.ts --workers=1 --output=/tmp/docmate-maya-e2e` | Three tests passed. The first run found a race where opening the panel before settings loaded used the browser voice. The panel now waits for the saved configuration. |
+| `npm run typecheck`, `npm run lint`, `npm run build -- --webpack` | Typecheck and Webpack build passed. Lint reported zero errors and 32 existing warnings. |
+
+The dynamic server path is implemented and covered with test responses. It was unable to synthesize custom replies in this run because the local checkpoint had yet to finish downloading and the MLX Metal wheel repeatedly timed out. The public generation demo reached its anonymous GPU quota after generating the three bundled clips. Only fixed, nonclinical greetings were sent for this generation. Existing clinical and business release gates still apply. [Maya 2 Native](https://huggingface.co/maya-research/maya2-native)
+
+## Bangla and English conversation follow-up
+
+The voice panel now offers Auto, Bangla, and English. Auto follows each typed or transcribed turn and recognizes common Banglish phrases. The microphone starts in the page language in Auto mode, then follows the last reply. Explicit selection sets the browser-recognition language before recording. The app’s UI locale stays in place. Library requests keep the original query and ask for the selected reply language, while citations retain their original source text.
+
+| Check | Observed result |
+| --- | --- |
+| `node /tmp/docmate-bilingual-live.cjs` | Actual Maya MP3 playback completed for a Bangla reply to `Kemon achen?` and an English reply to `Hello!`, in one conversation on the English interface. |
+| `npm test -- tests/voice-playback.test.ts tests/voice-synthesize-route.test.ts tests/language-layer.test.ts tests/voice-state-machine.test.ts tests/i18n-parity.test.ts` | 70 passed. Includes language selection, mixed-script prompts, Banglish, ambiguous short input and whole-turn social reply boundaries. |
+| `DATABASE_URL=postgresql://127.0.0.1:55439/docmate_complete_qa OPENAI_API_KEY= DOCMATE_QA_SYNTHETIC=1 npm test` | 281 passed across 30 files with the synthetic fixture. |
+| `DOCMATE_QA_SYNTHETIC=1 DOCMATE_QA_BASE_URL=http://127.0.0.1:3118 npm run test:e2e -- e2e/voice-assistant.spec.ts --workers=1 --output=/tmp/docmate-bilingual-e2e` | Four Chromium tests passed. Browser recognizer mocked to verify `bn-BD` and `en-US` selection. Browser smoke checks also cover per-turn spoken locale, library abstention, and localized library errors. |
+| `npm run typecheck`, `npm run lint` | TypeScript passed. Lint reported zero errors and 32 existing warnings. |
+| `npm run build -- --webpack` | Production compilation and generation of 64 pages passed in an isolated copy. |
+
+This check verified microphone configuration. It did not grade microphone recognition accuracy or automatic language identification from raw audio. The local Maya checkpoint and Mac dependency remain incomplete, so dynamic neural audio was outside the verified runtime scope.
+
+## Silent chat replies follow-up
+
+With Maya selected and the local engine offline, bundled clips still played. An authenticated request for an unbundled reply returned HTTP 502 and the client stopped before speaking. The client now tries an installed voice after an engine or network failure before playback starts. A server rejection still stops playback, and canceled requests cannot start a late fallback.
+
+| Command | Observed result |
+| --- | --- |
+| `node /tmp/docmate-audio-fallback-live.cjs` | Two unbundled replies completed in headed Chromium after the actual Maya endpoint returned HTTP 502. Samantha (`en-US`) spoke the English reply and Piya (`bn-IN`) spoke the Bangla reply. |
+| `npm test -- tests/voice-playback.test.ts tests/voice-synthesize-route.test.ts tests/voice-state-machine.test.ts tests/i18n-parity.test.ts` | 53 passed. Covers both fallback languages, HTTP 401/403/429 rejections, and cancellation. |
+| `npm run typecheck`, `npm run build -- --webpack` | Both passed. The isolated production build generated all 64 pages. |
+| `DOCMATE_QA_SYNTHETIC=1 DOCMATE_QA_BASE_URL=http://127.0.0.1:3118 npm run test:e2e -- e2e/voice-assistant.spec.ts --workers=1 --output=/tmp/docmate-audio-fallback-e2e` | Four Chromium tests passed, including the simulated outage while sending messages. |
+
+The Maya engine remained offline during the test. Device fallback needs an installed voice for the spoken language.
+
+## Voice consistency follow-up
+
+Live Maya greetings and replies now request the same speaker for the selected tone preset. Bundled clips are still available for previews. If Maya fails before playback, the voice conversation stays with the installed voice for each language until the page reloads.
+
+- `npm test -- tests/voice-playback.test.ts tests/voice-synthesize-route.test.ts` passed 28 checks. Tests cover a fixed Maya speaker for each preset across live reply styles, the distinction between live greetings and prerecorded previews, and cancellation.
+- `npm run typecheck` and the isolated `npm run build -- --webpack` passed.
+- The Chromium outage regression checked the same English device voice for the greeting and reply, a consistent Bangla device voice for subsequent Bangla replies, and one Maya request for that conversation.
+- All four Chromium voice tests passed on the final synthetic production build. The real local audio check (`node /tmp/docmate-voice-consistency-live.cjs`) completed playback of an English greeting and two replies using Samantha, with one attempt to contact Maya.

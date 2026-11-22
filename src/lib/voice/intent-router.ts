@@ -1,6 +1,6 @@
 import { VoiceIntent } from './types';
 import { isCapabilitiesQuery } from '../language/capabilities';
-import { restoreTransliteratedTerms } from '../language/term-matcher';
+import { detectSystemQuery } from '../system-query';
 
 export interface RouteIntentResult {
   intent: VoiceIntent;
@@ -88,7 +88,24 @@ export function routeVoiceIntent(transcript: string, locale: 'bn' | 'en' = 'bn')
     }
   }
 
-  // 1b. Capabilities Inquiry ("তুমি কি দেখতে পারো / what can you see")
+  // 1b. System & Contextual Inquiries (Date, Time, Identity)
+  const systemQuery = detectSystemQuery(text);
+  if (systemQuery) {
+    return {
+      intent: 'system_query',
+      blocked: false,
+      speakableResponse: locale === 'bn' ? systemQuery.speakableBn : systemQuery.speakableEn,
+      actionPayload: {
+        type: systemQuery.type,
+        answerBn: systemQuery.answerBn,
+        answerEn: systemQuery.answerEn,
+        speakableBn: systemQuery.speakableBn,
+        speakableEn: systemQuery.speakableEn,
+      },
+    };
+  }
+
+  // 1c. Capabilities Inquiry ("তুমি কি দেখতে পারো / what can you see")
   if (isCapabilitiesQuery(text)) {
     return {
       intent: 'ask_library',

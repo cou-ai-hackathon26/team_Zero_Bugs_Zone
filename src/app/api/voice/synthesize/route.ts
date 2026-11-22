@@ -8,7 +8,19 @@ import { getCurrentUser } from '@/lib/auth';
 import { canUse } from '@/lib/permissions';
 import { boundedJson, rateLimit } from '@/lib/api-input';
 
+// These transcripts are tied to the bundled recordings. An edited translation
+// uses live synthesis instead of playing an outdated recording.
+const mayaGreetings = {
+  bn: new Map([['হ্যালো! আমি আছি। কী খুঁজে দেখতে চান?', 'bn-conversationGreeting.mp3']]),
+  en: new Map([
+    ['Hi! I’m here. What would you like to look up?', 'en-conversationGreeting.mp3'],
+    ['Hi, I’m DocMate, your AI assistant. What would you like to look up?', 'en-conversationWelcome.mp3'],
+  ]),
+};
+
 const synthSchema = z.object({
+  provider: z.enum(['openai', 'maya']).default('openai'),
+  conversationTone: z.enum(['warm', 'neutral']).optional(),
   text: z.string().trim().min(1).max(2000),
   locale: z.enum(['bn', 'en']).default('bn'),
   rate: z.number().min(0.8).max(1.2).default(1.0),
@@ -40,20 +52,47 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid synthesis parameters' }, { status: 400 });
     }
 
+    const [settings] = await db.select({ value: systemSettings.value }).from(systemSettings)
+      .where(eq(systemSettings.key, 'voice:config')).limit(1);
+    const config = settings?.value as { enabled?: boolean; kill_switch?: boolean; tts_provider?: string } | undefined;
+    const { text, gender, rate, style, locale, provider, conversationTone } = parsed.data;
+    if (config?.enabled === false || config?.kill_switch ||
+        (config?.tts_provider !== provider && user.role !== 'super_admin')) {
+      return NextResponse.json({ error: 'Requested speech provider is disabled' }, { status: 403 });
+    }
+
+    if (provider === 'maya') {
+      const clip = !conversationTone && gender === 'female' && style === 'warm' ? mayaGreetings[locale].get(text) : undefined;
+      if (clip) {
+        return new Response(null, { status: 303, headers: { Location: `/voice/maya/${clip}` } });
+      }
+
+      const port = Number(process.env.DOCMATE_MAYA_PORT);
+      if (!Number.isInteger(port) || port < 1024 || port > 65535) {
+        return NextResponse.json({ error: 'Local neural voice unavailable' }, { status: 503 });
+      }
+      const voiceTone = conversationTone ?? style;
+      const voice = gender === 'male' ? 'Anirban' : voiceTone === 'warm' ? 'Jahnavi' : 'Vaidehi';
+      const audio = await fetch(`http://127.0.0.1:${port}/v1/audio/speech`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input: text, language: locale, voice, response_format: 'wav' }),
+        redirect: 'error',
+        signal: AbortSignal.any([request.signal, AbortSignal.timeout(20_000)]),
+      });
+      if (!audio.ok || !/^audio\/(wav|x-wav)(?:;|$)/i.test(audio.headers.get('content-type') ?? '') || !audio.body) {
+        await audio.body?.cancel();
+        return NextResponse.json({ error: 'Local neural voice unavailable' }, { status: 502 });
+      }
+      return new Response(audio.body, {
+        headers: { 'Content-Type': 'audio/wav', 'Cache-Control': 'private, no-store' },
+      });
+    }
+
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: 'Cloud speech synthesis unavailable' }, { status: 503 });
     }
-
-    const [settings] = await db.select({ value: systemSettings.value }).from(systemSettings)
-      .where(eq(systemSettings.key, 'voice:config')).limit(1);
-    const config = settings?.value as { enabled?: boolean; kill_switch?: boolean; tts_provider?: string } | undefined;
-    if (config?.enabled === false || config?.kill_switch ||
-        (config?.tts_provider !== 'openai' && user.role !== 'super_admin')) {
-      return NextResponse.json({ error: 'Cloud speech synthesis disabled' }, { status: 403 });
-    }
-
-    const { text, gender, rate, style, locale } = parsed.data;
     const language = locale === 'bn' ? 'Bangladeshi Bengali' : 'English';
     const openai = new OpenAI({ apiKey, timeout: 12_000, maxRetries: 0 });
     const audio = await openai.audio.speech.create({
