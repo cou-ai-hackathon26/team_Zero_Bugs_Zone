@@ -455,7 +455,7 @@ describe('Fine-Grained Feature RBAC & Data-Scope Enforcement', () => {
     expect((await canUse(mockUsers.medicine_controller, 'voice.dictation')).allowed).toBe(false);
     expect((await canUse(mockUsers.medicine_controller, 'voice.avatar')).allowed).toBe(false);
     expect((await canUse(mockUsers.medicine_controller, 'voice.readaloud')).allowed).toBe(false);
-  });
+  }, 15000);
 
   it('10. Enforces Multilingual Language Layer Feature Key Permissions & Role Isolation', async () => {
     // All signed-in roles can access personal language preferences

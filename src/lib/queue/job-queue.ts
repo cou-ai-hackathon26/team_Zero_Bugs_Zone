@@ -116,12 +116,19 @@ export class JobQueue {
     );
   }
 
-  async failJob(jobId: string, errorMessage: string): Promise<void> {
+  async failJob(jobId: string, errorMessage: string, failedStage?: IngestJobStage, extraMetadata?: Record<string, unknown>): Promise<void> {
+    const metaUpdates: Record<string, unknown> = {
+      ...extraMetadata,
+      failedStage: failedStage || 'unknown',
+      failedAt: new Date().toISOString(),
+      lastError: errorMessage,
+    };
     await pool.query(
       `UPDATE ingest_jobs
-       SET status = 'failed', error = $2, finished_at = NOW()
+       SET status = 'failed', error = $2, finished_at = NOW(),
+           metadata = metadata || $3::jsonb
        WHERE id = $1;`,
-      [jobId, errorMessage]
+      [jobId, errorMessage, JSON.stringify(metaUpdates)]
     );
   }
 
@@ -136,11 +143,27 @@ export class JobQueue {
   }
 
   async retryJob(jobId: string): Promise<void> {
+    const existing = await this.getJob(jobId);
+    const existingLogs = Array.isArray(existing?.metadata?.logs) ? (existing!.metadata.logs as any[]) : [];
+    const retryLog = {
+      timestamp: new Date().toISOString(),
+      stage: 'queued',
+      message: `Job retry triggered (Attempt ${(existing?.attempts || 0) + 1}). Resuming from cached stages where available.`,
+      level: 'info',
+    };
+
+    const retryMetadata = {
+      isRetry: true,
+      lastRetriedAt: new Date().toISOString(),
+      logs: [...existingLogs, retryLog],
+    };
+
     await pool.query(
       `UPDATE ingest_jobs
-       SET status = 'pending', stage = 'queued', progress = 0, error = NULL
+       SET status = 'pending', stage = 'queued', progress = 0, error = NULL,
+           metadata = metadata || $2::jsonb
        WHERE id = $1;`,
-      [jobId]
+      [jobId, JSON.stringify(retryMetadata)]
     );
   }
 

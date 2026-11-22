@@ -638,7 +638,21 @@
     "budgetLimit": "দৈনিক ইনজেশন বাজেট সীমা ($ USD)",
     "thresholdLimit": "স্বয়ংক্রিয় অনুমোদন সীমা ($ USD)",
     "ocrToggle": "টিসেরাক্ট OCR সক্রিয় করুন (স্ক্যান করা পিডিএফ-এর জন্য)",
-    "saveSettings": "সেটিংস সংরক্ষণ করুন"
+    "saveSettings": "সেটিংস সংরক্ষণ করুন",
+    "extractionStatus": "এক্সট্রাকশন অবস্থা",
+    "ocrStatus": "ওসিআর (OCR) অবস্থা",
+    "extractedChars": "মোট এক্সট্রাক্ট করা অক্ষর",
+    "chunksCreated": "মোট চাঙ্ক তৈরি",
+    "embeddingStatus": "এম্বেডিং অবস্থা",
+    "duplicateStatus": "ডুপ্লিকেট অবস্থা",
+    "viewLogs": "লগ ও পরিসংখ্যান দেখুন",
+    "reusedExisting": "বিদ্যমান রিসোর্স পুনর্ব্যবহৃত",
+    "uniqueFile": "ইউনিক ফাইল",
+    "nativeText": "স্বাভাবিক টেক্সট",
+    "ocrApplied": "ওসিআর প্রয়োগকৃত (বাংলা+ইংরেজি)",
+    "notRequired": "প্রয়োজন নেই",
+    "executionLogs": "পাইপলাইন এক্সেকিউশন লগ",
+    "jobDetails": "জব এক্সেকিউশন বিবরণ"
   },
   "voice": {
     "mayaLiveVoiceUnavailable": "মায়ার লাইভ অডিও এখন চালু নেই। লোকাল মায়া ইঞ্জিন চলছে এবং মডেল লোড হয়েছে কি না দেখুন।",

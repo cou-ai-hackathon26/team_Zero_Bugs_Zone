@@ -24,6 +24,8 @@ export interface ExtractedDocument {
   license: string;
   evidenceLevel: string;
   metadata?: Record<string, unknown>;
+  isScanned?: boolean;
+  ocrApplied?: boolean;
 }
 
 export interface DocumentExtractor {

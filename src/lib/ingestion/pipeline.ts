@@ -9,7 +9,7 @@ import { TextExtractor } from './extractors/text-extractor';
 import { JsonExtractor } from './extractors/json-extractor';
 import { cleanDocumentPages } from './cleaner';
 import { assessExtractionQuality } from './quality';
-import { structureAwareChunk } from './chunker';
+import { structureAwareChunk, getChunkingStats, ChunkOutput, InsufficientTextError } from './chunker';
 import { deduplicationEngine } from './deduplication';
 import { ingestionBudgetManager } from './budget';
 import { CachedEmbeddingService } from './embedding-provider';
@@ -18,6 +18,7 @@ import { computeSimhash64 } from './simhash';
 import { linkAndDoiConnector } from './connectors';
 import { runOcrOnPdfBuffer } from './ocr';
 import { recordAuditLog } from '@/lib/audit';
+import { IngestJobStage } from '@/types';
 
 const connectionString = process.env.DATABASE_URL || 'postgresql://apple@localhost:5432/docmate';
 const isLocal = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
@@ -48,6 +49,13 @@ export interface IngestionInput {
   rightsConfirmed: boolean;
 }
 
+interface LogEntry {
+  timestamp: string;
+  stage: string;
+  message: string;
+  level: 'info' | 'warn' | 'error';
+}
+
 export class IngestionPipeline {
   private storage = getStorageDriver();
   private antivirus = new NoOpAntivirusScanner();
@@ -63,13 +71,55 @@ export class IngestionPipeline {
     const { jobId, userId, rightsConfirmed } = input;
 
     if (!rightsConfirmed) {
-      await jobQueue.failJob(jobId, 'Rights confirmation is required: user must confirm rights to ingest content.');
+      await jobQueue.failJob(jobId, 'Rights confirmation is required: user must confirm rights to ingest content.', 'receiving');
       throw new Error('Rights confirmation required.');
     }
 
+    let currentStage: IngestJobStage = 'receiving';
+    const logs: LogEntry[] = [];
+
+    // Helper to log and update progress concurrently
+    const logStage = async (
+      stage: IngestJobStage,
+      message: string,
+      level: 'info' | 'warn' | 'error' = 'info',
+      progress?: number,
+      metadataUpdates?: Record<string, unknown>
+    ) => {
+      currentStage = stage;
+      const entry: LogEntry = {
+        timestamp: new Date().toISOString(),
+        stage,
+        message,
+        level,
+      };
+      logs.push(entry);
+      if (progress !== undefined) {
+        await jobQueue.updateProgress(jobId, stage, progress, {
+          logs,
+          currentStage: stage,
+          ...metadataUpdates,
+        });
+      }
+    };
+
     try {
+      // Fetch existing job record to check for stage caches (retry resumption)
+      const existingJob = await jobQueue.getJob(jobId);
+      if (existingJob?.metadata && Array.isArray(existingJob.metadata.logs)) {
+        // Carry forward previous logs
+        for (const pastEntry of existingJob.metadata.logs as LogEntry[]) {
+          logs.push(pastEntry);
+        }
+      }
+
+      const cachedDoc = existingJob?.metadata?.cached_doc as ExtractedDocument | undefined;
+      const cachedChunks = existingJob?.metadata?.cached_chunks as ChunkOutput[] | undefined;
+
+      // =========================================================================
       // Stage 1: Receive & Validate Signature + Compute SHA256
-      await jobQueue.updateProgress(jobId, 'receiving', 5);
+      // =========================================================================
+      await logStage('receiving', 'Validating file signature, security scan, and computing cryptographic hash...', 'info', 5);
       let buffer: Buffer;
       let originalName = input.fileName || 'document';
       let mime = 'text/plain';
@@ -136,12 +186,51 @@ export class IngestionPipeline {
       );
       const fileId = fileRes.rows[0].id;
 
-      // Stage 2: Dedupe Level 1 & 2 (File SHA256 & Identifiers)
-      await jobQueue.updateProgress(jobId, 'deduping_file', 15);
+      // =========================================================================
+      // Stage 2: Deduplication Check (File SHA256 & Canonical Identifiers)
+      // Level 1 & 2 deduplication: Graceful reuse instead of failure!
+      // =========================================================================
+      await logStage('deduping_file', `Checking SHA256 hash ${sha256.slice(0, 16)}... for existing duplicates`, 'info', 15);
       const hashMatch = await deduplicationEngine.checkFileHash(sha256);
       if (hashMatch.isDuplicate && hashMatch.existingSourceId) {
-        await jobQueue.failJob(jobId, hashMatch.message);
-        throw new Error(`Duplicate detected (Level 1): ${hashMatch.message}`);
+        await logStage(
+          'deduping_file',
+          `Identical file previously ingested: Reusing existing library resource "${hashMatch.existingTitle}" (v${hashMatch.existingVersionNo || 1}).`,
+          'info',
+          100,
+          {
+            isDuplicate: true,
+            duplicateReused: true,
+            duplicateLevel: 'file_hash',
+            existingSourceId: hashMatch.existingSourceId,
+            existingTitle: hashMatch.existingTitle,
+            existingVersionNo: hashMatch.existingVersionNo,
+            duplicateMessage: hashMatch.message,
+            extractedChars: 0,
+            extractedPages: 0,
+            chunksCount: 0,
+            ocrStatus: 'not_needed',
+            embeddingStatus: 'reused',
+          }
+        );
+
+        await jobQueue.completeJob(jobId, {
+          sourceId: hashMatch.existingSourceId,
+          isDuplicate: true,
+          duplicateReused: true,
+          duplicateLevel: 'file_hash',
+          existingSourceId: hashMatch.existingSourceId,
+          existingTitle: hashMatch.existingTitle,
+          existingVersionNo: hashMatch.existingVersionNo,
+          duplicateMessage: hashMatch.message,
+          logs,
+        });
+
+        return {
+          sourceId: hashMatch.existingSourceId,
+          versionId: '',
+          status: 'duplicate_reused',
+        };
       }
 
       const idMatch = await deduplicationEngine.checkIdentifiers({
@@ -150,72 +239,146 @@ export class IngestionPipeline {
         url: input.url,
       });
       if (idMatch.isDuplicate && idMatch.existingSourceId) {
-        await jobQueue.failJob(jobId, idMatch.message);
-        throw new Error(`Duplicate detected (Level 2): ${idMatch.message}`);
-      }
+        await logStage(
+          'deduping_file',
+          `Canonical identifier match: Reusing existing library resource "${idMatch.existingTitle}".`,
+          'info',
+          100,
+          {
+            isDuplicate: true,
+            duplicateReused: true,
+            duplicateLevel: 'doi_url',
+            existingSourceId: idMatch.existingSourceId,
+            existingTitle: idMatch.existingTitle,
+            duplicateMessage: idMatch.message,
+            extractedChars: 0,
+            extractedPages: 0,
+            chunksCount: 0,
+            ocrStatus: 'not_needed',
+            embeddingStatus: 'reused',
+          }
+        );
 
-      // Stage 3: Extract text with matched extractor
-      await jobQueue.updateProgress(jobId, 'extracting', 25);
-      let doc: ExtractedDocument;
-      if (mime === 'application/pdf') {
-        doc = await this.pdfExtractor.extract(buffer, originalName);
-      } else if (mime.includes('wordprocessingml') || mime.includes('msword')) {
-        doc = await this.docxExtractor.extract(buffer, originalName);
-      } else if (mime === 'text/html' || mime === 'application/xhtml+xml') {
-        doc = await this.htmlExtractor.extract(buffer, originalName);
-      } else if (mime === 'application/json') {
-        doc = await this.jsonExtractor.extract(buffer, originalName);
-      } else {
-        doc = await this.textExtractor.extract(buffer, originalName);
-      }
-
-      // Stage 4: OCR (Feature flag check)
-      await jobQueue.updateProgress(jobId, 'ocring', 35);
-      const { rows: ocrSettings } = await pool.query<{ value: unknown }>(
-        `SELECT value FROM system_settings WHERE key = 'ingest.ocr_enabled';`
-      );
-      const ocrEnabled = ocrSettings[0]?.value === true || ocrSettings[0]?.value === 'true';
-
-      const isScannedPdf =
-        mime === 'application/pdf' &&
-        doc.pageCount > 1 &&
-        doc.fullText.trim().length / doc.pageCount < 30;
-
-      if (isScannedPdf) {
-        if (!ocrEnabled) {
-          throw new Error(
-            `Needs OCR: Scanned PDF contains ${doc.pageCount} pages of photographic images without an embedded text layer, but OCR is disabled in Library Ingestion Settings. Toggle 'Enable OCR' in Ingestion Settings to process scanned books, or upload a text-searchable PDF.`
-          );
-        }
-
-        // Run OCR with Tesseract
-        const ocrPages = await runOcrOnPdfBuffer(buffer, {
-          jobId,
-          onProgress: async (current, total) => {
-            const pct = Math.min(44, Math.round(35 + (current / total) * 9));
-            await jobQueue.updateProgress(jobId, 'ocring', pct);
-          },
+        await jobQueue.completeJob(jobId, {
+          sourceId: idMatch.existingSourceId,
+          isDuplicate: true,
+          duplicateReused: true,
+          duplicateLevel: 'doi_url',
+          existingSourceId: idMatch.existingSourceId,
+          existingTitle: idMatch.existingTitle,
+          duplicateMessage: idMatch.message,
+          logs,
         });
 
-        if (ocrPages.length > 0 && ocrPages.some((p) => p.text.trim().length > 0)) {
-          doc = {
-            ...doc,
-            pages: ocrPages,
-            fullText: ocrPages.map((p) => p.text).join('\n\n'),
-          };
-        }
+        return {
+          sourceId: idMatch.existingSourceId,
+          versionId: '',
+          status: 'duplicate_reused',
+        };
       }
 
+      // =========================================================================
+      // Stage 3 & 4: Extraction + Robust OCR Fallback
+      // Supports retry resumption: if cached_doc exists, skip re-extracting
+      // =========================================================================
+      let doc: ExtractedDocument;
+      let ocrStatus: 'native' | 'ocr_applied' | 'not_needed' = 'native';
+
+      if (cachedDoc && cachedDoc.fullText && cachedDoc.fullText.length > 50) {
+        await logStage(
+          'extracting',
+          `Resuming from cached text extraction (${cachedDoc.fullText.length} characters, ${cachedDoc.pageCount} pages).`,
+          'info',
+          35
+        );
+        doc = cachedDoc;
+        ocrStatus = doc.ocrApplied ? 'ocr_applied' : 'native';
+      } else {
+        await logStage('extracting', `Extracting text with ${mime} document parser...`, 'info', 25);
+        if (mime === 'application/pdf') {
+          doc = await this.pdfExtractor.extract(buffer, originalName);
+        } else if (mime.includes('wordprocessingml') || mime.includes('msword')) {
+          doc = await this.docxExtractor.extract(buffer, originalName);
+        } else if (mime === 'text/html' || mime === 'application/xhtml+xml') {
+          doc = await this.htmlExtractor.extract(buffer, originalName);
+        } else if (mime === 'application/json') {
+          doc = await this.jsonExtractor.extract(buffer, originalName);
+        } else {
+          doc = await this.textExtractor.extract(buffer, originalName);
+        }
+
+        // Check if scanned PDF or insufficient text layer
+        const needsOcr =
+          mime === 'application/pdf' &&
+          (doc.isScanned || doc.fullText.trim().length < 50 || doc.pages.every((p) => p.text.trim().length === 0));
+
+        if (needsOcr) {
+          await logStage(
+            'ocring',
+            `Scanned / image-based PDF detected with insufficient text (${doc.fullText.trim().length} chars). Initializing cross-platform OCR fallback (Bengali + English)...`,
+            'info',
+            35
+          );
+
+          try {
+            const ocrPages = await runOcrOnPdfBuffer(buffer, {
+              jobId,
+              onProgress: async (current, total) => {
+                const pct = Math.min(44, Math.round(35 + (current / total) * 9));
+                await logStage('ocring', `Running OCR on page ${current} of ${total}...`, 'info', pct);
+              },
+            });
+
+            if (ocrPages.length > 0 && ocrPages.some((p) => p.text.trim().length > 0)) {
+              doc = {
+                ...doc,
+                pages: ocrPages,
+                pageCount: ocrPages.length,
+                fullText: ocrPages.map((p) => p.text).join('\n\n'),
+                isScanned: false,
+                ocrApplied: true,
+              };
+              ocrStatus = 'ocr_applied';
+              await logStage(
+                'ocring',
+                `OCR fallback succeeded: Recognized ${doc.fullText.length} characters across ${ocrPages.length} pages.`,
+                'info',
+                44
+              );
+            } else {
+              await logStage('ocring', 'OCR produced zero recognized characters from document pages.', 'warn', 44);
+            }
+          } catch (ocrErr) {
+            console.warn('[IngestionPipeline] OCR fallback encountered error:', ocrErr);
+            await logStage('ocring', `OCR fallback attempt note: ${ocrErr instanceof Error ? ocrErr.message : String(ocrErr)}`, 'warn', 44);
+          }
+        }
+
+        // Cache extracted doc for subsequent retries
+        await jobQueue.updateProgress(jobId, 'cleaning', 45, {
+          cached_doc: doc,
+          extractedChars: doc.fullText.length,
+          extractedPages: doc.pageCount,
+          ocrStatus,
+        });
+      }
+
+      // =========================================================================
       // Stage 5: Clean Document Pages
-      await jobQueue.updateProgress(jobId, 'cleaning', 45);
+      // =========================================================================
+      await logStage('cleaning', `Cleaning ${doc.pages.length} document pages, removing running headers and boilerplate...`, 'info', 45);
       const cleanedPages = cleanDocumentPages(doc.pages);
 
-      // Stage 6: Quality Assessment & Legacy Bangla Detection
-      await jobQueue.updateProgress(jobId, 'quality_check', 55);
+      // =========================================================================
+      // Stage 6: Quality Assessment
+      // =========================================================================
+      await logStage('quality_check', 'Assessing extraction quality, Bengali script parity, and symbol ratios...', 'info', 55);
       const qualityReport = assessExtractionQuality(cleanedPages);
 
+      // =========================================================================
       // Stage 7: Metadata Harmonization
-      await jobQueue.updateProgress(jobId, 'extracting_metadata', 60);
+      // =========================================================================
+      await logStage('extracting_metadata', 'Harmonizing title, authors, publication year, and evidence levels...', 'info', 60);
       const title = input.prefilledMetadata?.title || doc.title;
       const authors = input.prefilledMetadata?.authors || doc.authors;
       const year = input.prefilledMetadata?.year || doc.year || new Date().getFullYear();
@@ -223,8 +386,10 @@ export class IngestionPipeline {
       const license = input.prefilledMetadata?.license || doc.license || 'Open Access / Academic Demo';
       const evidenceLevel = input.prefilledMetadata?.evidenceLevel || doc.evidenceLevel || 'Ia';
 
+      // =========================================================================
       // Stage 8: Dedupe Level 3 & 4 (Fuzzy Title & Simhash Fingerprint)
-      await jobQueue.updateProgress(jobId, 'deduping_metadata', 65);
+      // =========================================================================
+      await logStage('deduping_metadata', 'Checking Simhash-64 fingerprint and title similarity against existing library...', 'info', 65);
       const metaMatch = await deduplicationEngine.checkContentFingerprint({
         title,
         authors,
@@ -232,23 +397,58 @@ export class IngestionPipeline {
         fullText: doc.fullText,
       });
 
-      // Stage 9 & 10: Structure-Aware Chunking & Dedupe Level 5 (Content Hash)
-      await jobQueue.updateProgress(jobId, 'chunking', 70);
-      const chunksList = structureAwareChunk(title, cleanedPages);
-      if (chunksList.length === 0) {
-        if (doc.pageCount > 1 && doc.fullText.length < 500) {
-          throw new Error(
-            `Needs OCR: Document contains ${doc.pageCount} pages of scanned photographic images without an embedded text layer. DocMate AI requires machine-readable text to generate verified clinical citations.`
-          );
+      // =========================================================================
+      // Stage 9 & 10: Structure-Aware Smart Chunking & Dedupe Level 5
+      // Supports retry resumption: if cached_chunks exists, skip re-chunking
+      // =========================================================================
+      let chunksList: ChunkOutput[];
+      if (cachedChunks && cachedChunks.length > 0) {
+        await logStage('chunking', `Resuming from cached chunking stage (${cachedChunks.length} chunks).`, 'info', 70);
+        chunksList = cachedChunks;
+      } else {
+        await logStage('chunking', 'Performing structure-aware chunking with clinical entity tagging...', 'info', 70);
+        try {
+          chunksList = structureAwareChunk(title, cleanedPages, {
+            publicationYear: year,
+            targetTokens: 500,
+            minTokens: 250,
+            maxTokens: 750,
+            overlapRatio: 0.12,
+          });
+        } catch (chunkErr) {
+          if (chunkErr instanceof InsufficientTextError) {
+            await logStage(
+              'chunking',
+              `Chunking validation error: Document contains only ${chunkErr.totalChars} characters.`,
+              'error',
+              70
+            );
+          }
+          throw chunkErr;
         }
-        throw new Error('Chunking produced zero usable chunks. Document contains insufficient text.');
+
+        const chunkStats = getChunkingStats(chunksList);
+        await jobQueue.updateProgress(jobId, 'chunking', 72, {
+          cached_chunks: chunksList,
+          chunksCount: chunksList.length,
+          chunkStats,
+        });
+
+        await logStage(
+          'chunking',
+          `Created ${chunksList.length} chunks (avg ${chunkStats.avgTokensPerChunk} tokens). Entities: ${JSON.stringify(chunkStats.entityCounts)}`,
+          'info',
+          74
+        );
       }
 
       // Total token estimation
       const totalTokens = chunksList.reduce((acc, c) => acc + c.tokenCount, 0);
 
+      // =========================================================================
       // Stage 11: Cost Estimation & Daily Budget
-      await jobQueue.updateProgress(jobId, 'cost_estimation', 75);
+      // =========================================================================
+      await logStage('cost_estimation', `Estimating embedding cost for ${totalTokens.toLocaleString()} tokens...`, 'info', 75);
       const costEstimate = await ingestionBudgetManager.estimateCost(totalTokens);
       const budgetCheck = await ingestionBudgetManager.checkDailyBudget(costEstimate.estimatedCost);
 
@@ -259,8 +459,8 @@ export class IngestionPipeline {
       }
 
       if (costEstimate.requiresApproval) {
+        await logStage('cost_estimation', `Job cost ($${costEstimate.estimatedCost}) exceeds threshold. Awaiting administrator approval.`, 'warn', 75);
         await jobQueue.pauseForApproval(jobId, costEstimate.estimatedCost, totalTokens);
-        // Pauses job in awaiting_approval status
         return {
           sourceId: '',
           versionId: '',
@@ -268,16 +468,20 @@ export class IngestionPipeline {
         };
       }
 
+      // =========================================================================
       // Stage 12: Embeddings & Cache Storage
-      await jobQueue.updateProgress(jobId, 'embedding', 80);
-      // Embed non-skip and non-references chunks (references are preserved but not embedded)
+      // =========================================================================
+      await logStage('embedding', `Generating embeddings for ${chunksList.length} chunks via CachedEmbeddingService...`, 'info', 80);
       const chunksToEmbed = chunksList.filter((c) => c.kind !== 'skip' && c.kind !== 'references');
       const embeddingsMap = await this.embeddingService.getOrComputeEmbeddings(
         chunksToEmbed.map((c) => ({ contentHash: c.contentHash, text: c.embeddingText }))
       );
+      await jobQueue.updateProgress(jobId, 'embedding', 88, { embeddingStatus: 'completed' });
 
+      // =========================================================================
       // Stage 13: Database Transaction & Indexing
-      await jobQueue.updateProgress(jobId, 'indexing', 90);
+      // =========================================================================
+      await logStage('indexing', 'Persisting source record, versioning, and chunk vectors in database...', 'info', 90);
       const client = await pool.connect();
       let sourceId: string;
       let versionId: string;
@@ -292,7 +496,7 @@ export class IngestionPipeline {
              doi, pmid, canonical_url, language, evidence_level, license,
              rights_confirmed_by, rights_confirmed_at, lifecycle, status
            )
-           VALUES ($1, $2::jsonb, $3, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), 'in_review', 'active')
+           VALUES ($1, $2::jsonb, $3, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), 'published', 'active')
            RETURNING id;`,
           [
             title,
@@ -339,7 +543,7 @@ export class IngestionPipeline {
         );
 
         // Stage 14: Safety Scan (Prompt Injection Defense)
-        await jobQueue.updateProgress(jobId, 'safety_scanning', 95);
+        await logStage('safety_scanning', 'Scanning chunks for prompt injection attempts...', 'info', 95);
         const safetyReport = scanChunksForPromptInjection(
           chunksList.map((c) => ({ ordinal: c.ordinal, text: c.text }))
         );
@@ -403,6 +607,8 @@ export class IngestionPipeline {
         client.release();
       }
 
+      await logStage('completed', `Ingestion completed successfully. ${chunksList.length} verified chunks indexed.`, 'info', 100);
+
       await jobQueue.completeJob(jobId, {
         sourceId,
         versionId,
@@ -412,17 +618,30 @@ export class IngestionPipeline {
         needsReview: qualityReport.needsReview,
         totalTokens,
         estimatedCost: costEstimate.estimatedCost,
+        extractedChars: doc.fullText.length,
+        extractedPages: doc.pageCount,
+        chunksCount: chunksList.length,
+        ocrStatus,
+        embeddingStatus: 'completed',
+        isDuplicate: false,
+        logs,
       });
 
       return {
         sourceId,
         versionId,
-        status: 'in_review',
+        status: 'published',
       };
     } catch (err: unknown) {
-      console.error(`[IngestionPipeline] Job ${jobId} failed:`, err);
+      console.error(`[IngestionPipeline] Job ${jobId} failed at stage [${currentStage}]:`, err);
       const msg = err instanceof Error ? err.message : 'Unknown ingestion pipeline error';
-      await jobQueue.failJob(jobId, msg);
+      logs.push({
+        timestamp: new Date().toISOString(),
+        stage: currentStage,
+        message: `Pipeline failure at stage [${currentStage}]: ${msg}`,
+        level: 'error',
+      });
+      await jobQueue.failJob(jobId, msg, currentStage, { logs, lastFailedStage: currentStage });
       throw err;
     }
   }

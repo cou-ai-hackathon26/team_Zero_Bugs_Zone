@@ -1,17 +1,62 @@
 import crypto from 'crypto';
 import { CleanedPage } from './cleaner';
 
+export type ClinicalEntity =
+  | 'guideline'
+  | 'diagnosis'
+  | 'treatment'
+  | 'drug_info'
+  | 'contraindication'
+  | 'dosage'
+  | 'red_flag'
+  | 'follow_up'
+  | 'references'
+  | 'general';
+
 export interface ChunkOutput {
   ordinal: number;
   headingPath: string;
   pageStart: number;
   pageEnd: number;
   kind: 'body' | 'table' | 'list' | 'skip' | 'references';
+  clinicalEntity?: ClinicalEntity;
   text: string;
   embeddingText: string;
   contentHash: string;
   tokenCount: number;
   language: 'bn' | 'en' | 'mixed';
+}
+
+export interface ChunkOptions {
+  targetTokens?: number;
+  minTokens?: number;
+  maxTokens?: number;
+  overlapRatio?: number;
+  publicationYear?: number;
+}
+
+export interface ChunkingStats {
+  totalChunks: number;
+  totalTokens: number;
+  totalCharacters: number;
+  avgTokensPerChunk: number;
+  entityCounts: Record<ClinicalEntity, number>;
+  languageDistribution: Record<string, number>;
+}
+
+export class InsufficientTextError extends Error {
+  public readonly totalChars: number;
+  public readonly pageCount: number;
+
+  constructor(totalChars: number, pageCount: number, customMessage?: string) {
+    const msg =
+      customMessage ||
+      `Chunking produced zero usable chunks. Document contains insufficient text (${totalChars} readable characters across ${pageCount} page(s)). DocMate AI requires machine-readable text or clear scans with OCR to generate verified clinical citations.`;
+    super(msg);
+    this.name = 'InsufficientTextError';
+    this.totalChars = totalChars;
+    this.pageCount = pageCount;
+  }
 }
 
 export function estimateTokenCount(text: string): number {
@@ -28,6 +73,84 @@ export function estimateTokenCount(text: string): number {
 export function computeContentHash(text: string): string {
   const normalized = text.replace(/\s+/g, ' ').trim();
   return crypto.createHash('sha256').update(normalized).digest('hex');
+}
+
+/**
+ * Detect clinical entity category from heading and text content for enhanced vector retrieval
+ */
+export function detectClinicalEntity(heading: string, text: string): ClinicalEntity {
+  const combined = `${heading}\n${text}`.toLowerCase();
+
+  // 1. Red Flags & Critical Alerts (highest priority for patient safety)
+  if (
+    /red\s*flag|danger\s*sign|critical\s*alert|acute\s*complication|emergency|alarm\s*feature|জরুরি|বিপদচিহ্ন|সতর্কবার্তা|ঝুঁকি/i.test(
+      combined
+    )
+  ) {
+    return 'red_flag';
+  }
+
+  // 2. Contraindications & Safety Warnings
+  if (
+    /contraindicat|adverse\s*effect|toxicity|black\s*box|interaction|side\s*effect|hypersensitivity|নিষিদ্ধ|পার্শ্বপ্রতিক্রিয়া|সতর্কতা|বর্জনীয়/i.test(
+      combined
+    )
+  ) {
+    return 'contraindication';
+  }
+
+  // 3. Dosage References & Regimens
+  if (
+    /dos(?:e|age)|posology|administration|regimen|mg\/kg|mcg|i\.?v\.?|oral|frequency|titration|ডোজ|মাত্রা|প্রয়োগবিধি|সেবনবিধি/i.test(
+      combined
+    )
+  ) {
+    return 'dosage';
+  }
+
+  // 4. Clinical Guidelines & Practice Protocols
+  if (/guideline|protocol|recommendation|consensus|standard\s*of\s*care|নির্দেশিকা|প্রোটোকল/i.test(combined)) {
+    return 'guideline';
+  }
+
+  // 5. Drug Information & Pharmacology
+  if (
+    /pharmac(?:ology|odynamics|okinetics)|active\s*ingredient|mechanism\s*of\s*action|drug\s*class|ওষুধ|ঔষধ|ফার্মাকোলজি/i.test(
+      combined
+    )
+  ) {
+    return 'drug_info';
+  }
+
+  // 6. Treatment Pathways & Management
+  if (
+    /treatment|therapy|management|intervention|procedure|first[\s-]line|second[\s-]line|algorithmic|চিকিৎসা|ব্যবস্থাপনা|থেরাপি/i.test(
+      combined
+    )
+  ) {
+    return 'treatment';
+  }
+
+  // 7. Diagnostic Criteria & Clinical Presentation
+  if (
+    /diagnos(?:is|tic)|criteria|symptom|clinical\s*presentation|investigation|laboratory|differential|pathology|etiology|লক্ষণ|উপসর্গ|রোগ\s*নির্ণয়|পরীক্ষা/i.test(
+      combined
+    )
+  ) {
+    return 'diagnosis';
+  }
+
+  // 8. Follow-up & Monitoring
+  if (/follow[\s-]up|monitoring|surveillance|prognosis|counseling|recovery|ফলো-?আপ|পর্যবেক্ষণ|পরামর্শ/i.test(combined)) {
+    return 'follow_up';
+  }
+
+  // 9. References
+  if (/reference|bibliography|citation|তথ্যসূত্র|রেফারেন্স/i.test(combined)) {
+    return 'references';
+  }
+
+  return 'general';
 }
 
 // Split text into coherent sentences without cutting decimals or abbreviations
@@ -50,10 +173,10 @@ export function splitIntoSentences(text: string): string[] {
 export function structureAwareChunk(
   documentTitleOrPages: string | CleanedPage[],
   pagesOrTitle?: CleanedPage[] | string,
-  targetTokens = 500,
-  minTokens = 300,
-  maxTokens = 700,
-  overlapRatio = 0.12
+  targetTokensOrOptions: number | ChunkOptions = 500,
+  minTokensParam = 250,
+  maxTokensParam = 750,
+  overlapRatioParam = 0.12
 ): ChunkOutput[] {
   let documentTitle = 'Document';
   let pages: CleanedPage[] = [];
@@ -65,10 +188,50 @@ export function structureAwareChunk(
     pages = documentTitleOrPages || [];
     documentTitle = typeof pagesOrTitle === 'string' ? pagesOrTitle : 'Document';
   }
+
+  // Resolve configurable options
+  let targetTokens = 500;
+  let minTokens = 250;
+  let maxTokens = 750;
+  let overlapRatio = 0.12;
+  let publicationYear: number | undefined;
+
+  if (typeof targetTokensOrOptions === 'object' && targetTokensOrOptions !== null) {
+    targetTokens = targetTokensOrOptions.targetTokens ?? 500;
+    minTokens = targetTokensOrOptions.minTokens ?? 250;
+    maxTokens = targetTokensOrOptions.maxTokens ?? 750;
+    overlapRatio = targetTokensOrOptions.overlapRatio ?? 0.12;
+    publicationYear = targetTokensOrOptions.publicationYear;
+  } else if (typeof targetTokensOrOptions === 'number') {
+    targetTokens = targetTokensOrOptions;
+    minTokens = minTokensParam;
+    maxTokens = maxTokensParam;
+    overlapRatio = overlapRatioParam;
+  }
+
+  // Calculate total readable text characters across pages
+  const totalReadableChars = pages.reduce((acc, p) => {
+    if (p.kind === 'skip') return acc;
+    const txt = (p.text || '').trim();
+    const tableChars = (p.tables || []).join(' ').trim().length;
+    return acc + txt.length + tableChars;
+  }, 0);
+
+  // Validate threshold: never silently succeed or return empty
+  if (totalReadableChars < 30) {
+    throw new InsufficientTextError(totalReadableChars, pages.length);
+  }
+
   const result: ChunkOutput[] = [];
   const seenContentHashes = new Set<string>();
   let currentOrdinal = 1;
   let activeHeadingPath = documentTitle;
+
+  const buildEmbeddingText = (headingPath: string, text: string, pageStart: number, pageEnd: number, entity: ClinicalEntity): string => {
+    const yearStr = publicationYear ? ` (${publicationYear})` : '';
+    const pageStr = pageStart === pageEnd ? `P.${pageStart}` : `Pp.${pageStart}-${pageEnd}`;
+    return `[Source: "${documentTitle}"${yearStr}] [Section: ${headingPath}] [${pageStr}] [Clinical Domain: ${entity}]\n\n${text}`;
+  };
 
   for (const page of pages) {
     if (page.kind === 'skip') {
@@ -90,8 +253,9 @@ export function structureAwareChunk(
           pageStart: page.pageNumber,
           pageEnd: page.pageNumber,
           kind: 'references',
+          clinicalEntity: 'references',
           text: page.text,
-          embeddingText: `${documentTitle} > References\n\n${page.text}`,
+          embeddingText: buildEmbeddingText(`${documentTitle} > References`, page.text, page.pageNumber, page.pageNumber, 'references'),
           contentHash: hash,
           tokenCount: estimateTokenCount(page.text),
           language: page.language,
@@ -106,14 +270,16 @@ export function structureAwareChunk(
         const hash = computeContentHash(tbl);
         if (!seenContentHashes.has(hash)) {
           seenContentHashes.add(hash);
+          const entity = detectClinicalEntity(activeHeadingPath, tbl);
           result.push({
             ordinal: currentOrdinal++,
             headingPath: `${activeHeadingPath} > Table`,
             pageStart: page.pageNumber,
             pageEnd: page.pageNumber,
             kind: 'table',
+            clinicalEntity: entity,
             text: tbl,
-            embeddingText: `${activeHeadingPath} > Table\n\n${tbl}`,
+            embeddingText: buildEmbeddingText(`${activeHeadingPath} > Table`, tbl, page.pageNumber, page.pageNumber, entity),
             contentHash: hash,
             tokenCount: estimateTokenCount(tbl),
             language: page.language,
@@ -141,21 +307,23 @@ export function structureAwareChunk(
       // Dedupe Level 5: Drop exact duplicate boilerplate chunks inside same document
       if (!seenContentHashes.has(hash)) {
         seenContentHashes.add(hash);
+        const entity = detectClinicalEntity(activeHeadingPath, chunkText);
         result.push({
           ordinal: currentOrdinal++,
           headingPath: activeHeadingPath,
           pageStart: page.pageNumber,
           pageEnd: page.pageNumber,
-          kind: /^\s*[-*•\d]\s+/m.test(chunkText) ? 'list' : 'body',
+          kind: /^\s*[-*•\d+.]\s+/m.test(chunkText) ? 'list' : 'body',
+          clinicalEntity: entity,
           text: chunkText,
-          embeddingText: `${activeHeadingPath}\n\n${chunkText}`,
+          embeddingText: buildEmbeddingText(activeHeadingPath, chunkText, page.pageNumber, page.pageNumber, entity),
           contentHash: hash,
           tokenCount: estimateTokenCount(chunkText),
           language: page.language,
         });
       }
 
-      // 12% sentence-aligned overlap
+      // Sentence-aligned overlap
       const overlapTokensTarget = Math.round(targetTokens * overlapRatio);
       const overlapSentences: string[] = [];
       let accumulatedOverlapTokens = 0;
@@ -176,8 +344,13 @@ export function structureAwareChunk(
     };
 
     for (const para of paragraphs) {
-      // Check if paragraph is a heading line (e.g. "### Chapter 2" or "Section 3:")
-      if (/^(#{1,4}\s+|[A-Z0-9\u09E6-\u09EF\s]{3,40}:|Section\s+\d+:)/i.test(para) && para.length < 90) {
+      // Check if paragraph is a heading line (e.g. "### Chapter 2" or "Section 3:" or "Treatment Guidelines:")
+      if (
+        /^(#{1,4}\s+|[A-Z0-9\u09E6-\u09EF\s]{3,40}:|Section\s+\d+:|Chapter\s+\d+:|অধ্যায়\s+[১-৯\d]+:?|[0-9১-৯]+(?:\.[0-9১-৯]+)*\s+[A-Za-z\u0980-\u09FF]{3,50})/i.test(
+          para
+        ) &&
+        para.length < 90
+      ) {
         flushChunk();
         activeHeadingPath = `${documentTitle} > ${para.replace(/^#+\s*/, '')}`;
         continue;
@@ -197,5 +370,49 @@ export function structureAwareChunk(
     flushChunk();
   }
 
+  if (result.length === 0) {
+    throw new InsufficientTextError(totalReadableChars, pages.length);
+  }
+
   return result;
+}
+
+/**
+ * Computes diagnostic statistics for created chunks
+ */
+export function getChunkingStats(chunks: ChunkOutput[]): ChunkingStats {
+  const entityCounts: Record<ClinicalEntity, number> = {
+    guideline: 0,
+    diagnosis: 0,
+    treatment: 0,
+    drug_info: 0,
+    contraindication: 0,
+    dosage: 0,
+    red_flag: 0,
+    follow_up: 0,
+    references: 0,
+    general: 0,
+  };
+
+  const languageDistribution: Record<string, number> = {};
+  let totalTokens = 0;
+  let totalCharacters = 0;
+
+  for (const c of chunks) {
+    totalTokens += c.tokenCount;
+    totalCharacters += c.text.length;
+    if (c.clinicalEntity) {
+      entityCounts[c.clinicalEntity] = (entityCounts[c.clinicalEntity] || 0) + 1;
+    }
+    languageDistribution[c.language] = (languageDistribution[c.language] || 0) + 1;
+  }
+
+  return {
+    totalChunks: chunks.length,
+    totalTokens,
+    totalCharacters,
+    avgTokensPerChunk: chunks.length > 0 ? Math.round(totalTokens / chunks.length) : 0,
+    entityCounts,
+    languageDistribution,
+  };
 }

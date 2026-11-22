@@ -209,11 +209,35 @@ export async function POST(
         });
       }
 
-      const isRespiratory = /cough|breath|dyspnea|chest|sputum|কাশি|শ্বাস|বুক|কফ/i.test(
-        `${patientInput.chief_complaint || ''} ${(patientInput.symptoms || []).join(' ')} ${observationText}`
+      // Check all recent case conversation turns to avoid repeating already answered clinical questions
+      const recentCaseTurns = await tx.query.caseTurns.findMany({
+        where: eq(caseTurns.caseId, id),
+        orderBy: [desc(caseTurns.createdAt)],
+        limit: 20,
+      });
+
+      const pastTurnsHistory = recentCaseTurns
+        .map((t) => {
+          const c = t.content as Record<string, unknown>;
+          return `${c?.text || ''} ${c?.answer || ''} ${c?.observation || ''}`;
+        })
+        .join(' ')
+        .toLowerCase();
+
+      const combinedClinicalContext = `${patientInput.chief_complaint || ''} ${(patientInput.symptoms || []).join(' ')} ${observationText} ${pastTurnsHistory}`.toLowerCase();
+
+      const isRespiratory = /cough|breath|dyspnea|chest|sputum|কাশি|শ্বাস|বুক|কফ|নিউমোনিয়া|pneumonia/i.test(
+        combinedClinicalContext
       );
 
-      if (isRespiratory) {
+      const hasAuscultation =
+        Boolean(patientInput.examination_findings) ||
+        proposedUpdates.some((u) => u.field_path === 'examination_findings') ||
+        /crackles?|crepitations?|wheez|rhonchi|clear\s+breath|breath\s+sounds?|বায়ু\s+চলাচল|হুইজ|ক্রেপিটেশন|র‌্যালস|স্বাভাবিক\s+শব্দ/i.test(
+          `${observationText} ${pastTurnsHistory}`
+        );
+
+      if (isRespiratory && !hasAuscultation) {
         missingInfo.push({
           id: 'chest-auscultation-followup',
           type: 'exam',
@@ -234,6 +258,54 @@ export async function POST(
               ? ['ক্রেপিটেশন বিদ্যমান (Crackles present)', 'হুইজ বিদ্যমান (Wheezing present)', 'ফুসফুসের শব্দ স্বাভাবিক (Clear)', 'বায়ু চলাচল হ্রাসপ্রাপ্ত (Decreased air entry)']
               : ['Crackles present', 'Wheezing present', 'Clear breath sounds', 'Decreased air entry'],
         });
+      } else if (isRespiratory && hasAuscultation) {
+        const hasImagingOrLabs = /x-?ray|cxr|radiograph|cbc|blood\s+count|ল্যাব|রক্ত|এক্স-রে|সিবিসি/i.test(
+          `${observationText} ${pastTurnsHistory}`
+        );
+
+        if (!hasImagingOrLabs) {
+          missingInfo.push({
+            id: 'chest-imaging-followup',
+            type: 'test',
+            text:
+              locale === 'bn'
+                ? 'বুকের এক্স-রে (Chest X-ray PA view) বা সিবিসি (CBC) টেস্টের রিপোর্ট আছে কি?'
+                : 'Has a posteroanterior (PA) chest radiograph or complete blood count (CBC) been performed?',
+            why_it_helps:
+              locale === 'bn'
+                ? 'লোবার কনসোলিডেশন নিশ্চিত করতে এবং নিউমোনিয়া বনাম ব্রঙ্কাইটিস আলাদা করতে'
+                : 'To confirm focal lobar consolidation and rule out complicated pneumonia',
+            which_diagnoses_it_separates:
+              locale === 'bn'
+                ? ['কমিউনিটি-অ্যাকওয়ার্ড নিউমোনিয়া (CAP)', 'তীব্র ব্রঙ্কাইটিস (Acute Bronchitis)']
+                : ['Community-Acquired Pneumonia (CAP)', 'Acute Bronchitis'],
+            quick_answers:
+              locale === 'bn'
+                ? ['এক্স-রে সম্পন্ন হয়নি', 'এক্স-রে: ডান ফুসফুসে কনসলিডেশন', 'সিবিসি: লিউকোসাইটোসিস বিদ্যমান']
+                : ['Chest X-ray pending', 'CXR: Right lower lobe consolidation', 'CBC: Leukocytosis present'],
+          });
+        } else {
+          missingInfo.push({
+            id: 'duration-followup',
+            type: 'question',
+            text:
+              locale === 'bn'
+                ? 'জ্বর ও উপসর্গের স্থায়িত্বকাল কত দিন? রোগী স্বাভাবিকভাবে তরল খাদ্য গ্রহণ করতে পারছেন?'
+                : 'What is the exact duration of symptoms in days? Is the patient able to maintain oral hydration?',
+            why_it_helps:
+              locale === 'bn'
+                ? 'রোগের গতিবিধি এবং হাসপাতালে ভর্তির প্রয়োজনীয়তা নির্ধারণ করতে'
+                : 'To assess clinical acuity and outpatient vs inpatient disposition',
+            which_diagnoses_it_separates:
+              locale === 'bn'
+                ? ['মৃদু কেস (Outpatient)', 'গুরুতর কেস (Inpatient)']
+                : ['Mild (Outpatient)', 'Severe (Inpatient)'],
+            quick_answers:
+              locale === 'bn'
+                ? ['৩ দিন ধরে, তরল গ্রহণ স্বাভাবিক', '১ সপ্তাহ ধরে, দুর্বলতা বেশি', '৫ দিন, উচ্চ জ্বর']
+                : ['3 days, tolerating oral fluids', '1 week, marked weakness', '5 days, high fever'],
+          });
+        }
       } else {
         missingInfo.push({
           id: 'exam-general-followup',
@@ -254,7 +326,7 @@ export async function POST(
         });
       }
 
-      // 4. Multi-query hybrid retrieval using language layer canonical queries
+      // 4. Multi-query hybrid retrieval using language layer canonical queries & enriched patient context
       const sysQuery = detectSystemQuery(observationText);
       let citations: ReturnType<typeof libraryExcerpts> = [];
       const isQuestion =
@@ -266,12 +338,31 @@ export async function POST(
 
       if (!sysQuery && (action === 'evidence_review' || isQuestion || observationText.length > 5)) {
         try {
-          const retrievalQueries =
-            languageResult.retrievalQueries && languageResult.retrievalQueries.length > 0
-              ? languageResult.retrievalQueries
-              : [observationText];
+          const retrievalQueries: string[] = [];
 
-          const hits = await hybridRetrieve(retrievalQueries, 6);
+          if (languageResult.retrievalQueries && languageResult.retrievalQueries.length > 0) {
+            retrievalQueries.push(...languageResult.retrievalQueries);
+          }
+          if (observationText.trim()) {
+            retrievalQueries.push(observationText.trim());
+          }
+
+          // Crucial: Enrich retrieval with the patient's presenting symptoms and complaint
+          if (patientInput.chief_complaint) {
+            retrievalQueries.push(patientInput.chief_complaint);
+          }
+          if (patientInput.symptoms && patientInput.symptoms.length > 0) {
+            retrievalQueries.push(...patientInput.symptoms);
+          }
+          if (patientInput.examination_findings) {
+            retrievalQueries.push(patientInput.examination_findings);
+          }
+
+          const uniqueQueries = Array.from(
+            new Set(retrievalQueries.map((q) => q.trim()).filter((q) => q.length > 1))
+          );
+
+          const hits = await hybridRetrieve(uniqueQueries, 6);
           citations = libraryExcerpts(hits.slice(0, 3));
         } catch {
           citations = [];
@@ -349,15 +440,61 @@ export async function POST(
             ? 'আমি শুধুমাত্র এই মুহূর্তে খোলা রোগীর কেস এবং আমাদের অভ্যন্তরীণ ভেরিফাইড ক্লিনিক্যাল লাইব্রেরির রেফারেন্স দেখতে পারি। আমি আপনার স্ক্রিন, ক্যামেরা বা ইন্টারনেট দেখতে পারি না।'
             : 'I can only see the currently open patient case and our internal verified clinical library references. I cannot see your broader screen, camera, or the internet.';
       } else if (isQuestion && citations.length > 0) {
-        const topCitation = citations[0];
-        const excerptSnippet = topCitation.quote
-          ? `"${topCitation.quote.slice(0, 180)}..."`
-          : '';
+        const isDiffQuestion = /differential|diagnos|রোগ|সম্ভাব্য|finding|assess/i.test(observationText);
 
-        baseClinicalAnswer =
-          effectiveLocale === 'bn'
-            ? `অভ্যন্তরীণ মেডিকেল লাইব্রেরি থেকে সংশ্লিষ্ট প্রমাণ:\n\n• **লাইব্রেরি প্রমাণ**: ${excerptSnippet || 'সংশ্লিষ্ট ক্লিনিকাল গাইডলাইনে উপযুক্ত প্রটোকল উল্লেখিত রয়েছে।'}\n\nরোগীর বর্তমান ডেটা ও প্রমাণের ওপর ভিত্তি করে সিদ্ধান্ত সহায়তা প্রস্তুত।`
-            : `Verified evidence from internal medical library:\n\n• **Guideline Evidence**: ${excerptSnippet || 'Approved management protocols documented in reference library.'}\n\nPlease review citations below to support your clinical decision.`;
+        if (isDiffQuestion) {
+          const capCitation = citations.find((c) => /pneumonia|respiratory|lung|ফুসফুস|নিউমোনিয়া|crackles|cough/i.test(c.text));
+          const dengueCitation = citations.find((c) => /dengue|ডেঙ্গু|arboviral|fever/i.test(c.text));
+          const cardioCitation = citations.find((c) => /coronary|chest pain|angina|stemi|acs|বুকে ব্যথা/i.test(c.text));
+
+          if (effectiveLocale === 'bn') {
+            const items: string[] = [];
+            if (capCitation) {
+              items.push(`১. **কমিউনিটি-অ্যাকওয়ার্ড নিউমোনিয়া (Community-Acquired Pneumonia - CAP)**:\n   • **গাইডলাইন প্রমাণ**: "${capCitation.quote.slice(0, 180)}..."\n   • **যৌক্তিকতা**: জ্বর, কাশি ও বুকের শব্দের সাথে সংগতিপূর্ণ।`);
+            }
+            if (dengueCitation && !capCitation) {
+              items.push(`১. **ডেঙ্গু জ্বর (Dengue Fever)**:\n   • **গাইডলাইন প্রমাণ**: "${dengueCitation.quote.slice(0, 180)}..."\n   • **যৌক্তিকতা**: তীব্র জ্বর ও শারীরিক ব্যথার ক্ষেত্রে এন্ডেমিক অঞ্চলে বিবেচনাযোগ্য।`);
+            } else if (dengueCitation) {
+              items.push(`২. **ডেঙ্গু জ্বর (Dengue Fever)**:\n   • **গাইডলাইন প্রমাণ**: "${dengueCitation.quote.slice(0, 180)}..."\n   • **যৌক্তিকতা**: তীব্র জ্বর ও শারীরিক ব্যথার ক্ষেত্রে এন্ডেমিক অঞ্চলে বিবেচনাযোগ্য।`);
+            }
+            if (cardioCitation) {
+              items.push(`• **অ্যাকিউট করোনারি সিন্ড্রোম (ACS)**:\n   • **গাইডলাইন প্রমাণ**: "${cardioCitation.quote.slice(0, 180)}..."\n   • **যৌক্তিকতা**: বুকে ব্যথা বা শ্বাসকষ্টের ক্ষেত্রে অবিলম্বে ইসিজি নিশ্চিত করা প্রয়োজন।`);
+            }
+            if (items.length === 0) {
+              const topC = citations[0];
+              items.push(`• **ক্লিনিকাল গাইডলাইন প্রমাণ**: "${topC.quote.slice(0, 200)}..."`);
+            }
+            baseClinicalAnswer = `রোগীর বর্তমান উপসর্গ ও অভ্যন্তরীণ মেডিকেল লাইব্রেরির তথ্যের ভিত্তিতে সম্ভাব্য ক্লিনিকাল বিবেচনা:\n\n${items.join('\n\n')}\n\n*সতর্কতা: এটি ক্লিনিকাল সিদ্ধান্ত সহায়তা। চূড়ান্ত রোগ নির্ণয়ের জন্য ফিজিক্যাল এক্সামিনেশন ও ইনভেস্টিগেশন পর্যালোচনা করুন।*`;
+          } else {
+            const items: string[] = [];
+            if (capCitation) {
+              items.push(`1. **Community-Acquired Pneumonia (CAP)**:\n   • **Guideline Evidence**: "${capCitation.quote.slice(0, 180)}..."\n   • **Clinical Rationale**: Strongly correlates with acute fever, cough, and localized auscultatory findings.`);
+            }
+            if (dengueCitation && !capCitation) {
+              items.push(`1. **Dengue Fever**:\n   • **Guideline Evidence**: "${dengueCitation.quote.slice(0, 180)}..."\n   • **Clinical Rationale**: Relevant in acute febrile presentation during endemic periods; monitor for warning signs.`);
+            } else if (dengueCitation) {
+              items.push(`2. **Dengue Fever**:\n   • **Guideline Evidence**: "${dengueCitation.quote.slice(0, 180)}..."\n   • **Clinical Rationale**: Relevant in acute febrile presentation during endemic periods; monitor for warning signs.`);
+            }
+            if (cardioCitation) {
+              items.push(`• **Acute Coronary Syndrome (ACS)**:\n   • **Guideline Evidence**: "${cardioCitation.quote.slice(0, 180)}..."\n   • **Clinical Rationale**: Consider in acute chest tightness or dyspnea; prioritize STAT 12-lead ECG.`);
+            }
+            if (items.length === 0) {
+              const topC = citations[0];
+              items.push(`• **Verified Guideline Evidence**: "${topC.quote.slice(0, 200)}..."`);
+            }
+            baseClinicalAnswer = `Differential considerations based on documented findings and verified internal guidelines:\n\n${items.join('\n\n')}\n\n*Clinical decision support only. Final clinical diagnosis requires physician examination and diagnostic tests.*`;
+          }
+        } else {
+          const topCitation = citations[0];
+          const excerptSnippet = topCitation.quote
+            ? `"${topCitation.quote.slice(0, 200)}..."`
+            : '';
+
+          baseClinicalAnswer =
+            effectiveLocale === 'bn'
+              ? `অভ্যন্তরীণ মেডিকেল লাইব্রেরি থেকে সংশ্লিষ্ট প্রমাণ:\n\n• **লাইব্রেরি প্রমাণ**: ${excerptSnippet || 'সংশ্লিষ্ট ক্লিনিকাল গাইডলাইনে উপযুক্ত প্রটোকল উল্লেখিত রয়েছে।'}\n\nরোগীর বর্তমান ডেটা ও প্রমাণের ওপর ভিত্তি করে সিদ্ধান্ত সহায়তা প্রস্তুত।`
+              : `Verified evidence from internal medical library:\n\n• **Guideline Evidence**: ${excerptSnippet || 'Approved management protocols documented in reference library.'}\n\nPlease review citations below to support your clinical decision.`;
+        }
       } else if (action === 'evidence_review') {
         baseClinicalAnswer =
           effectiveLocale === 'bn'
@@ -379,13 +516,15 @@ export async function POST(
             : 'Clinical observation has been recorded in the case consultation history.';
       }
 
+      const hasClinicalEvidence = citations.length > 0 || proposedUpdates.length > 0 || Boolean(sysQuery);
+
       const humanized = humanize(
         {
-          found: Boolean(sysQuery) || citations.length > 0 || proposedUpdates.length > 0,
-          status: sysQuery ? 'analyzed' : 'insufficient_evidence',
+          found: hasClinicalEvidence,
+          status: hasClinicalEvidence ? 'analyzed' : 'insufficient_evidence',
           answer: baseClinicalAnswer,
           citations,
-          missing_information: sysQuery ? [] : missingInfo,
+          missing_information: hasClinicalEvidence && !isQuestion ? [] : missingInfo,
         },
         undefined,
         userPrefs,
@@ -417,7 +556,7 @@ export async function POST(
             follow_ups: missingInfo,
             citations,
             safety_alerts: safetyAlerts,
-            status: 'insufficient_evidence',
+            status: hasClinicalEvidence ? 'analyzed' : 'insufficient_evidence',
             language_metadata: {
               reply_language: effectiveLocale,
               understanding: {
