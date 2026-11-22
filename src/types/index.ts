@@ -204,6 +204,7 @@ export interface StructuredPatientInput {
   is_pregnant?: boolean;
   pregnancy_trimester?: 1 | 2 | 3;
   egfr?: number;
+  examination_findings?: string;
   clinical_notes?: string;
 }
 

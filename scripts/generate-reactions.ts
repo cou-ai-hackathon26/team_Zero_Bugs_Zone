@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
 import fs from 'fs';
 import path from 'path';

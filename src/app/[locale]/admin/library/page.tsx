@@ -19,6 +19,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
+import {
   BookOpen,
   PlusCircle,
   Clock,
@@ -36,6 +43,12 @@ import {
   ShieldAlert,
   Loader2,
   AlertTriangle,
+  FileText,
+  Layers,
+  CopyCheck,
+  Sparkles,
+  Info,
+  ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -65,6 +78,39 @@ interface IngestJobRecord {
   estimated_cost: string;
   tokens_used: number;
   created_at: string;
+  metadata?: {
+    fileStorageKey?: string;
+    fileName?: string;
+    isDuplicate?: boolean;
+    duplicateReused?: boolean;
+    duplicateLevel?: string;
+    existingSourceId?: string;
+    existingTitle?: string;
+    existingVersionNo?: number;
+    duplicateMessage?: string;
+    extractedChars?: number;
+    extractedPages?: number;
+    chunksCount?: number;
+    ocrStatus?: 'native' | 'ocr_applied' | 'not_needed' | 'failed_ocr';
+    embeddingStatus?: string;
+    logs?: Array<{
+      timestamp: string;
+      stage: string;
+      message: string;
+      level?: 'info' | 'warn' | 'error';
+    }>;
+    lastFailedStage?: string;
+    failedStage?: string;
+    chunkStats?: {
+      totalChunks: number;
+      totalTokens: number;
+      totalCharacters: number;
+      avgTokensPerChunk: number;
+      entityCounts: Record<string, number>;
+      languageDistribution: Record<string, number>;
+    };
+    [key: string]: unknown;
+  };
 }
 
 export default function AdminLibraryPage() {
@@ -76,6 +122,7 @@ export default function AdminLibraryPage() {
   const [activeTab, setActiveTab] = useState<string>('sources');
   const [sources, setSources] = useState<SourceRecord[]>([]);
   const [jobs, setJobs] = useState<IngestJobRecord[]>([]);
+  const [selectedJobForDetails, setSelectedJobForDetails] = useState<IngestJobRecord | null>(null);
   const [settings, setSettings] = useState<{
     dailyBudget: string;
     approvalThreshold: string;
@@ -840,14 +887,16 @@ export default function AdminLibraryPage() {
           </Card>
         </TabsContent>
 
-        {/* Tab 3: Ingestion Queue Monitor */}
+        {/* Tab 3: Ingestion Queue Monitor & Processing Dashboard */}
         <TabsContent value="queue" className="mt-4 space-y-4">
           <Card className="border border-border/80 shadow-sm">
             <CardHeader className="p-4 pb-2 border-b border-border/50 flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-sm font-semibold">{tIngest('tabs.queue')}</CardTitle>
                 <CardDescription className="text-xs text-muted-foreground">
-                  {locale === 'bn' ? 'ব্যাকগ্রাউন্ড ইনজেশন পাইপলাইন টাস্ক মনিটর' : 'Background worker pipeline task execution monitor'}
+                  {locale === 'bn'
+                    ? 'রিসোর্স ইনজেশন, টেক্সট এক্সট্রাকশন, ওসিআর ও চাঙ্কিং পাইপলাইন রিয়েল-টাইম মনিটর'
+                    : 'Resource ingestion, text extraction, OCR, and smart chunking pipeline real-time monitor'}
                 </CardDescription>
               </div>
               <Button size="sm" variant="ghost" onClick={loadJobs} className="h-7 text-xs">
@@ -871,10 +920,13 @@ export default function AdminLibraryPage() {
                     <TableHeader className="bg-muted/30">
                       <TableRow>
                         <TableHead className="text-xs">ID</TableHead>
-                        <TableHead className="text-xs">{locale === 'bn' ? 'ইনপুট ধরন' : 'Input'}</TableHead>
+                        <TableHead className="text-xs">{locale === 'bn' ? 'ফাইল / ইনপুট' : 'Input / File'}</TableHead>
+                        <TableHead className="text-xs">{tIngest('extractionStatus')}</TableHead>
+                        <TableHead className="text-xs">{tIngest('ocrStatus')}</TableHead>
+                        <TableHead className="text-xs">{tIngest('chunksCreated')}</TableHead>
+                        <TableHead className="text-xs">{tIngest('embeddingStatus')}</TableHead>
+                        <TableHead className="text-xs">{tIngest('duplicateStatus')}</TableHead>
                         <TableHead className="text-xs">{tIngest('stage')}</TableHead>
-                        <TableHead className="text-xs">{tIngest('progress')}</TableHead>
-                        <TableHead className="text-xs">{tIngest('tokens')}</TableHead>
                         <TableHead className="text-xs">{tCommon('status')}</TableHead>
                         <TableHead className="text-xs text-right">{tCommon('actions')}</TableHead>
                       </TableRow>
@@ -886,33 +938,121 @@ export default function AdminLibraryPage() {
                         const isCompleted = job.status === 'completed';
                         const isFailed = job.status === 'failed';
                         const isAwaiting = job.status === 'awaiting_approval';
+                        const isDupReused = !!job.metadata?.duplicateReused;
 
                         return (
                           <TableRow key={job.id} className="hover:bg-muted/20">
                             <TableCell className="text-xs font-mono text-muted-foreground">
                               {job.id.slice(0, 8)}
                             </TableCell>
-                            <TableCell className="text-xs capitalize font-medium">{job.input_type}</TableCell>
-                            <TableCell className="text-xs">
-                              <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
-                                {job.stage}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-xs w-36">
-                              <div className="space-y-1">
-                                <Progress value={job.progress} className="h-1.5" />
-                                <div className="text-[10px] text-muted-foreground text-right">{job.progress}%</div>
+
+                            {/* Input / Filename */}
+                            <TableCell className="text-xs font-medium max-w-[140px] truncate" title={job.metadata?.fileName || job.input_type}>
+                              <div className="flex items-center gap-1.5">
+                                <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                <span className="truncate">{job.metadata?.fileName || job.input_type}</span>
                               </div>
                             </TableCell>
+
+                            {/* Extraction Status & Chars */}
                             <TableCell className="text-xs">
-                              {job.tokens_used > 0 ? (
-                                <span className="font-mono text-xs">{job.tokens_used.toLocaleString()}</span>
-                              ) : job.estimated_tokens > 0 ? (
-                                <span className="text-muted-foreground text-xs">~{job.estimated_tokens.toLocaleString()}</span>
+                              {job.metadata?.extractedChars ? (
+                                <div className="space-y-0.5">
+                                  <span className="font-semibold">{job.metadata.extractedChars.toLocaleString()} chars</span>
+                                  <div className="text-[10px] text-muted-foreground">{job.metadata.extractedPages || 1} {locale === 'bn' ? 'পৃষ্ঠা' : 'pages'}</div>
+                                </div>
+                              ) : isProcessing && ['receiving', 'extracting'].includes(job.stage) ? (
+                                <span className="text-[10px] text-muted-foreground italic flex items-center gap-1">
+                                  <Loader2 className="w-2.5 h-2.5 animate-spin" /> Extracting...
+                                </span>
                               ) : (
                                 <span className="text-muted-foreground text-xs">-</span>
                               )}
                             </TableCell>
+
+                            {/* OCR Status */}
+                            <TableCell className="text-xs">
+                              {job.metadata?.ocrStatus === 'ocr_applied' ? (
+                                <Badge className="text-[9px] bg-teal-600 hover:bg-teal-700 text-white flex items-center gap-1 w-fit">
+                                  <Sparkles className="w-2.5 h-2.5" />
+                                  {tIngest('ocrApplied')}
+                                </Badge>
+                              ) : job.metadata?.ocrStatus === 'native' ? (
+                                <Badge variant="outline" className="text-[9px] w-fit">
+                                  {tIngest('nativeText')}
+                                </Badge>
+                              ) : job.metadata?.ocrStatus === 'not_needed' ? (
+                                <span className="text-[10px] text-muted-foreground">{tIngest('notRequired')}</span>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+
+                            {/* Chunks Created */}
+                            <TableCell className="text-xs">
+                              {job.metadata?.chunksCount !== undefined && job.metadata.chunksCount > 0 ? (
+                                <Badge variant="secondary" className="text-[10px] font-mono">
+                                  {job.metadata.chunksCount} {locale === 'bn' ? 'টি চাঙ্ক' : 'chunks'}
+                                </Badge>
+                              ) : isProcessing && job.stage === 'chunking' ? (
+                                <span className="text-[10px] text-muted-foreground italic">Chunking...</span>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">-</span>
+                              )}
+                            </TableCell>
+
+                            {/* Embedding Status */}
+                            <TableCell className="text-xs">
+                              {job.metadata?.embeddingStatus === 'completed' || isCompleted ? (
+                                <Badge variant="outline" className="text-[9px] border-emerald-500 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10">
+                                  Embedded
+                                </Badge>
+                              ) : job.metadata?.embeddingStatus === 'reused' ? (
+                                <Badge variant="outline" className="text-[9px] border-blue-500 text-blue-700 dark:text-blue-300 bg-blue-500/10">
+                                  Reused
+                                </Badge>
+                              ) : isProcessing && job.stage === 'embedding' ? (
+                                <span className="text-[10px] text-primary italic flex items-center gap-1">
+                                  <Loader2 className="w-2.5 h-2.5 animate-spin" /> Vectorizing...
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground">Pending</span>
+                              )}
+                            </TableCell>
+
+                            {/* Duplicate Status */}
+                            <TableCell className="text-xs">
+                              {isDupReused ? (
+                                <Link
+                                  href={`/${locale}/admin/library/sources/${job.metadata?.existingSourceId}`}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/30 hover:underline"
+                                  title={job.metadata?.duplicateMessage || 'Reused existing library source'}
+                                >
+                                  <CopyCheck className="w-3 h-3 text-blue-600 shrink-0" />
+                                  <span className="truncate max-w-[110px]">
+                                    {tIngest('reusedExisting')}
+                                  </span>
+                                </Link>
+                              ) : isCompleted ? (
+                                <Badge variant="outline" className="text-[9px] text-muted-foreground">
+                                  {tIngest('uniqueFile')}
+                                </Badge>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+
+                            {/* Stage & Progress */}
+                            <TableCell className="text-xs w-28">
+                              <div className="space-y-1">
+                                <Badge variant="outline" className="text-[9px] uppercase tracking-wider font-semibold">
+                                  {job.stage}
+                                </Badge>
+                                <Progress value={job.progress} className="h-1.5" />
+                              </div>
+                            </TableCell>
+
+                            {/* Overall Status */}
                             <TableCell className="text-xs">
                               {isCompleted ? (
                                 <Badge variant="default" className="text-[10px] bg-emerald-600 text-white flex items-center gap-1 w-fit">
@@ -929,26 +1069,13 @@ export default function AdminLibraryPage() {
                                   Awaiting Budget
                                 </Badge>
                               ) : isFailed ? (
-                                <div className="space-y-1 max-w-sm">
-                                  {job.error?.includes('Needs OCR') ? (
-                                    <Badge variant="outline" className="text-[10px] border-amber-500 bg-amber-500/10 text-amber-800 dark:text-amber-300 flex items-center gap-1 w-fit font-semibold">
-                                      <AlertTriangle className="w-2.5 h-2.5 text-amber-600" />
-                                      Needs OCR
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="destructive" className="text-[10px] flex items-center gap-1 w-fit">
-                                      <XCircle className="w-2.5 h-2.5" />
-                                      Failed
-                                    </Badge>
-                                  )}
+                                <div className="space-y-1 max-w-[180px]">
+                                  <Badge variant="destructive" className="text-[10px] flex items-center gap-1 w-fit">
+                                    <XCircle className="w-2.5 h-2.5" />
+                                    Failed ({job.metadata?.failedStage || job.stage})
+                                  </Badge>
                                   {job.error && (
-                                    <p
-                                      className={`text-[11px] font-medium leading-relaxed p-1.5 rounded-md border break-words ${
-                                        job.error?.includes('Needs OCR')
-                                          ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200'
-                                          : 'bg-destructive/10 border-destructive/20 text-destructive/90'
-                                      }`}
-                                    >
+                                    <p className="text-[10px] text-destructive leading-tight line-clamp-2" title={job.error}>
                                       {job.error}
                                     </p>
                                   )}
@@ -959,7 +1086,20 @@ export default function AdminLibraryPage() {
                                 </Badge>
                               )}
                             </TableCell>
-                            <TableCell className="text-xs text-right space-x-1">
+
+                            {/* Actions */}
+                            <TableCell className="text-xs text-right space-x-1 whitespace-nowrap">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setSelectedJobForDetails(job)}
+                                className="h-6 text-[10px] px-2 border-border/80"
+                                title="View processing logs and diagnostic stats"
+                              >
+                                <Info className="w-2.5 h-2.5 mr-1" />
+                                {tIngest('viewLogs')}
+                              </Button>
+
                               {isAwaiting && (
                                 <Button
                                   size="sm"
@@ -974,7 +1114,7 @@ export default function AdminLibraryPage() {
                                   size="sm"
                                   variant="outline"
                                   onClick={() => handleRetryJob(job.id)}
-                                  className="h-6 text-[10px] px-2"
+                                  className="h-6 text-[10px] px-2 border-primary/50 text-primary hover:bg-primary/10"
                                 >
                                   <RotateCcw className="w-2.5 h-2.5 mr-1" />
                                   {tIngest('retryJob')}
@@ -1001,6 +1141,219 @@ export default function AdminLibraryPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Processing Details & Diagnostic Logs Sheet */}
+          <Sheet open={!!selectedJobForDetails} onOpenChange={(open) => !open && setSelectedJobForDetails(null)}>
+            <SheetContent className="w-full sm:max-w-xl overflow-y-auto p-6 space-y-5">
+              <SheetHeader className="border-b border-border/60 pb-3">
+                <div className="flex items-center justify-between">
+                  <SheetTitle className="text-base font-semibold flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-primary" />
+                    {tIngest('jobDetails')}
+                  </SheetTitle>
+                  {selectedJobForDetails && (
+                    <Badge
+                      variant={
+                        selectedJobForDetails.status === 'completed'
+                          ? 'default'
+                          : selectedJobForDetails.status === 'failed'
+                          ? 'destructive'
+                          : 'secondary'
+                      }
+                      className="text-xs"
+                    >
+                      {selectedJobForDetails.status.toUpperCase()}
+                    </Badge>
+                  )}
+                </div>
+                <SheetDescription className="text-xs text-muted-foreground">
+                  Job ID: {selectedJobForDetails?.id} · Stage: {selectedJobForDetails?.stage} ({selectedJobForDetails?.progress}%)
+                </SheetDescription>
+              </SheetHeader>
+
+              {selectedJobForDetails && (
+                <div className="space-y-4">
+                  {/* Duplicate Reused Notice */}
+                  {selectedJobForDetails.metadata?.duplicateReused && (
+                    <div className="p-3.5 rounded-lg border border-blue-500/40 bg-blue-500/10 text-blue-900 dark:text-blue-200 space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-blue-800 dark:text-blue-300">
+                        <CopyCheck className="w-4 h-4 text-blue-600" />
+                        <span>Identical Resource Reused (Duplicate Level: {selectedJobForDetails.metadata.duplicateLevel})</span>
+                      </div>
+                      <p className="text-xs leading-relaxed">
+                        {selectedJobForDetails.metadata.duplicateMessage ||
+                          'An identical file or canonical identifier match was detected in the library. Rather than creating duplicate vector embeddings, this ingestion task safely reused the existing resource.'}
+                      </p>
+                      {selectedJobForDetails.metadata.existingSourceId && (
+                        <div className="pt-1">
+                          <Link
+                            href={`/${locale}/admin/library/sources/${selectedJobForDetails.metadata.existingSourceId}`}
+                            className={buttonVariants({
+                              size: 'sm',
+                              variant: 'outline',
+                              className: 'h-7 text-xs border-blue-500 text-blue-800 dark:text-blue-200 bg-background',
+                            })}
+                          >
+                            <ExternalLink className="w-3 h-3 mr-1" />
+                            View Existing Source
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Processing Failure Alert */}
+                  {selectedJobForDetails.status === 'failed' && (
+                    <div className="p-3.5 rounded-lg border border-destructive/40 bg-destructive/10 text-destructive space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-semibold">
+                        <AlertTriangle className="w-4 h-4 text-destructive" />
+                        <span>Failed at Stage [{selectedJobForDetails.metadata?.failedStage || selectedJobForDetails.stage}]</span>
+                      </div>
+                      <p className="text-xs leading-relaxed font-mono bg-background/50 p-2 rounded border border-destructive/20 break-words">
+                        {selectedJobForDetails.error || 'Unknown pipeline failure'}
+                      </p>
+                      <div className="pt-1 flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            handleRetryJob(selectedJobForDetails.id);
+                            setSelectedJobForDetails(null);
+                          }}
+                          className="h-7 text-xs"
+                        >
+                          <RotateCcw className="w-3 h-3 mr-1" />
+                          Retry From Cached Stage
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Diagnostics Grid */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <Card className="p-3 border border-border/70 space-y-1">
+                      <div className="text-[11px] font-medium text-muted-foreground">Extraction Output</div>
+                      <div className="text-sm font-bold text-foreground">
+                        {selectedJobForDetails.metadata?.extractedChars
+                          ? `${selectedJobForDetails.metadata.extractedChars.toLocaleString()} chars`
+                          : '-'}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {selectedJobForDetails.metadata?.extractedPages || 0} pages extracted
+                      </div>
+                    </Card>
+
+                    <Card className="p-3 border border-border/70 space-y-1">
+                      <div className="text-[11px] font-medium text-muted-foreground">OCR Engine Status</div>
+                      <div className="text-sm font-bold text-foreground capitalize">
+                        {selectedJobForDetails.metadata?.ocrStatus === 'ocr_applied'
+                          ? 'OCR Applied (bn+en)'
+                          : selectedJobForDetails.metadata?.ocrStatus === 'native'
+                          ? 'Native PDF Text'
+                          : selectedJobForDetails.metadata?.ocrStatus === 'not_needed'
+                          ? 'Not Required'
+                          : 'None / Pending'}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        Tesseract Engine (Bengali + English)
+                      </div>
+                    </Card>
+
+                    <Card className="p-3 border border-border/70 space-y-1">
+                      <div className="text-[11px] font-medium text-muted-foreground">Smart Chunks Created</div>
+                      <div className="text-sm font-bold text-foreground">
+                        {selectedJobForDetails.metadata?.chunksCount ?? 0} Chunks
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {selectedJobForDetails.tokens_used > 0
+                          ? `${selectedJobForDetails.tokens_used.toLocaleString()} tokens`
+                          : `~${selectedJobForDetails.estimated_tokens.toLocaleString()} estimated tokens`}
+                      </div>
+                    </Card>
+
+                    <Card className="p-3 border border-border/70 space-y-1">
+                      <div className="text-[11px] font-medium text-muted-foreground">Embedding Cache</div>
+                      <div className="text-sm font-bold text-foreground capitalize">
+                        {selectedJobForDetails.metadata?.embeddingStatus || 'Pending'}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        CachedEmbeddingService (OpenAI text-embedding-3-small)
+                      </div>
+                    </Card>
+                  </div>
+
+                  {/* Clinical Entities Breakdown */}
+                  {selectedJobForDetails.metadata?.chunkStats?.entityCounts && (
+                    <Card className="p-3.5 border border-border/70 space-y-2">
+                      <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-primary" />
+                        Clinical Entities Detected & Tagged
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {Object.entries(selectedJobForDetails.metadata.chunkStats.entityCounts).map(([entity, cnt]) => {
+                          if (cnt === 0) return null;
+                          return (
+                            <Badge key={entity} variant="secondary" className="text-[10px] capitalize">
+                              {entity.replace('_', ' ')}: <span className="font-bold ml-1">{cnt}</span>
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </Card>
+                  )}
+
+                  {/* Execution Logs Timeline */}
+                  <Card className="p-3.5 border border-border/70 space-y-2">
+                    <div className="text-xs font-semibold text-foreground flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                        {tIngest('executionLogs')}
+                      </div>
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        {selectedJobForDetails.metadata?.logs?.length || 0} entries
+                      </span>
+                    </div>
+
+                    <div className="max-h-60 overflow-y-auto space-y-2 font-mono text-[11px] p-2 bg-muted/30 rounded-md border border-border/50">
+                      {selectedJobForDetails.metadata?.logs && selectedJobForDetails.metadata.logs.length > 0 ? (
+                        selectedJobForDetails.metadata.logs.map((log, idx) => (
+                          <div key={idx} className="flex items-start gap-2 leading-relaxed">
+                            <span className="text-muted-foreground shrink-0 text-[10px]">
+                              {new Date(log.timestamp).toLocaleTimeString()}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={`text-[9px] uppercase px-1 py-0 h-4 shrink-0 ${
+                                log.level === 'error'
+                                  ? 'border-destructive text-destructive'
+                                  : log.level === 'warn'
+                                  ? 'border-amber-500 text-amber-600'
+                                  : 'text-muted-foreground'
+                              }`}
+                            >
+                              {log.stage}
+                            </Badge>
+                            <span
+                              className={`break-words ${
+                                log.level === 'error'
+                                  ? 'text-destructive font-semibold'
+                                  : log.level === 'warn'
+                                  ? 'text-amber-700 dark:text-amber-300'
+                                  : 'text-foreground'
+                              }`}
+                            >
+                              {log.message}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-muted-foreground italic text-center py-4">No detailed logs recorded for this job.</div>
+                      )}
+                    </div>
+                  </Card>
+                </div>
+              )}
+            </SheetContent>
+          </Sheet>
         </TabsContent>
 
         {/* Tab 4: System Settings */}
