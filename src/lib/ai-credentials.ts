@@ -62,7 +62,7 @@ export async function getStoredAiCredentials(): Promise<{
   if (envKey) {
     return {
       provider: 'openai',
-      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+      model: process.env.OPENAI_CHAT_MODEL || process.env.OPENAI_MODEL || 'gpt-4o-mini',
       baseUrl: process.env.OPENAI_BASE_URL || '',
       organizationId: '',
       hasKey: true,
@@ -285,7 +285,7 @@ export async function getRawAiCredentials(): Promise<AiCredentialsConfig | null>
     return {
       provider: 'openai',
       apiKey: envKey,
-      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+      model: process.env.OPENAI_CHAT_MODEL || process.env.OPENAI_MODEL || 'gpt-4o-mini',
       baseUrl: process.env.OPENAI_BASE_URL || undefined,
       testStatus: 'untested',
     };
