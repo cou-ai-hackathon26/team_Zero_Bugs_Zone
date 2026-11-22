@@ -230,12 +230,12 @@ export default async function AdminDashboardPage() {
               <Mic className="w-4 h-4 text-primary" />
             </div>
             <CardTitle className="text-sm font-semibold">
-              {locale === 'bn' ? 'ভয়েস ও নিউরাল সহকারী' : 'Voice & Neural TTS'}
+              {locale === 'bn' ? 'ভয়েস ও সহকারী সেটিংস' : 'Voice & Assistant Settings'}
             </CardTitle>
             <CardDescription className="text-xs leading-normal">
               {locale === 'bn'
-                ? 'স্থায়ী ফ্রি এজ নিউরাল ভয়েস, ০-সেকেন্ডের মানবিক রিঅ্যাকশন ও ক্যারেক্টার পরিচালনা করুন।'
-                : 'Configure permanent free Edge Neural TTS, 0ms human vocal reactions, and avatar.'}
+                ? 'নিউরাল ভয়েস, মানবিক রিঅ্যাকশন ও অ্যাভাটার পরিচালনা করুন।'
+                : 'Configure Neural TTS, vocal reactions, and avatar persona.'}
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">

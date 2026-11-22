@@ -343,12 +343,12 @@ export default function AdminVoiceSettingsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <Bot className="w-6 h-6 text-primary" />
-            <span>{isBn ? 'ভয়েস সহকারী ও ক্যারেক্টার গভর্নেন্স' : 'Voice Assistant & Avatar Governance'}</span>
+            <span>{isBn ? 'ভয়েস ও সহকারী গভর্নেন্স' : 'Voice & Assistant Governance'}</span>
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             {isBn
-              ? 'ডকমেট এআই সহকারী, সুর ও বাচনভঙ্গি, ফ্রেজ ব্যাংক ও ক্লিনিকাল কোয়ালিটি মেট্রিক্স পরিচালনা করুন।'
-              : 'Configure DocMate AI persona, tone presets, vetted phrase bank, and clinician quality metrics.'}
+              ? 'সহকারীর বাচনভঙ্গি, ফ্রেজ ব্যাংক ও ক্লিনিকাল কোয়ালিটি মেট্রিক্স পরিচালনা করুন।'
+              : 'Manage assistant tone, vetted phrases, and clinical quality metrics.'}
           </p>
         </div>
 

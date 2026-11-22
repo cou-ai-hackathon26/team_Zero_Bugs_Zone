@@ -201,8 +201,8 @@ export default function AdminAiPage() {
           <h1 className="text-xl font-bold text-foreground tracking-tight">{t('ai')}</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             {locale === 'bn'
-              ? 'ক্লিনিকাল এআই মডেল, প্রম্পট ভার্সনিং, পর্যাপ্ত প্রমাণের সীমা এবং জরুরি কিল-সুইচ নিয়ন্ত্রণ।'
-              : 'Prompt version lifecycle, confidence calibration threshold, and emergency safety kill switches.'}
+              ? 'ক্লিনিকাল মডেল, প্রম্পট ভার্সন ও জরুরি কিল-সুইচ নিয়ন্ত্রণ।'
+              : 'Manage AI models, prompt versions, and safety kill switches.'}
           </p>
         </div>
 
@@ -227,12 +227,12 @@ export default function AdminAiPage() {
           <div className="space-y-0.5">
             <div className="text-sm font-semibold flex items-center gap-2 text-foreground">
               <Mic className="w-4 h-4 text-primary" />
-              <span>{locale === 'bn' ? 'ভয়েস সহকারী, স্থায়ী ফ্রি নিউরাল কণ্ঠ ও রিঅ্যাকশন সেটিংস' : 'Voice Assistant, Edge Neural TTS & Vocal Reactions'}</span>
+              <span>{locale === 'bn' ? 'ভয়েস সহকারী ও নিউরাল কণ্ঠ সেটিংস' : 'Voice Assistant & Neural TTS'}</span>
             </div>
             <p className="text-xs text-muted-foreground">
               {locale === 'bn'
-                ? 'মাইক্রোসফট এজ নিউরাল ভয়েস (বাংলা/ইংরেজি), ০-মিলি-সেকেন্ডের হিউম্যান ফিলার রিঅ্যাকশন ও ক্যারেক্টার পরিচালনা করতে ভয়েস কন্ট্রোল প্যানেল খুলুন।'
-                : 'Configure permanent free Edge Neural TTS (Bangla & English), 0ms instant human vocal reactions, and avatar governance.'}
+                ? 'বাংলা ও ইংরেজি নিউরাল কণ্ঠ, ইনস্ট্যান্ট রিঅ্যাকশন এবং চরিত্র পরিচালনা করুন।'
+                : 'Configure Edge Neural TTS (Bangla & English) and vocal reactions.'}
             </p>
           </div>
           <Link
@@ -240,7 +240,7 @@ export default function AdminAiPage() {
             className="inline-flex items-center justify-center rounded-md text-xs font-semibold ring-offset-background transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-8 px-3 shrink-0 gap-1.5 shadow-xs"
           >
             <Mic className="w-3.5 h-3.5" />
-            <span>{locale === 'bn' ? 'ভয়েস সেটিংস খুলুন' : 'Open Voice Settings'}</span>
+            <span>{locale === 'bn' ? 'ভয়েস সেটিংস' : 'Voice Settings'}</span>
           </Link>
         </CardContent>
       </Card>
@@ -251,13 +251,13 @@ export default function AdminAiPage() {
           <div className="flex items-center gap-2 text-destructive">
             <AlertOctagon className="w-5 h-5 shrink-0" />
             <CardTitle className="text-base font-bold">
-              {locale === 'bn' ? 'জরুরি ক্লিনিকাল সেফটি কিল-সুইচ (Emergency Kill Switches)' : 'Emergency Clinical Safety Kill Switches'}
+              {locale === 'bn' ? 'জরুরি ক্লিনিকাল কিল-সুইচ' : 'Emergency Safety Kill Switches'}
             </CardTitle>
           </div>
           <CardDescription className="text-xs">
             {locale === 'bn'
-              ? 'যেকোনো ফিচার বন্ধ করতে টগল করুন। কিল-সুইচ সক্রিয় থাকলে সংশ্লিষ্ট এআই ফাংশন অবিলম্বে বন্ধ হয়ে যাবে।'
-              : 'Immediately halt specific automated capabilities across all users in case of safety anomalies.'}
+              ? 'নিরাপত্তার স্বার্থে যেকোনো এআই ফিচার তাৎক্ষণিকভাবে বন্ধ করতে টগল করুন।'
+              : 'Instantly disable specific AI features if safety concerns arise.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
@@ -307,13 +307,13 @@ export default function AdminAiPage() {
           <div className="flex items-center gap-2">
             <Sliders className="w-4 h-4 text-primary" />
             <CardTitle className="text-sm font-bold">
-              {locale === 'bn' ? 'মডেল ও প্রমাণের আত্মবিশ্বাস কনফিগারেশন' : 'Model Selection & Evidence Threshold'}
+              {locale === 'bn' ? 'মডেল ও প্রমাণের আত্মবিশ্বাস সীমা' : 'Model Selection & Evidence Threshold'}
             </CardTitle>
           </div>
           <CardDescription className="text-xs">
             {locale === 'bn'
-              ? 'অভ্যন্তরীণ মেডিকেল লাইব্রেরি থেকে পর্যাপ্ত প্রমাণ না থাকলে সিস্টেম নিজে থেকে দাবি করা থেকে বিরত থাকে।'
-              : 'When evidence relevance falls below this threshold, DocMate AI declares insufficient_evidence.'}
+              ? 'পর্যাপ্ত প্রমাণ না থাকলে সিস্টেম স্বয়ংক্রিয়ভাবে উত্তর দেওয়া থেকে বিরত থাকে।'
+              : 'DocMate AI declares insufficient evidence when relevance falls below this threshold.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -373,7 +373,7 @@ export default function AdminAiPage() {
             <div className="flex items-center gap-2">
               <Cpu className="w-4 h-4 text-primary" />
               <CardTitle className="text-sm font-bold">
-                {locale === 'bn' ? 'সিস্টেম প্রম্পট ভার্সন ম্যানেজার' : 'Prompt Version Lifecycle Manager'}
+                {locale === 'bn' ? 'সিস্টেম প্রম্পট সংস্করণ' : 'Prompt Version Manager'}
               </CardTitle>
             </div>
 
@@ -383,13 +383,13 @@ export default function AdminAiPage() {
               className="text-xs self-start sm:self-auto"
             >
               <Plus className="w-3.5 h-3.5 mr-1" />
-              <span>{locale === 'bn' ? 'নতুন ভার্সন তৈরি করুন' : 'Create New Version'}</span>
+              <span>{locale === 'bn' ? 'নতুন ভার্সন' : 'New Version'}</span>
             </Button>
           </div>
           <CardDescription className="text-xs">
             {locale === 'bn'
-              ? 'বন্ধ লাইব্রেরির নির্দেশনা, উদ্ধৃতি নীতি এবং চিকিৎসকের চূড়ান্ত সিদ্ধান্তের সুরক্ষা প্রম্পট ট্র্যাক ও রোলব্যাক করুন।'
-              : 'Maintain immutable prompt versions. Roll back instantly to any previous golden baseline.'}
+              ? 'প্রম্পট সংস্করণ ট্র্যাক করুন এবং প্রয়োজনে পূর্ববর্তী সংস্করণে ফিরে যান।'
+              : 'Track prompt versions and roll back anytime.'}
           </CardDescription>
         </CardHeader>
 
