@@ -70,7 +70,6 @@ export default function SourceReviewPage() {
   const [chunks, setChunks] = useState<ChunkItem[]>([]);
   const [duplicates, setDuplicates] = useState<DuplicateCandidate[]>([]);
   const [qualityScore, setQualityScore] = useState<number>(85);
-  const [warnings, setWarnings] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -138,7 +137,7 @@ export default function SourceReviewPage() {
       setDuplicates((prev) =>
         prev.map((d) => (d.id === duplicateId ? { ...d, decision } : d))
       );
-    } catch (err) {
+    } catch {
       toast.error('Failed to resolve duplicate');
     }
   };
@@ -154,7 +153,7 @@ export default function SourceReviewPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Search test failed');
       setTestResults(data.results || []);
-    } catch (err) {
+    } catch {
       toast.error('Test retrieval failed');
     } finally {
       setSearching(false);
@@ -178,7 +177,6 @@ export default function SourceReviewPage() {
     );
   }
 
-  const scoreBadgeVariant = qualityScore >= 80 ? 'default' : qualityScore >= 60 ? 'secondary' : 'destructive';
   const scoreColorClass = qualityScore >= 80 ? 'bg-emerald-600 text-white' : qualityScore >= 60 ? 'bg-amber-100 text-amber-800' : 'bg-red-600 text-white';
 
   return (
