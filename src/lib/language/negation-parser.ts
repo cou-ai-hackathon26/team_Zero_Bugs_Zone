@@ -20,7 +20,7 @@ export interface NegationMatch {
 }
 
 // Adversative conjunctions that break negation scope between clauses
-const ADVERSATIVE_CONJUNCTIONS = [
+export const ADVERSATIVE_CONJUNCTIONS = [
   'kintu', 'kntu', 'tobe', 'tobey', 'othoba', 'othba',
   'কিন্তু', 'তবে', 'অথচ', 'নতুবা', 'কিংবা',
   'but', 'however', 'although', 'though', 'whereas', 'yet', 'while',

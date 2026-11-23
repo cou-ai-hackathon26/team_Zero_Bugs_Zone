@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: 'A clinical decision support demo with an internal evidence library.',
 };
 
-export default async function RootLayout({ children }: LayoutProps<'/'>) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
   return (
     <html lang={locale} className={`${notoSansBengali.variable} ${inter.variable}`} suppressHydrationWarning>

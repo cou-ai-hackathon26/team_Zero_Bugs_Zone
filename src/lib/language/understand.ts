@@ -130,7 +130,7 @@ export async function understandText(
   // 3. Capabilities Check ("tmi ki dekhte paro how much efficient this is ?")
   if (isCapabilitiesQuery(normalized)) {
     const replyLang = resolveReplyLanguage(detection, options?.userPrefs);
-    const { replyText, ambiguity } = getCapabilitiesExplanation(replyLang);
+    const { ambiguity } = getCapabilitiesExplanation(replyLang);
 
     const result: LanguageUnderstandingResult = {
       originalText: rawText,

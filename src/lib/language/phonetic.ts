@@ -139,8 +139,6 @@ export function transliterateWord(word: string): string {
   const len = word.length;
 
   while (i < len) {
-    // Check 3-char clusters
-    const three = word.substring(i, i + 3).toLowerCase();
     const two = word.substring(i, i + 2).toLowerCase();
     const one = word.charAt(i);
 

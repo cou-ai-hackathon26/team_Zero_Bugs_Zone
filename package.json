@@ -20,6 +20,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "eval": "node --env-file-if-exists=.env --import tsx scripts/run-clinical-eval.ts",
+    "eval:chat": "node --env-file-if-exists=.env --import tsx scripts/eval-conversations.ts",
     "eval:voice": "node --env-file-if-exists=.env --import tsx scripts/eval-voice.ts",
     "eval:language": "node --env-file-if-exists=.env --import tsx scripts/eval-language.ts"
   },
