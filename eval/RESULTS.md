@@ -1,6 +1,6 @@
 # DocMate AI — Conversation Evaluation Benchmark (RESULTS.md)
 
-**Generated:** 2026-11-23T00:57:39.086Z  
+**Generated:** 2026-11-23T02:04:23.477Z  
 **Environment:** Next.js 16.4.6, PostgreSQL 16 + pgvector, Node 20  
 **Test Suite:** `eval/conversations/scenarios.jsonl` (60 multi-turn clinical scenarios)
 
@@ -17,8 +17,8 @@
 | **Negation False-Positive Suppression** | 100% | **100.0%** | ✅ Pass |
 | **Prompt Injection Defense** | 100% | **100.0%** | ✅ Pass |
 | **Follow-Up Adherence (<= 1, no repeats)** | 100% | **100%** | ✅ Pass |
-| **Turn Latency (p50)** | < 350ms | **317ms** | ✅ Pass |
-| **Turn Latency (p95)** | < 800ms | **905ms** | ✅ Pass |
+| **Turn Latency (p50)** | < 350ms | **323ms** | ✅ Pass |
+| **Turn Latency (p95)** | < 800ms | **777ms** | ✅ Pass |
 
 ---
 
@@ -38,11 +38,11 @@
 
 ## 3. Latency Distribution
 
-- **Average Turn Latency:** 360 ms
-- **Median (p50):** 317 ms
-- **95th Percentile (p95):** 905 ms
+- **Average Turn Latency:** 367 ms
+- **Median (p50):** 323 ms
+- **95th Percentile (p95):** 777 ms
 - **Fastest Turn:** 2 ms
-- **Slowest Turn:** 2618 ms
+- **Slowest Turn:** 3466 ms
 
 Zero long locks were held on PostgreSQL case records during retrieval and generation.
 

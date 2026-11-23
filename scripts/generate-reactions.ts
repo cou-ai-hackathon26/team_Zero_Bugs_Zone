@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// @ts-ignore msedge-tts lacks bundled types
 import msedgeTts from 'msedge-tts';
 const { MsEdgeTTS, OUTPUT_FORMAT } = msedgeTts as any;
 import fs from 'fs';

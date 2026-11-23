@@ -8,7 +8,7 @@ import { runAssistantTurn } from '../src/lib/assistant/engine';
 import { hybridRetrieve } from '../src/lib/retrieval';
 import { buildConversationContext } from '../src/lib/assistant/context';
 import { EvalScenario } from './generate-conversation-scenarios';
-import type { Chunk } from '../src/types';
+import type { Chunk, StructuredPatientInput } from '../src/types';
 
 interface ScenarioResult {
   id: string;
@@ -69,11 +69,15 @@ export async function runConversationEvaluation() {
         const hits = await hybridRetrieve(queries, limit);
         return hits.map((h) => ({
           id: h.id,
+          source_id: (h as unknown as { source_id?: string }).source_id || 'eval-source',
+          section: (h as unknown as { section?: string }).section || 'general',
+          evidence_level: (h as unknown as { evidence_level?: string }).evidence_level || 'standard',
+          created_at: (h as unknown as { created_at?: string }).created_at || new Date().toISOString(),
           source_title: h.source_title,
           source_year: h.source_year,
           page: h.page,
           text: h.text,
-        }));
+        })) as unknown as Chunk[];
       } catch {
         return [];
       }
@@ -89,11 +93,15 @@ export async function runConversationEvaluation() {
           text: turn.text,
           requestedLocale: turn.locale,
           patient: {
-            age_years: sc.patient.age,
-            gender: sc.patient.gender,
-            chief_complaint: sc.patient.chief_complaint,
-            symptoms: sc.patient.symptoms,
-            vitals: sc.patient.vitals as any,
+            age: sc.patient.age ?? 35,
+            gender: (sc.patient.gender as 'male' | 'female' | 'other') || 'male',
+            chief_complaint: sc.patient.chief_complaint || '',
+            symptoms: sc.patient.symptoms || [],
+            vitals: sc.patient.vitals as unknown as StructuredPatientInput['vitals'],
+            past_medical_history: [],
+            current_medicines: [],
+            allergies: [],
+            lab_values: [],
           },
           context: buildConversationContext([]),
           sessionId: `eval-${sc.id}`,
