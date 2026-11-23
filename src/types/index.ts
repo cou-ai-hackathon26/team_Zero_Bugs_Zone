@@ -419,3 +419,82 @@ export type IngestJobStage =
 export type DuplicateLevel = 'file_hash' | 'doi_url' | 'metadata' | 'fingerprint';
 export type DuplicateDecision = 'skip' | 'new_version' | 'keep_both';
 
+// --- Next-Level Clinical AI Co-Pilot Types ---
+
+export type LabAcuity = 'critical' | 'abnormal' | 'normal';
+
+export interface LabItemInterpretation {
+  key: string;
+  nameBn: string;
+  nameEn: string;
+  value: number | string;
+  unit: string;
+  referenceRange: string;
+  acuity: LabAcuity;
+  clinicalMeaningBn: string;
+  clinicalMeaningEn: string;
+  physiologicalRoleBn?: string;
+  physiologicalRoleEn?: string;
+}
+
+export interface LabInterpretationResult {
+  hasLabData: boolean;
+  overallAcuity: LabAcuity;
+  items: LabItemInterpretation[];
+  clinicalSummaryBn: string;
+  clinicalSummaryEn: string;
+  differentialImpactBn: string[];
+  differentialImpactEn: string[];
+  actionableNextStepsBn: string[];
+  actionableNextStepsEn: string[];
+}
+
+export interface ClinicalScoreVariable {
+  name: string;
+  value: string | number | boolean;
+  points: number;
+}
+
+export interface ClinicalScoreResult {
+  calculatorId: 'curb65' | 'crb65' | 'dengue_warning' | 'gcs';
+  nameBn: string;
+  nameEn: string;
+  score: number;
+  maxScore: number;
+  riskTier: 'low' | 'moderate' | 'high' | 'critical';
+  riskDescriptionBn: string;
+  riskDescriptionEn: string;
+  recommendationBn: string;
+  recommendationEn: string;
+  variables: ClinicalScoreVariable[];
+  sourceGuideline?: string;
+}
+
+export interface GuidelineConsensusItem {
+  sourceTitle: string;
+  sourceYear?: number;
+  chunkId: string;
+  verbatimQuote: string;
+  recommendationType: 'diagnosis' | 'treatment' | 'investigation' | 'red_flag';
+  recommendationBn: string;
+  recommendationEn: string;
+}
+
+export interface ConsensusSummary {
+  topic: string;
+  consensusStatus: 'strong_consensus' | 'guideline_supported' | 'single_source' | 'insufficient';
+  agreementsBn: string[];
+  agreementsEn: string[];
+  sourceItems: GuidelineConsensusItem[];
+  discrepanciesBn?: string[];
+  discrepanciesEn?: string[];
+}
+
+export interface DecisionChip {
+  id: string;
+  type: 'action' | 'investigation' | 'prescription' | 'question';
+  labelBn: string;
+  labelEn: string;
+  payload?: Record<string, unknown>;
+}
+

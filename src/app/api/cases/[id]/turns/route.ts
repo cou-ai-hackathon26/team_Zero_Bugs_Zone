@@ -5,12 +5,15 @@ import { db } from '@/db';
 import { caseTurns, cases, auditLogs, userLanguagePrefs, userAssistantPrefs } from '@/db/schema';
 import { ownedCase, requirePhysician, validCaseId } from '@/lib/case-access';
 import { extractClinicalFacts } from '@/lib/clinical-extractor';
-import { hybridRetrieve } from '@/lib/retrieval';
+import { hybridRetrieve, ScoredChunk } from '@/lib/retrieval';
 import { libraryExcerpts } from '@/lib/library-excerpts';
 import { understandText } from '@/lib/language';
 import { detectSystemQuery } from '@/lib/system-query';
 import { checkRedFlags } from '@/lib/red-flags';
-import { MissingInformation, SafetyAlert, StructuredPatientInput } from '@/types';
+import { MissingInformation, SafetyAlert, StructuredPatientInput, DecisionChip, ClinicalScoreResult } from '@/types';
+import { interpretLabReport } from '@/lib/clinical/report-interpreter';
+import { calculateCurb65, assessDengueProtocol } from '@/lib/clinical/calculators';
+import { synthesizeConsensus } from '@/lib/clinical/consensus-engine';
 import { asc, desc, eq } from 'drizzle-orm';
 import { humanize, analyzeDoctorInput, UserAssistantPreferences } from '@/lib/persona/humanize';
 import { AddressStyle, TonePreset, Verbosity } from '@/lib/persona/phrasebank';
@@ -573,6 +576,7 @@ export async function POST(
       // 5. Multi-query hybrid retrieval using language layer canonical queries & enriched patient context
       const sysQuery = detectSystemQuery(observationText);
       let citations: ReturnType<typeof libraryExcerpts> = [];
+      let hits: ScoredChunk[] = [];
       const isQuestion =
         languageResult.intent === 'ask_library' ||
         languageResult.intent === 'medicine_lookup' ||
@@ -606,10 +610,11 @@ export async function POST(
             new Set(retrievalQueries.map((q) => q.trim()).filter((q) => q.length > 1))
           );
 
-          const hits = await hybridRetrieve(uniqueQueries, 6);
+          hits = await hybridRetrieve(uniqueQueries, 6);
           citations = libraryExcerpts(hits.slice(0, 3));
         } catch {
           citations = [];
+          hits = [];
         }
       }
 
@@ -618,6 +623,124 @@ export async function POST(
         `${observationText} ${patientInput.chief_complaint || ''} ${(patientInput.symptoms || []).join(' ')}`,
         effectiveLocale
       );
+
+      // 6b. Intelligent Lab and Diagnostic Report Interpretation
+      const labInterpretation = interpretLabReport(observationText, {
+        chiefComplaint: patientInput.chief_complaint,
+        symptoms: patientInput.symptoms,
+        vitals: patientInput.vitals,
+        age: patientInput.age,
+        gender: patientInput.gender,
+      });
+
+      // Extract identified lab items into proposedUpdates for easy physician confirmation
+      if (labInterpretation.hasLabData) {
+        for (const item of labInterpretation.items) {
+          if (!proposedUpdates.some((p) => p.field_path === `lab_values.${item.key}`)) {
+            proposedUpdates.push({
+              id: `update-lab-${item.key}-${Date.now()}`,
+              field_path: `lab_values.${item.key}`,
+              value: item.value,
+              display_value: `${item.value} ${item.unit !== 'Imaging' ? item.unit : ''}`.trim(),
+              label_bn: item.nameBn,
+              label_en: item.nameEn,
+              original_wording: `${item.nameEn}: ${item.value}`,
+              status: 'pending',
+            });
+          }
+        }
+      }
+
+      // 6c. Automated Clinical Severity & Risk Scoring
+      const clinicalScores: ClinicalScoreResult[] = [];
+      const fullObservationHistory = `${observationText} ${pastTurnsHistory}`.toLowerCase();
+      const isRespCondition = /cough|breath|dyspnea|crackles|fever|নিউমোনিয়া|pneumonia/i.test(
+        `${patientInput.chief_complaint || ''} ${(patientInput.symptoms || []).join(' ')} ${fullObservationHistory}`
+      );
+
+      if (isRespCondition) {
+        const ureaVal = labInterpretation.items.find((i) => i.key === 'urea')?.value;
+        const curb = calculateCurb65({
+          age: patientInput.age,
+          confusion: /confusion|disoriented|বিভ্রান্ত|অসংলগ্ন/i.test(fullObservationHistory),
+          urea_mmol_per_l: typeof ureaVal === 'number' ? ureaVal : undefined,
+          respiratory_rate: patientInput.vitals?.respiratory_rate,
+          systolic_bp: patientInput.vitals?.blood_pressure_systolic,
+          diastolic_bp: patientInput.vitals?.blood_pressure_diastolic,
+        });
+        clinicalScores.push(curb);
+      }
+
+      const isDengueCondition = /dengue|platelet|প্লাটিলেট|ডেঙ্গু/i.test(
+        `${patientInput.chief_complaint || ''} ${(patientInput.symptoms || []).join(' ')} ${fullObservationHistory}`
+      );
+      if (isDengueCondition) {
+        const pltVal = labInterpretation.items.find((i) => i.key === 'platelets')?.value;
+        const warningSigns: string[] = [];
+        if (/vomit|বমি/i.test(fullObservationHistory)) {
+          warningSigns.push(effectiveLocale === 'bn' ? 'ক্রমাগত বমি' : 'Persistent vomiting');
+        }
+        if (/abdominal pain|পেটে তীব্র ব্যথা/i.test(fullObservationHistory)) {
+          warningSigns.push(effectiveLocale === 'bn' ? 'তীব্র পেটে ব্যথা' : 'Severe abdominal pain');
+        }
+        if (/bleed|রক্তক্ষরণ/i.test(fullObservationHistory)) {
+          warningSigns.push(effectiveLocale === 'bn' ? 'মিউকোসাল রক্তক্ষরণ' : 'Mucosal bleed');
+        }
+
+        const dengueScore = assessDengueProtocol({
+          hasWarningSigns: warningSigns.length > 0,
+          warningSignsList: warningSigns,
+          plateletCount: typeof pltVal === 'number' ? pltVal : undefined,
+          systolicBp: patientInput.vitals?.blood_pressure_systolic,
+          diastolicBp: patientInput.vitals?.blood_pressure_diastolic,
+        });
+        clinicalScores.push(dengueScore);
+      }
+
+      // 6d. Cross-Library Consensus Synthesis across active guidelines
+      const consensusSummary = hits.length > 0
+        ? synthesizeConsensus(hits, {
+            chiefComplaint: patientInput.chief_complaint,
+            symptoms: patientInput.symptoms,
+            examinationFindings: patientInput.examination_findings,
+            locale: effectiveLocale,
+          })
+        : null;
+
+      // 6e. Dynamic Clinical Decision Chips
+      const decisionChips: DecisionChip[] = [];
+      if (isRespCondition) {
+        decisionChips.push({
+          id: 'order-cxr',
+          type: 'investigation',
+          labelBn: 'বুকের এক্স-রে লিখুন (Order CXR)',
+          labelEn: 'Order Chest Radiograph (PA View)',
+          payload: { test: 'CXR PA view' },
+        });
+        decisionChips.push({
+          id: 'suggest-antibiotic',
+          type: 'prescription',
+          labelBn: 'গাইডলাইন ড্রাগ দেখুন (Amoxicillin Rx)',
+          labelEn: 'Review Guideline Antibiotic Protocol',
+          payload: { drug: 'Amoxicillin' },
+        });
+      }
+      if (isDengueCondition) {
+        decisionChips.push({
+          id: 'dengue-fluid',
+          type: 'action',
+          labelBn: 'ফ্লুইড প্রটোকল দেখুন (Oral/IV Fluids)',
+          labelEn: 'Review Fluid Resuscitation Protocol',
+        });
+      }
+      if (labInterpretation.hasLabData && labInterpretation.overallAcuity !== 'normal') {
+        decisionChips.push({
+          id: 'record-labs',
+          type: 'action',
+          labelBn: 'ল্যাব মান ফাইলে সংরক্ষণ করুন',
+          labelEn: 'Commit Lab Values to Case File',
+        });
+      }
 
       // 7. Build clinical answer
       const doctorInputSignals = analyzeDoctorInput(
@@ -713,6 +836,44 @@ export async function POST(
             : 'Clinical observation has been recorded in the case consultation history.';
       }
 
+      // Append Lab Interpretation Insights if present
+      if (labInterpretation.hasLabData) {
+        const labHeader =
+          effectiveLocale === 'bn'
+            ? `📊 **ল্যাব ও ডায়াগনস্টিক রিপোর্ট মূল্যায়ন:**\n${labInterpretation.clinicalSummaryBn}`
+            : `📊 **Diagnostic & Laboratory Assessment:**\n${labInterpretation.clinicalSummaryEn}`;
+
+        const impactStr =
+          effectiveLocale === 'bn'
+            ? (labInterpretation.differentialImpactBn.length > 0
+                ? `\n\n• **ক্লিনিকাল প্রভাব**: ${labInterpretation.differentialImpactBn.join(' ')}`
+                : '')
+            : (labInterpretation.differentialImpactEn.length > 0
+                ? `\n\n• **Clinical Impact**: ${labInterpretation.differentialImpactEn.join(' ')}`
+                : '');
+
+        const stepsStr =
+          effectiveLocale === 'bn'
+            ? (labInterpretation.actionableNextStepsBn.length > 0
+                ? `\n\n• **করণীয় পদক্ষেপ**: ${labInterpretation.actionableNextStepsBn.join(' ')}`
+                : '')
+            : (labInterpretation.actionableNextStepsEn.length > 0
+                ? `\n\n• **Next Steps**: ${labInterpretation.actionableNextStepsEn.join(' ')}`
+                : '');
+
+        const labBlock = `${labHeader}${impactStr}${stepsStr}`;
+        baseClinicalAnswer = baseClinicalAnswer ? `${labBlock}\n\n${baseClinicalAnswer}` : labBlock;
+      }
+
+      // Append Cross-Library Consensus if multiple verified sources agree
+      if (consensusSummary && consensusSummary.consensusStatus === 'strong_consensus') {
+        const agreementText =
+          effectiveLocale === 'bn'
+            ? `\n\n📚 **গাইডলাইন ঐক্যমত্য (Cross-Library Consensus)**:\n${consensusSummary.agreementsBn.map((a) => `• ${a}`).join('\n')}`
+            : `\n\n📚 **Cross-Library Consensus**:\n${consensusSummary.agreementsEn.map((a) => `• ${a}`).join('\n')}`;
+        baseClinicalAnswer += agreementText;
+      }
+
       // Determine real status based on evidence and clinical content
       const realStatus =
         Boolean(sysQuery) || citations.length > 0 || proposedUpdates.length > 0 || !isQuestion
@@ -758,6 +919,10 @@ export async function POST(
             citations,
             safety_alerts: safetyAlerts,
             status: realStatus,
+            lab_interpretation: labInterpretation.hasLabData ? labInterpretation : undefined,
+            clinical_scores: clinicalScores.length > 0 ? clinicalScores : undefined,
+            consensus_summary: consensusSummary || undefined,
+            decision_chips: decisionChips.length > 0 ? decisionChips : undefined,
             language_metadata: {
               reply_language: effectiveLocale,
               understanding: {

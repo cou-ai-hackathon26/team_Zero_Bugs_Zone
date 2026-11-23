@@ -41,6 +41,8 @@ import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { useVoice } from '@/context/VoiceContext';
 import { transliterateBanglishToBangla } from '@/lib/language/phonetic';
+import { ClinicalDecisionCards } from './ClinicalDecisionCards';
+import { DecisionChip, LabInterpretationResult, ClinicalScoreResult, ConsensusSummary } from '@/types';
 
 function generateClientDraftId(): string {
   return `draft-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -838,6 +840,19 @@ export function CaseConversationTab({
                       ))}
                     </div>
                   )}
+
+                  {/* Next-Level Clinical Decision Cards: Labs, Scoring, Consensus, Quick Chips */}
+                  <ClinicalDecisionCards
+                    labInterpretation={content.lab_interpretation as LabInterpretationResult | undefined}
+                    clinicalScores={content.clinical_scores as ClinicalScoreResult[] | undefined}
+                    consensusSummary={content.consensus_summary as ConsensusSummary | undefined}
+                    decisionChips={content.decision_chips as DecisionChip[] | undefined}
+                    locale={locale}
+                    onChipClick={(chip) => {
+                      const text = locale === 'bn' ? chip.labelBn : chip.labelEn;
+                      void handleSend('observation', text);
+                    }}
+                  />
 
                   {/* Proposed Patient Record Updates - Expandable Section */}
                   {proposedUpdates.length > 0 && (
