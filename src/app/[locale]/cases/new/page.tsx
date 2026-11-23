@@ -75,17 +75,19 @@ export default function NewCasePage() {
 
   // Autosave Draft in localStorage
   useEffect(() => {
-    const draft = localStorage.getItem('docmate_intake_draft');
-    if (draft) {
-      try {
+    try {
+      const draft = localStorage.getItem('docmate_intake_draft');
+      if (draft) {
         const parsed = JSON.parse(draft);
-        if (parsed.patientCode) setPatientCode(parsed.patientCode);
-        if (typeof parsed.age === 'number') setAge(parsed.age);
-        if (parsed.gender) setGender(parsed.gender);
-        if (parsed.chiefComplaint) setChiefComplaint(parsed.chiefComplaint);
-        if (parsed.symptomsInput) setSymptomsInput(parsed.symptomsInput);
-      } catch {}
-    }
+        setTimeout(() => {
+          if (parsed.patientCode) setPatientCode(parsed.patientCode);
+          if (typeof parsed.age === 'number') setAge(parsed.age);
+          if (parsed.gender) setGender(parsed.gender);
+          if (parsed.chiefComplaint) setChiefComplaint(parsed.chiefComplaint);
+          if (parsed.symptomsInput) setSymptomsInput(parsed.symptomsInput);
+        }, 0);
+      }
+    } catch {}
   }, []);
 
   const saveToLocalStorage = () => {
