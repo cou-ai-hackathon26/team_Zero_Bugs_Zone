@@ -75,8 +75,12 @@ export function cleanDocumentPages(pages: ExtractedPage[]): CleanedPage[] {
 
     const lower = trimmed.toLowerCase();
 
-    // Blank or minimal text -> skip
-    if (trimmed.length < 40) {
+    // Tables have highest priority for kind
+    if (page.tables && page.tables.length > 0) {
+      kind = 'table';
+    }
+    // Blank or minimal text without tables -> skip
+    else if (trimmed.length < 15) {
       kind = 'skip';
     }
     // Table of contents or Index -> skip
@@ -99,9 +103,8 @@ export function cleanDocumentPages(pages: ExtractedPage[]): CleanedPage[] {
       kind = 'references';
       inReferences = true;
     }
-    // Tables
-    else if (page.tables && page.tables.length > 0) {
-      kind = 'table';
+    else if (/^\s*[-*•\d+.]\s+/m.test(trimmed)) {
+      kind = 'list';
     }
 
     const language = detectLanguage(trimmed);

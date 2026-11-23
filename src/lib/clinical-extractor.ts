@@ -13,15 +13,52 @@ export interface ProposedUpdate {
 }
 
 const SYMPTOM_PATTERNS: Array<{ pattern: RegExp; canonical: string }> = [
-  { pattern: /\b(?:dry\s+cough|coughing|chronic\s+cough|productive\s+cough|cough)\b/i, canonical: 'cough' },
-  { pattern: /\b(?:shortness\s+of\s+breath|breathlessness|dyspnea|difficulty\s+breathing)\b/i, canonical: 'dyspnea' },
-  { pattern: /\b(?:chest\s+pain|pleuritic\s+pain|substernal\s+pressure)\b/i, canonical: 'chest pain' },
-  { pattern: /\b(?:feverish|high\s+fever|low\s+grade\s+fever|fever)\b/i, canonical: 'fever' },
-  { pattern: /\b(?:headache|severe\s+headache|migraine)\b/i, canonical: 'headache' },
-  { pattern: /\b(?:fatigue|exhaustion|malaise|weakness)\b/i, canonical: 'fatigue' },
-  { pattern: /\b(?:sore\s+throat|pharyngitis)\b/i, canonical: 'sore throat' },
-  { pattern: /\b(?:nausea|vomiting|emesis)\b/i, canonical: 'nausea' },
-  { pattern: /\b(?:dizziness|lightheadedness|vertigo)\b/i, canonical: 'dizziness' },
+  { pattern: /\b(?:dry\s+cough|coughing|chronic\s+cough|productive\s+cough|cough|কাশি|কফ)\b/i, canonical: 'cough' },
+  { pattern: /\b(?:shortness\s+of\s+breath|breathlessness|dyspnea|difficulty\s+breathing|শ্বাসকষ্ট|হাঁপানি)\b/i, canonical: 'dyspnea' },
+  { pattern: /\b(?:chest\s+pain|pleuritic\s+pain|substernal\s+pressure|বুকে\s+ব্যথা)\b/i, canonical: 'chest pain' },
+  { pattern: /\b(?:feverish|high\s+fever|low\s+grade\s+fever|fever|জ্বর)\b/i, canonical: 'fever' },
+  { pattern: /\b(?:headache|severe\s+headache|migraine|মাথাব্যথা|মাথা\s+ব্যথা)\b/i, canonical: 'headache' },
+  { pattern: /\b(?:fatigue|exhaustion|malaise|weakness|ক্লান্তি|দুর্বলতা)\b/i, canonical: 'fatigue' },
+  { pattern: /\b(?:sore\s+throat|pharyngitis|গলা\s+ব্যথা)\b/i, canonical: 'sore throat' },
+  { pattern: /\b(?:nausea|vomiting|emesis|বমি|বমি\s+ভাব)\b/i, canonical: 'nausea' },
+  { pattern: /\b(?:dizziness|lightheadedness|vertigo|মাথা\s+ঘোরা)\b/i, canonical: 'dizziness' },
+];
+
+const AUSCULTATION_PATTERNS: Array<{
+  pattern: RegExp;
+  label_en: string;
+  label_bn: string;
+  value: string;
+  display_value: string;
+}> = [
+  {
+    pattern: /\b(?:crackles?(?:\s+present)?|crepitations?|creps|র‌্যালস|ক্রেপিটেশন)\b/i,
+    label_en: 'Chest Auscultation',
+    label_bn: 'বুকের শব্দ (Auscultation)',
+    value: 'Localized inspiratory crackles present',
+    display_value: 'Inspiratory crackles (ক্রেপিটেশন)',
+  },
+  {
+    pattern: /\b(?:wheez(?:ing|es)?(?:\s+present)?|rhonchi|হুইজ|হুইজিং)\b/i,
+    label_en: 'Chest Auscultation',
+    label_bn: 'বুকের শব্দ (Auscultation)',
+    value: 'Bilateral expiratory wheezing',
+    display_value: 'Wheezing (হুইজ)',
+  },
+  {
+    pattern: /\b(?:clear\s+(?:breath\s+sounds?|chest|lungs?)|clear\s+breath|normal\s+(?:breath\s+sounds?|auscultation)|স্বাভাবিক\s+(?:ফুসফুসের\s+)?শব্দ)\b/i,
+    label_en: 'Chest Auscultation',
+    label_bn: 'বুকের শব্দ (Auscultation)',
+    value: 'Clear breath sounds bilaterally',
+    display_value: 'Clear breath sounds (স্বাভাবিক)',
+  },
+  {
+    pattern: /\b(?:decreased\s+air\s+entry|reduced\s+air\s+entry|বায়ু\s+চলাচল\s+হ্রাস)\b/i,
+    label_en: 'Chest Auscultation',
+    label_bn: 'বুকের শব্দ (Auscultation)',
+    value: 'Decreased air entry',
+    display_value: 'Decreased air entry (বায়ু চলাচল হ্রাস)',
+  },
 ];
 
 export function extractClinicalFacts(
@@ -190,6 +227,24 @@ export function extractClinicalFacts(
           status: 'pending',
         });
       }
+    }
+  }
+
+  // 9. Chest Auscultation & Examination Findings
+  for (const { pattern, label_en, label_bn, value, display_value } of AUSCULTATION_PATTERNS) {
+    const match = normalized.match(pattern);
+    if (match) {
+      updates.push({
+        id: `update-auscultation-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        field_path: 'examination_findings',
+        label_en,
+        label_bn,
+        value,
+        display_value,
+        original_wording: match[0].trim(),
+        status: 'pending',
+      });
+      break;
     }
   }
 

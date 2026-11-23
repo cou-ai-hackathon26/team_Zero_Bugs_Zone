@@ -641,7 +641,21 @@
     "budgetLimit": "Daily Ingestion Budget Limit ($ USD)",
     "thresholdLimit": "Automatic Approval Threshold ($ USD)",
     "ocrToggle": "Enable Tesseract OCR (for scanned PDFs)",
-    "saveSettings": "Save Settings"
+    "saveSettings": "Save Settings",
+    "extractionStatus": "Extraction Status",
+    "ocrStatus": "OCR Status",
+    "extractedChars": "Extracted Characters",
+    "chunksCreated": "Chunks Created",
+    "embeddingStatus": "Embedding Status",
+    "duplicateStatus": "Duplicate Status",
+    "viewLogs": "View Logs & Stats",
+    "reusedExisting": "Reused Existing Source",
+    "uniqueFile": "Unique File",
+    "nativeText": "Native Text",
+    "ocrApplied": "OCR Applied (bn+en)",
+    "notRequired": "Not Required",
+    "executionLogs": "Pipeline Execution Logs",
+    "jobDetails": "Job Execution Details"
   },
   "voice": {
     "mayaLiveVoiceUnavailable": "Live Maya audio is unavailable. Check that the local Maya engine is running and its model has loaded.",
