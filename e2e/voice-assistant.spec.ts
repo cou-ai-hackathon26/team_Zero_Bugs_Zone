@@ -77,23 +77,35 @@ test.describe('voice assistant on the synthetic fixture', () => {
     const sample = page.getByRole('button', { name: 'Sample Voice' });
     await sample.click();
     await expect(sample).toBeEnabled();
+    await expect.poll(() => page.evaluate(() => window.voiceTestLines.length)).toBe(1);
+    expect(await page.evaluate(() => window.voiceTestLines[0])).toMatchObject({
+      lang: 'en-GB', voice: 'Daniel', rate: 0.95, pitch: 1,
+    });
+
+    // Voice assistant button is scoped to case workspaces
+    const casesRes = await page.request.get('/api/cases');
+    const caseId = (await casesRes.json()).cases[0].id;
+    await page.goto(`/en/cases/${caseId}`);
     await page.getByRole('button', { name: 'Open DocMate Voice Assistant' }).click();
-    await expect.poll(() => page.evaluate(() => window.voiceTestLines.length)).toBe(2);
-    expect(await page.evaluate(() => window.voiceTestLines)).toMatchObject([
-      { lang: 'en-GB', voice: 'Daniel', rate: 0.95, pitch: 1 },
-      { lang: 'en-GB', voice: 'Daniel', rate: 0.95, pitch: 1 },
-    ]);
+    await expect.poll(() => page.evaluate(() => window.voiceTestLines.length)).toBe(1);
+    expect(await page.evaluate(() => window.voiceTestLines[0])).toMatchObject({
+      lang: 'en-GB', voice: 'Daniel', rate: 0.95, pitch: 1,
+    });
 
     const input = page.getByPlaceholder('Edit transcript here or type...');
     await input.fill('quantum entanglement');
-    const askResponse = page.waitForResponse((response) =>
-      response.url().endsWith('/api/ask') && response.request().method() === 'POST',
+    // On a case page, voice goes through the case conversation (NDJSON stream).
+    const chatResponse = page.waitForResponse((response) =>
+      response.url().endsWith(`/api/cases/${caseId}/chat`) && response.request().method() === 'POST',
     );
     await input.press('Enter');
-    expect(await (await askResponse).json()).toMatchObject({ found: false, status: 'insufficient_evidence' });
-    const abstention = 'I couldn’t find enough evidence in the library to answer that.';
-    await expect(page.getByText(abstention, { exact: true })).toBeVisible();
-    await expect.poll(() => page.evaluate(() => window.voiceTestLines.at(-1)?.text)).toBe(abstention);
+    const lines = (await (await chatResponse).text()).trim().split('\n').map((line) => JSON.parse(line));
+    const final = lines.at(-1);
+    expect(final).toMatchObject({ type: 'final', turn: { content: { status: 'insufficient_evidence' } } });
+    // The voice panel shows the reply and reads its spoken summary aloud.
+    const replyText = final.turn.content.text as string;
+    await expect(page.getByRole('complementary').getByText(replyText, { exact: true })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => window.voiceTestLines.at(-1)?.text)).toBe(final.turn.content.speech_text || replyText);
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.getByRole('dialog').getByPlaceholder('Edit transcript here or type...')).toBeVisible();
@@ -112,7 +124,9 @@ test.describe('voice assistant on the synthetic fixture', () => {
       mayaRequests += 1;
       return route.fulfill({ status: 503 });
     });
-    await page.goto('/en/settings');
+    const casesRes = await page.request.get('/api/cases');
+    const caseId = (await casesRes.json()).cases[0].id;
+    await page.goto(`/en/cases/${caseId}`);
     const greetingRequest = page.waitForRequest('**/api/voice/synthesize');
     await page.getByRole('button', { name: 'Open DocMate Voice Assistant' }).click();
     expect((await greetingRequest).postDataJSON()).toMatchObject({ provider: 'maya', locale: 'en', conversationTone: 'warm' });
@@ -156,8 +170,16 @@ test.describe('voice assistant on the synthetic fixture', () => {
       } });
     });
     await page.route('**/api/settings/voice', (route) => route.fulfill({ json: { config: { tts_provider: 'browser' } } }));
-    await page.route('**/api/ask', (route) => route.fulfill({ json: { found: false, status: 'insufficient_evidence' } }));
-    await page.goto('/en/settings');
+    const abstainedStream = [
+      JSON.stringify({ type: 'doctor_turn', turn: null, doctor_turn_id: 'd1' }),
+      JSON.stringify({ type: 'final', turn: { id: 'a1', role: 'system', content: { type: 'assistant_response', text: 'No evidence.', status: 'insufficient_evidence' } } }),
+    ].join('\n') + '\n';
+    await page.route('**/api/cases/*/chat', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/x-ndjson', body: abstainedStream }),
+    );
+    const casesRes = await page.request.get('/api/cases');
+    const caseId = (await casesRes.json()).cases[0].id;
+    await page.goto(`/en/cases/${caseId}`);
     await page.getByRole('button', { name: 'Open DocMate Voice Assistant' }).click();
 
     const selector = page.getByRole('combobox', { name: 'Conversation language' });
@@ -172,15 +194,14 @@ test.describe('voice assistant on the synthetic fixture', () => {
     }
 
     await selector.selectOption('bn');
-    const ask = page.waitForRequest('**/api/ask');
+    const ask = page.waitForRequest('**/api/cases/*/chat');
     const input = page.getByPlaceholder('Edit transcript here or type...');
     await input.fill('quantum entanglement');
     await input.press('Enter');
-    expect((await ask).postDataJSON()).toEqual({ question: 'quantum entanglement', locale: 'bn' });
-    await expect(page.getByText('এই প্রশ্নের উত্তর দেওয়ার মতো যথেষ্ট প্রমাণ লাইব্রেরিতে খুঁজে পাইনি।', { exact: true }))
-      .toHaveAttribute('lang', 'bn');
+    expect((await ask).postDataJSON()).toMatchObject({ text: 'quantum entanglement', reply_language: 'bn' });
+    await expect(page.getByRole('complementary').getByText('No evidence.', { exact: true })).toHaveAttribute('lang', 'bn');
 
-    await page.route('**/api/ask', (route) => route.fulfill({ status: 500 }));
+    await page.route('**/api/cases/*/chat', (route) => route.fulfill({ status: 500, json: { error: 'x' } }));
     await input.fill('another unrelated question');
     await input.press('Enter');
     await expect(page.getByText('লাইব্রেরিতে খুঁজতে পারিনি। আবার চেষ্টা করুন।', { exact: true }))

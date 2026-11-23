@@ -1,5 +1,7 @@
 // @ts-nocheck
-import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import msedgeTts from 'msedge-tts';
+const { MsEdgeTTS, OUTPUT_FORMAT } = msedgeTts as any;
 import fs from 'fs';
 import path from 'path';
 

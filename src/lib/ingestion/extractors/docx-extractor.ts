@@ -10,12 +10,33 @@ export class DocxExtractor implements DocumentExtractor {
   }
 
   async extract(buffer: Buffer, fileName: string): Promise<ExtractedDocument> {
-    const rawResult = await mammoth.extractRawText({ buffer });
-    const fullText = rawResult.value || '';
+    let fullText = '';
+    let html = '';
 
-    // Also extract with structure to keep headings and tables
-    const htmlResult = await mammoth.convertToHtml({ buffer });
-    const html = htmlResult.value || '';
+    try {
+      const rawResult = await mammoth.extractRawText({ buffer });
+      fullText = rawResult.value || '';
+    } catch (err) {
+      console.warn('[DocxExtractor] mammoth.extractRawText warning:', err);
+    }
+
+    try {
+      const htmlResult = await mammoth.convertToHtml({ buffer });
+      html = htmlResult.value || '';
+      if (!fullText && html) {
+        fullText = html.replace(/<[^>]*>/g, ' ');
+      }
+    } catch (err) {
+      console.warn('[DocxExtractor] mammoth.convertToHtml warning:', err);
+    }
+
+    // Fallback: extract plain ascii strings if mammoth failed entirely
+    if (!fullText.trim()) {
+      const sample = buffer.toString('utf-8').replace(/[^\x20-\x7E\t\n\r\u0980-\u09FF]/g, ' ');
+      if (sample.trim().length > 50) {
+        fullText = sample.trim();
+      }
+    }
 
     const title = fileName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
 

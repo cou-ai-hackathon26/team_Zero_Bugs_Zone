@@ -8,12 +8,15 @@ import { TextSizeControl } from '@/components/shared/TextSizeControl';
 import { AssistantSettingsCard } from '@/components/settings/AssistantSettingsCard';
 import { Link } from '@/i18n/routing';
 import { getCurrentUser } from '@/lib/auth';
-import { ShieldCheck, UserCheck, Database, Globe } from 'lucide-react';
+import { ShieldCheck, UserCheck, Database, Globe, Mic } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 
 export default async function SettingsPage() {
-  const user = await getCurrentUser();
+  const [locale, user] = await Promise.all([
+    getLocale(),
+    getCurrentUser(),
+  ]);
   const t = await getTranslations('settings');
 
   const isPatient = user?.role === 'patient';
@@ -40,12 +43,21 @@ export default async function SettingsPage() {
                   {t('aiCredentialsAdminNoticeDesc')}
                 </p>
               </div>
-              <Link
-                href="/admin/ai"
-                className="inline-flex items-center justify-center rounded-md text-xs font-semibold ring-offset-background transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-8 px-3 shrink-0"
-              >
-                {t('openAdminAiPanel')}
-              </Link>
+              <div className="flex items-center gap-2 shrink-0">
+                <Link
+                  href="/admin/voice"
+                  className="inline-flex items-center justify-center rounded-md text-xs font-semibold ring-offset-background transition-colors border border-primary/30 bg-background text-primary hover:bg-primary/10 h-8 px-3 gap-1 shadow-2xs"
+                >
+                  <Mic className="w-3.5 h-3.5" />
+                  <span>{locale === 'bn' ? 'ভয়েস সেটিংস' : 'Voice Settings'}</span>
+                </Link>
+                <Link
+                  href="/admin/ai"
+                  className="inline-flex items-center justify-center rounded-md text-xs font-semibold ring-offset-background transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-8 px-3"
+                >
+                  {t('openAdminAiPanel')}
+                </Link>
+              </div>
             </CardContent>
           </Card>
         )}

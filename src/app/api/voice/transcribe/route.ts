@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { deidentifyClinicalText } from '@/lib/deidentify';
+import { getRawAiCredentials } from '@/lib/ai-credentials';
 import OpenAI from 'openai';
 
 export async function POST(request: Request) {
@@ -19,7 +20,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No audio file provided' }, { status: 400 });
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    const creds = await getRawAiCredentials();
+    const apiKey = creds?.apiKey || process.env.OPENAI_API_KEY;
     if (!apiKey) {
       // Fallback demo mock transcription if API key is not configured
       return NextResponse.json({

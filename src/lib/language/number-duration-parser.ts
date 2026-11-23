@@ -61,9 +61,7 @@ export function extractDurations(text: string): ExtractedDuration[] {
   const asciiText = convertBanglaDigitsToAscii(text);
   const durations: ExtractedDuration[] = [];
 
-  // Patterns for durations: (number | word_number) + optional (dhore/ধরে) + (unit)
-  // e.g. "3 din", "3 din dhore", "tin din", "৩ দিন ধরে", "5 days", "2 weeks", "1 month"
-  const durationPattern = /(?:(?:^|[^\w\u0980-\u09FF])(\d+(?:\.\d+)?|[a-zA-Z\u0980-\u09FF]+)\s*(?:din|deen|days?|d|দিন|দিবস|soptaho|shoptaho|weeks?|w|wk|সপ্তাহ|mash|months?|mo|m|মাস|ghonta|ghontar|hours?|hr|h|ঘণ্টা|ঘন্টা|bochhor|bochor|years?|yr|y|বছর)\b(?:\s*(?:dhore|dhoria|jabot|ধরে|যাবত))?)|(?:(?:dhore|dhoria|jabot|ধরে|যাবত)\s*(\d+(?:\.\d+)?)\s*(?:din|deen|days?|d|দিন|দিবস))/giu;
+  // Units definition
 
   const unitRegexes: Array<{ unit: ExtractedDuration['unit']; regex: RegExp; multiplier: number }> = [
     { unit: 'hour', regex: /^(?:ghonta|ghontar|hours?|hr|h|ঘণ্টা|ঘন্টা)$/i, multiplier: 1 / 24 },

@@ -13,7 +13,6 @@ import {
 // Regex constants
 const BANGLA_CHAR_REGEX = /[\u0980-\u09FF]/g;
 const LATIN_CHAR_REGEX = /[a-zA-Z]/g;
-const DIGIT_REGEX = /[0-9\u09E6-\u09EF]/g;
 
 // High-confidence Banglish trigger terms (presence of any strongly implies Banglish)
 const STRONG_BANGLISH_TRIGGERS = new Set([
@@ -23,6 +22,24 @@ const STRONG_BANGLISH_TRIGGERS = new Set([
   'dhore', 'din', 'jor', 'kashi', 'betha', 'batha', 'shashkosto', 'bomi',
   'dekhte', 'paro', 'bolun', 'rogir', 'osudh', 'daktar'
 ]);
+
+// English grammar words. Clinical nouns such as "fever" or "dengue" appear in
+// the Banglish lexicon too, so grammar words decide between English and Banglish.
+const ENGLISH_GRAMMAR_WORDS = new Set([
+  'the', 'is', 'are', 'was', 'were', 'can', 'could', 'should', 'would', 'does', 'do', 'did', 'any', 'of',
+  'for', 'and', 'or', 'in', 'on', 'with', 'what', 'which', 'when', 'how', 'why', 'has', 'have', 'had',
+  'this', 'that', 'these', 'there', 'patient', 'denies', 'reports', 'since', 'from', 'to', 'an', 'a', 'i',
+  'my', 'his', 'her', 'their', 'be', 'been', 'not', 'no', 'after', 'before', 'about', 'into', 'than',
+]);
+
+function englishGrammarCount(tokens: string[]): number {
+  return tokens.filter((token) => ENGLISH_GRAMMAR_WORDS.has(token.toLowerCase())).length;
+}
+
+function looksLikeEnglishSentence(tokens: string[], minimum = 2): boolean {
+  const grammar = englishGrammarCount(tokens);
+  return grammar >= minimum && grammar / tokens.length >= 0.15;
+}
 
 /**
  * Splits text into word tokens (alphanumeric sequences).
@@ -172,7 +189,10 @@ export function detectLanguage(text: string): LanguageDetectionResult {
   } else {
     // Pure Latin script
     // Decide between English and Banglish
-    if (hasStrongTrigger || banglishWordRatio >= 0.20) {
+    // Words like "ache" are both Banglish triggers and English ("body ache").
+    const englishSentence = looksLikeEnglishSentence(latinTokens);
+    const clearlyEnglish = looksLikeEnglishSentence(latinTokens, 4);
+    if ((hasStrongTrigger && !clearlyEnglish) || (banglishWordRatio >= 0.20 && !englishSentence)) {
       lang = 'banglish';
       dominantLang = 'bn'; // Banglish semantics are Bengali
       confidence = Math.min(0.75 + banglishWordRatio * 0.25, 0.99);

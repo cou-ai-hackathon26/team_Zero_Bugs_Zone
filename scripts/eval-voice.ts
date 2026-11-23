@@ -12,7 +12,7 @@
  * - Closed-Library Speakable Synthesis (Dropping unverified claims)
  */
 
-import { parseBanglaNumber, parseBloodPressure, parseTemperature, parseAllNumbers } from '../src/lib/voice/number-parser';
+import { parseBloodPressure, parseTemperature, parseAllNumbers } from '../src/lib/voice/number-parser';
 import { formatDoseScheduleSpeech } from '../src/lib/voice/dose-speech';
 import { matchMedicineNames } from '../src/lib/voice/medicine-matcher';
 import { routeVoiceIntent } from '../src/lib/voice/intent-router';

@@ -212,8 +212,8 @@ export default function AdminAccessPage() {
           <h1 className="text-xl font-bold text-foreground tracking-tight">{t('access')}</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             {locale === 'bn'
-              ? '৬টি রোলের জন্য ফিচার অনুমতি ও দৈনিক কোটা নিয়ন্ত্রণ করুন। পরিবর্তন অবিলম্বে কার্যকর হয়।'
-              : 'Toggle capabilities and daily quotas across all 6 roles. Changes apply instantly.'}
+              ? '৬টি রোলের ফিচার অনুমতি ও দৈনিক কোটা নিয়ন্ত্রণ করুন।'
+              : 'Manage permissions and daily quotas for all 6 roles.'}
           </p>
         </div>
 
@@ -249,12 +249,12 @@ export default function AdminAccessPage() {
           <CardHeader>
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <Sliders className="w-4 h-4 text-primary" />
-              <span>{locale === 'bn' ? 'নির্দিষ্ট ব্যবহারকারীর জন্য ফিচার ওভাররাইড' : 'New User Feature Override'}</span>
+              <span>{locale === 'bn' ? 'ব্যবহারকারী ফিচার ওভাররাইড' : 'New User Override'}</span>
             </CardTitle>
             <CardDescription className="text-xs">
               {locale === 'bn'
-                ? 'রোল পারমিশন থাকা সত্ত্বেও একজন ব্যবহারকারীকে কোনো ফিচার অনুমতি দিতে বা নিষিদ্ধ করতে ব্যবহার করুন।'
-                : 'Grant or revoke a specific capability for an individual user with expiration and audit justification.'}
+                ? 'নির্দিষ্ট ব্যবহারকারীকে কোনো ফিচার অনুমতি দিতে বা বন্ধ করতে ব্যবহার করুন।'
+                : 'Grant or revoke a specific capability for an individual user.'}
             </CardDescription>
           </CardHeader>
           <CardContent>

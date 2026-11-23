@@ -121,7 +121,7 @@ test.describe('DocMate AI Conversational Case Workspace & Safety Boundary', () =
     // Click to open mobile Sheet
     await mobileSummaryBtn.click();
     await expect(page.getByRole('dialog')).toBeVisible();
-    await expect(page.getByRole('dialog').getByText('Vital Signs')).toBeVisible();
+    await expect(page.getByRole('dialog').getByText('Vital Signs', { exact: true })).toBeVisible();
 
     // Close mobile sheet with Escape
     await page.keyboard.press('Escape');

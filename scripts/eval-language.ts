@@ -4,7 +4,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Pool } from 'pg';
-import { understandText, detectLanguage } from '../src/lib/language';
+import { understandText } from '../src/lib/language';
 import { routeVoiceIntent } from '../src/lib/voice/intent-router';
 
 const connectionString = process.env.DATABASE_URL || 'postgresql://apple@localhost:5432/docmate';
@@ -94,11 +94,9 @@ export async function runLanguageEvaluation() {
     }
 
     // 3. Number / Duration / Vitals Accuracy
-    let hasNumCheck = false;
     if (tc.expected_symptoms) {
       for (const s of tc.expected_symptoms) {
         if (s.durationDays !== undefined) {
-          hasNumCheck = true;
           totalNumberTested++;
           const found = result.entities.symptoms.find((sym) => sym.canonicalEn === s.canonical);
           if (found && found.durationDays === s.durationDays) {
@@ -115,7 +113,6 @@ export async function runLanguageEvaluation() {
     }
     if (tc.expected_vitals) {
       for (const v of tc.expected_vitals) {
-        hasNumCheck = true;
         totalNumberTested++;
         const found = result.entities.vitals.find((vit) => vit.type === v.type);
         if (found && found.value === v.value) {

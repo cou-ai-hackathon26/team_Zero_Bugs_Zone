@@ -44,12 +44,37 @@ async function getQueryEmbedding(query: string): Promise<number[] | null> {
   }
 }
 
+function extractOrKeywords(query: string): string {
+  const stopwords = new Set([
+    'what', 'which', 'where', 'when', 'why', 'how', 'who', 'whom', 'whose',
+    'this', 'that', 'these', 'those', 'there', 'here',
+    'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had',
+    'the', 'a', 'an', 'and', 'or', 'but', 'if', 'because', 'as', 'until', 'while',
+    'of', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through',
+    'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out',
+    'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once',
+    'based', 'clinical', 'findings', 'patient', 'doctor', 'suggest', 'recommend', 'show', 'tell', 'give',
+    // Bangla common stopwords
+    'কী', 'কি', 'কোন', 'কখন', 'কত', 'কেন', 'কিভাবে', 'হলে', 'থেকে', 'জন্য', 'এবং', 'বা', 'অথবা',
+    'আছে', 'আছেন', 'হয়', 'হয়ে', 'করে', 'করুন', 'বলা', 'বলুন', 'দেখা', 'দিন', 'রোগী', 'ডাক্তার'
+  ]);
+
+  const words = query
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .map((w) => w.trim().toLowerCase())
+    .filter((w) => w.length >= 3 && !stopwords.has(w));
+
+  return words.slice(0, 8).join(' or ');
+}
+
 export async function singleQueryHybridSearch(query: string, limit = 15): Promise<ScoredChunk[]> {
   const embedding = await getQueryEmbedding(query);
   const vectorStr = embedding ? `[${embedding.join(',')}]` : null;
 
   const isBengali = /[\u0980-\u09FF]/.test(query);
   const tsvConfig = isBengali ? 'simple' : 'english';
+  const orKeywords = extractOrKeywords(query);
 
   // 1. Vector Search (Restricted strictly to published sources & active chunks)
   const vectorQuery = `
@@ -61,27 +86,39 @@ export async function singleQueryHybridSearch(query: string, limit = 15): Promis
     JOIN sources s ON c.source_id = s.id
     WHERE s.lifecycle = 'published' AND s.status = 'active' AND c.status = 'active'
       AND c.embedding IS NOT NULL
+      AND 1 - (c.embedding <=> $1::vector) >= 0.30
     ORDER BY c.embedding <=> $1::vector ASC
     LIMIT $2;
   `;
 
-  // 2. Full-Text Search (tsvector with language-specific configuration)
+  // 2. Full-Text Search (tsvector with websearch, plain, and keyword OR fallback)
   const textQuery = `
+    WITH ts_queries AS (
+      SELECT
+        websearch_to_tsquery('${tsvConfig}', $1) as q_web,
+        plainto_tsquery('${tsvConfig}', $1) as q_plain,
+        websearch_to_tsquery('${tsvConfig}', $2) as q_or
+    )
     SELECT c.id, c.source_id, c.source_version_id, c.ordinal, c.page, c.section, c.heading_path,
            c.text, c.evidence_level, c.content_hash, c.token_count,
            s.title as source_title, s.year as source_year,
-           ts_rank(c.tsv, plainto_tsquery('${tsvConfig}', $1)) as text_score
+           ts_rank(c.tsv, COALESCE(NULLIF(q_web, ''::tsquery), q_plain, q_or)) as text_score
     FROM chunks c
+    CROSS JOIN ts_queries
     JOIN sources s ON c.source_id = s.id
     WHERE s.lifecycle = 'published' AND s.status = 'active' AND c.status = 'active'
-      AND c.tsv @@ plainto_tsquery('${tsvConfig}', $1)
+      AND (
+        (q_web <> ''::tsquery AND c.tsv @@ q_web)
+        OR (q_plain <> ''::tsquery AND c.tsv @@ q_plain)
+        OR ($2 <> '' AND q_or <> ''::tsquery AND c.tsv @@ q_or)
+      )
     ORDER BY text_score DESC
-    LIMIT $2;
+    LIMIT $3;
   `;
 
   const [vectorRes, textRes] = await Promise.all([
     vectorStr ? pool.query(vectorQuery, [vectorStr, limit]) : Promise.resolve({ rows: [] }),
-    pool.query(textQuery, [query, limit]),
+    pool.query(textQuery, [query, orKeywords, limit]),
   ]);
 
   const k = 60; // Standard RRF smoothing constant
@@ -161,27 +198,30 @@ export async function singleQueryHybridSearch(query: string, limit = 15): Promis
 }
 
 // Multi-query hybrid retrieval with reciprocal rank fusion across key findings
-export async function hybridRetrieve(queries: string[], maxChunks = 12): Promise<ScoredChunk[]> {
-  const cacheKey = queries.map((q) => q.trim().toLowerCase()).sort().join('||');
+// Multi-query fusion. `weights` (default 1 each) scale each query's
+// reciprocal-rank contribution, so broad helper queries such as a single
+// entity term ("dengue") cannot outvote the doctor's actual question.
+export async function hybridRetrieve(queries: string[], maxChunks = 12, weights?: number[]): Promise<ScoredChunk[]> {
+  const weighted = queries
+    .map((query, index) => ({ query, weight: weights?.[index] ?? 1 }))
+    .filter((entry) => entry.query && entry.query.trim());
+  const cacheKey = weighted.map((entry) => `${entry.query.trim().toLowerCase()}@${entry.weight}`).sort().join('||');
   const cached = retrievalCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return cached.chunks.slice(0, maxChunks);
   }
 
-  const results = await Promise.all(
-    queries.filter(Boolean).map((q) => singleQueryHybridSearch(q, 10))
-  );
+  const results = await Promise.all(weighted.map((entry) => singleQueryHybridSearch(entry.query, 10)));
 
   const merged = new Map<string, ScoredChunk>();
-  for (const list of results) {
+  results.forEach((list, index) => {
+    const weight = weighted[index].weight;
     for (const chunk of list) {
-      if (merged.has(chunk.id)) {
-        merged.get(chunk.id)!.rrfScore += chunk.rrfScore;
-      } else {
-        merged.set(chunk.id, { ...chunk });
-      }
+      const existing = merged.get(chunk.id);
+      if (existing) existing.rrfScore += chunk.rrfScore * weight;
+      else merged.set(chunk.id, { ...chunk, rrfScore: chunk.rrfScore * weight });
     }
-  }
+  });
 
   const sorted = Array.from(merged.values())
     .sort((a, b) => b.rrfScore - a.rrfScore);
@@ -263,17 +303,29 @@ export async function expandChunkContext(
 export async function searchLibraryText(query: string, limit: number): Promise<Chunk[]> {
   const isBengali = /[\u0980-\u09FF]/.test(query);
   const tsvConfig = isBengali ? 'simple' : 'english';
+  const orKeywords = extractOrKeywords(query);
 
   const { rows } = await pool.query<Chunk>(
-    `SELECT c.id, c.source_id, c.page, c.section, c.text, c.evidence_level, c.created_at,
+    `WITH ts_queries AS (
+      SELECT
+        websearch_to_tsquery('${tsvConfig}', $1) as q_web,
+        plainto_tsquery('${tsvConfig}', $1) as q_plain,
+        websearch_to_tsquery('${tsvConfig}', $2) as q_or
+    )
+    SELECT c.id, c.source_id, c.page, c.section, c.text, c.evidence_level, c.created_at,
             s.title AS source_title, s.year AS source_year
      FROM chunks c
+     CROSS JOIN ts_queries
      JOIN sources s ON s.id = c.source_id
      WHERE s.lifecycle = 'published' AND s.status = 'active' AND c.status = 'active'
-       AND c.tsv @@ plainto_tsquery('${tsvConfig}', $1)
-     ORDER BY ts_rank(c.tsv, plainto_tsquery('${tsvConfig}', $1)) DESC, c.id
-     LIMIT $2`,
-    [query, limit],
+       AND (
+         (q_web <> ''::tsquery AND c.tsv @@ q_web)
+         OR (q_plain <> ''::tsquery AND c.tsv @@ q_plain)
+         OR ($2 <> '' AND q_or <> ''::tsquery AND c.tsv @@ q_or)
+       )
+     ORDER BY ts_rank(c.tsv, COALESCE(NULLIF(q_web, ''::tsquery), q_plain, q_or)) DESC, c.id
+     LIMIT $3`,
+    [query, orKeywords, limit],
   );
   return rows;
 }

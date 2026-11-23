@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { LoadingState } from '@/components/shared/LoadingState';
 import { ErrorState } from '@/components/shared/ErrorState';
 import { PatientDetailSheet } from './components/PatientDetailSheet';
+import { CaseWorkflowSteps } from './components/CaseWorkflowSteps';
 import { CaseConversationTab } from './components/CaseConversationTab';
 import { DifferentialsTab } from './components/DifferentialsTab';
 import { MissingInfoTab } from './components/MissingInfoTab';
@@ -406,6 +407,25 @@ function CaseWorkspaceContent({ params }: CaseWorkspacePageProps) {
             </Button>
           </div>
         </div>
+
+        <CaseWorkflowSteps
+          caseData={caseData}
+          turns={turns}
+          isFinalized={isFinalized}
+          onGo={(step) => {
+            if (step === 'diagnosis' && !caseData.confirmed_diagnosis) {
+              setConfirmDiagOpen(true);
+              return;
+            }
+            const tab = { details: 'conversation', ask: 'conversation', diagnosis: 'treatment', treatment: 'treatment', report: 'report' }[step];
+            handleTabChange(tab);
+            if (step === 'details') {
+              window.dispatchEvent(
+                new CustomEvent('docmate:prefill', { detail: { caseId, text: locale === 'bn' ? 'ভাইটালস: BP , HR , তাপমাত্রা , SpO2 ' : 'Vitals: BP , HR , temp , SpO2 ' } }),
+              );
+            }
+          }}
+        />
 
         {/* Slide-over Sheet (Desktop) & Bottom Drawer (Mobile) for Patient Details */}
         <PatientDetailSheet

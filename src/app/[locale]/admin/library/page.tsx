@@ -48,7 +48,6 @@ import {
   CopyCheck,
   Sparkles,
   Info,
-  ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -116,7 +115,6 @@ interface IngestJobRecord {
 export default function AdminLibraryPage() {
   const locale = useLocale();
   const tIngest = useTranslations('ingestion');
-  const tAdmin = useTranslations('admin');
   const tCommon = useTranslations('common');
 
   const [activeTab, setActiveTab] = useState<string>('sources');
@@ -270,7 +268,8 @@ export default function AdminLibraryPage() {
             setMedicineErrorNotice(locale === 'bn' ? data.messageBn : data.message);
             return;
           }
-          const errText = (locale === 'bn' ? (data.messageBn || data.message) : (data.message || data.error)) || `Failed to upload files (HTTP ${res.status})`;
+          const fallbackMsg = locale === 'bn' ? `ফাইল আপলোড ব্যর্থ হয়েছে (HTTP ${res.status})` : `Failed to upload files (HTTP ${res.status})`;
+          const errText = (locale === 'bn' ? (data.messageBn || data.message) : (data.message || data.error)) || fallbackMsg;
           throw new Error(errText);
         }
 
@@ -316,7 +315,8 @@ export default function AdminLibraryPage() {
 
         const data = await parseJsonResponse(res);
         if (!res.ok) {
-          const errText = (locale === 'bn' ? (data.messageBn || data.message) : (data.message || data.error)) || `Failed to enqueue link (HTTP ${res.status})`;
+          const fallbackMsg = locale === 'bn' ? `লিংক সংযুক্ত করা যায়নি (HTTP ${res.status})` : `Failed to enqueue link (HTTP ${res.status})`;
+          const errText = (locale === 'bn' ? (data.messageBn || data.message) : (data.message || data.error)) || fallbackMsg;
           throw new Error(errText);
         }
 
@@ -361,7 +361,8 @@ export default function AdminLibraryPage() {
             setMedicineErrorNotice(locale === 'bn' ? data.messageBn : data.message);
             return;
           }
-          const errText = (locale === 'bn' ? (data.messageBn || data.message) : (data.message || data.error)) || `Failed to enqueue JSON payload (HTTP ${res.status})`;
+          const fallbackMsg = locale === 'bn' ? `JSON পে-লোড যোগ করা যায়নি (HTTP ${res.status})` : `Failed to enqueue JSON payload (HTTP ${res.status})`;
+          const errText = (locale === 'bn' ? (data.messageBn || data.message) : (data.message || data.error)) || fallbackMsg;
           throw new Error(errText);
         }
 
@@ -384,7 +385,7 @@ export default function AdminLibraryPage() {
       if (!res.ok) throw new Error('Retry failed');
       toast.success(locale === 'bn' ? 'জবটি পুনরায় শুরু করা হয়েছে' : 'Job re-enqueued');
       loadJobs();
-    } catch (err) {
+    } catch {
       toast.error('Failed to retry job');
     }
   };
@@ -395,7 +396,7 @@ export default function AdminLibraryPage() {
       if (!res.ok) throw new Error('Cancel failed');
       toast.success(locale === 'bn' ? 'জবটি বাতিল করা হয়েছে' : 'Job cancelled');
       loadJobs();
-    } catch (err) {
+    } catch {
       toast.error('Failed to cancel job');
     }
   };
@@ -406,7 +407,7 @@ export default function AdminLibraryPage() {
       if (!res.ok) throw new Error('Approval failed');
       toast.success(locale === 'bn' ? 'বাজেট অনুমোদিত হয়েছে' : 'Budget approved');
       loadJobs();
-    } catch (err) {
+    } catch {
       toast.error('Failed to approve budget');
     }
   };
@@ -427,7 +428,7 @@ export default function AdminLibraryPage() {
       });
       if (!res.ok) throw new Error('Failed to save settings');
       toast.success(locale === 'bn' ? 'সেটিংস সফলভাবে সংরক্ষিত হয়েছে' : 'Settings saved successfully');
-    } catch (err) {
+    } catch {
       toast.error('Failed to update settings');
     }
   };
@@ -848,6 +849,20 @@ export default function AdminLibraryPage() {
                         <option value="review">Review</option>
                         <option value="case_report">Case Report</option>
                         <option value="other">Other</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">{tIngest('license')}</label>
+                      <select
+                        value={license}
+                        onChange={(e) => setLicense(e.target.value)}
+                        className="w-full text-xs h-8 px-2 rounded-md border border-border bg-background text-foreground"
+                      >
+                        <option value="CC-BY-4.0">CC-BY-4.0</option>
+                        <option value="Open Access / DGHS">Open Access / DGHS</option>
+                        <option value="Public Domain">Public Domain</option>
+                        <option value="Clinical Open">Clinical Open</option>
+                        <option value="All Rights Reserved">All Rights Reserved</option>
                       </select>
                     </div>
                   </div>

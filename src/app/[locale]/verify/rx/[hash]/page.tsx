@@ -73,14 +73,14 @@ export default function PrescriptionPublicVerifyPage() {
             <span className="text-2xl font-black text-foreground">DocMate AI</span>
           </Link>
           <p className="text-xs text-muted-foreground font-medium">
-            {locale === 'bn' ? 'ডিজিটাল প্রেসক্রিপশন সত্যতা যাচাইকরণ পোর্টাল' : 'Digital Prescription Verification Gateway'}
+            {locale === 'bn' ? 'ডিজিটাল প্রেসক্রিপশন যাচাইকরণ' : 'Digital Prescription Verification'}
           </p>
         </div>
 
         {loading ? (
           <Card className="p-12 text-center border-dashed">
             <CardContent className="p-0 text-sm text-muted-foreground animate-pulse">
-              {locale === 'bn' ? 'প্রেসক্রিপশনের সত্যতা যাচাই করা হচ্ছে...' : 'Verifying cryptographic digital signature...'}
+              {locale === 'bn' ? 'প্রেসক্রিপশন যাচাই করা হচ্ছে...' : 'Verifying digital signature...'}
             </CardContent>
           </Card>
         ) : error || !data?.verified ? (
@@ -88,12 +88,12 @@ export default function PrescriptionPublicVerifyPage() {
             <CardContent className="p-0 space-y-3">
               <AlertTriangle className="w-12 h-12 text-destructive mx-auto" />
               <h2 className="text-xl font-bold text-destructive">
-                {locale === 'bn' ? 'প্রেসক্রিপশনটি অকার্যকর বা ভুয়া' : 'Invalid or Unverified Prescription'}
+                {locale === 'bn' ? 'প্রেসক্রিপশনটি পাওয়া যায়নি' : 'Prescription Not Found'}
               </h2>
               <p className="text-sm text-muted-foreground">
                 {locale === 'bn'
-                  ? 'এই কিউআর কোডের বিপরীতে কোনো অনুমোদিত প্রেসক্রিপশন রেকর্ড ডকমেইট এআই ডাটাবেজে পাওয়া যায়নি।'
-                  : 'No valid BMDC physician prescription was found matching this digital signature.'}
+                  ? 'এই কিউআর কোডের কোনো রেকর্ড ডাটাবেজে পাওয়া যায়নি।'
+                  : 'No valid prescription record matches this digital signature.'}
               </p>
             </CardContent>
           </Card>
@@ -105,13 +105,13 @@ export default function PrescriptionPublicVerifyPage() {
               <div>
                 <h3 className="font-bold text-sm">
                   {locale === 'bn'
-                    ? '✓ বিএমডিসি নিবন্ধিত চিকিৎসক কর্তৃক অনুমোদিত আসল ডিজিটাল প্রেসক্রিপশন'
-                    : '✓ Verified Authentic BMDC Physician Digital Prescription'}
+                    ? '✓ আসল ডিজিটাল প্রেসক্রিপশন যাচাইকৃত'
+                    : '✓ Verified Authentic BMDC Prescription'}
                 </h3>
                 <p className="text-xs opacity-90">
                   {locale === 'bn'
-                    ? 'এই প্রেসক্রিপশনের ক্রিপ্টোগ্রাফিক হ্যাশ সিগনেচার ডাটাবেজের মূল রেকর্ডের সাথে ১০০% মিলেছে।'
-                    : 'Cryptographic hash signature verified and matches internal immutable records.'}
+                    ? 'ডিজিটাল সিগনেচার ডাটাবেজের মূল রেকর্ডের সাথে মিলেছে।'
+                    : 'Cryptographic signature verified against immutable records.'}
                 </p>
               </div>
             </div>

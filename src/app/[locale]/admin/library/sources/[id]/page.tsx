@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -107,7 +107,7 @@ export default function SourceDetailPage() {
   const [retireReason, setRetireReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
-  const loadData = () => {
+  const loadData = useCallback(() => {
     fetch(`/api/admin/library/sources/${sourceId}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -120,11 +120,11 @@ export default function SourceDetailPage() {
       })
       .catch(() => toast.error('Failed to load source details'))
       .finally(() => setLoading(false));
-  };
+  }, [sourceId]);
 
   useEffect(() => {
     loadData();
-  }, [sourceId]);
+  }, [loadData]);
 
   // Handle New Version Upload
   const handleUploadNewVersion = async (e: React.FormEvent) => {

@@ -5,7 +5,6 @@ import {
   convertBanglaDigitsToAscii,
   detectLanguage,
   matchTerms,
-  canonicalizeTerms,
   restoreTransliteratedTerms,
   isTermNegated,
   splitClauses,

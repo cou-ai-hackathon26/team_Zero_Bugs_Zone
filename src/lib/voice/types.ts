@@ -42,6 +42,9 @@ export interface VoiceConfig {
   private_mode_default: boolean;
   avatar_enabled_default: boolean;
   sounds_enabled?: boolean;
+  edge_voice_bn?: string;
+  edge_voice_en?: string;
+  vocal_reactions_enabled?: boolean;
 }
 
 export interface SttTranscriptionResult {
@@ -117,6 +120,10 @@ export interface VoiceMessage {
     page?: number;
   }>;
   verified?: boolean;
+  /** Reply text is Markdown with [n] markers that refer to `claims`. */
+  markdown?: boolean;
+  claims?: Array<{ ref: number; chunk_id: string; quote: string; text: string; source_title?: string; source_year?: number; page?: number; verified: boolean }>;
+  status?: string;
   timestamp: number;
   intent?: VoiceIntent;
   confidence?: number;

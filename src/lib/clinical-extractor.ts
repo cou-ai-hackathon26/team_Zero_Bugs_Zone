@@ -149,9 +149,9 @@ export function extractClinicalFacts(
     }
   }
 
-  // 5. Oxygen Saturation (e.g. "SpO2 94%", "oxygen sat 96%", "O2 sat 92%")
+  // 5. Oxygen Saturation (e.g. "SpO2 94%", "SpO2 98", "oxygen sat 96%", "O2 sat 92%")
   const spo2Match = normalized.match(
-    /\b(?:spo2|o2\s*sat(?:uration)?|oxygen\s*sat(?:uration)?)\s*(?:is|was|:)?\s*(\d{2,3})\s*%/i
+    /\b(?:spo2|sp\s*o2|o2\s*sat(?:uration)?|oxygen\s*sat(?:uration)?|স্যাচুরেশন)\s*(?:is|was|:)?\s*(\d{2,3})\s*%?/iu
   );
   if (spo2Match) {
     const spo2 = parseInt(spo2Match[1], 10);
