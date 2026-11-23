@@ -15,7 +15,7 @@ export interface PromptInput {
   doctorTitle: string;
   tone: string;
   verbosity: string;
-  mode: 'clinical' | 'social';
+  mode: 'clinical' | 'social' | 'case_review';
   patient: StructuredPatientInput;
   context: ConversationContext;
   excerpts: Excerpt[];
@@ -26,7 +26,7 @@ export interface PromptInput {
 
 function languageRule(locale: ReplyLocale): string {
   return locale === 'bn'
-    ? 'Write the reply in natural, conversational Bangla (বাংলা). After each clinical term, add the English term in parentheses, e.g. "জ্বর (Fever)", "নিউমোনিয়া (Pneumonia)". Keep quotes in the source language exactly as written.'
+    ? 'Write the reply in natural, conversational Bangla (বাংলা). After each clinical term, add the English term in parentheses, e.g. "জ্বর (Fever)", "নিউমোনিয়া (Pneumonia)". Use a Bangla medical term only when you are sure it means exactly the English term; otherwise write the English term alone (e.g. "Hypovolemic shock", not a guessed Bangla word). Prefer a phonetic Bangla spelling of the English term (e.g. "হাইপোভোলেমিক শক (Hypovolemic shock)") over a different Bangla word. Keep quotes in the source language exactly as written.'
     : 'Write the reply in clear, conversational English. Keep quotes in the source language exactly as written.';
 }
 
@@ -70,6 +70,16 @@ export function buildSystemPrompt(input: Pick<PromptInput, 'locale' | 'doctorTit
     input.mode === 'social'
       ? 'This message is social (greeting, thanks or small talk). Reply briefly and naturally in one or two sentences, offer help with the case, and use status "social" with no claims.'
       : 'Use Markdown: short paragraphs, "-" bullet lists, **bold** for key terms. No tables, no headings above level 3.',
+    input.mode === 'case_review'
+      ? [
+          'This is an automatic first review of a newly recorded case, before the doctor has asked anything. Write a short case brief:',
+          '(A one-line patient summary is added above your text automatically. Do not restate the patient.)',
+          '1. "**Consider:**" then the conditions the excerpts link to this presentation, each with a citation.',
+          '2. "**Check now:**" warning signs, examinations or tests the excerpts recommend for this presentation, each with a citation. Mention any recorded vital sign that meets an excerpt threshold.',
+          '3. Put the single most useful missing piece of information in META.follow_up (e.g. a vital sign or exam finding that is not recorded).',
+          'If the excerpts do not relate to this presentation, say that the library has no guideline for it yet and still ask for the most useful missing information.',
+        ].join('\n')
+      : '',
     '',
     'Output format. First write the answer for the doctor. Then, on its own line, write ' + META_DELIMITER + ' followed by one JSON object and nothing else:',
     '{"status":"answered"|"insufficient_evidence"|"social","claims":[{"id":1,"excerpt":"E1","quote":"exact text copied from E1"}],"follow_up":{"question":"...","why":"...","quick_answers":["...","..."]}|null,"missing_information":["short item", "..."]}',
@@ -113,7 +123,11 @@ export function buildMessages(input: PromptInput): LlmMessage[] {
     ? input.proposedUpdates.map((update) => `- ${update.label_en}: ${update.display_value} (awaiting doctor confirmation)`).join('\n')
     : '';
 
-  const doctorMessage = input.questionBeingAnswered
+  const doctorMessage = input.mode === 'case_review'
+    ? input.locale === 'bn'
+      ? 'Review this case now and write the case brief in Bangla (বাংলা), with English terms in parentheses.'
+      : 'Review this case now and write the case brief in English.'
+    : input.questionBeingAnswered
     ? `Answer to your earlier question "${input.questionBeingAnswered}": ${input.doctorText}`
     : input.doctorText;
 
@@ -126,7 +140,7 @@ export function buildMessages(input: PromptInput): LlmMessage[] {
       ? `<already_asked_questions>\n${input.context.followUps.askedTexts.slice(-10).map((q) => `- ${q}`).join('\n')}\n</already_asked_questions>`
       : '',
     pending ? `<facts_extracted_from_this_message>\n${pending}\n</facts_extracted_from_this_message>` : '',
-    input.mode === 'clinical' ? `<library_excerpts>\n${excerptBlock(input.excerpts)}\n</library_excerpts>` : '',
+    input.mode !== 'social' ? `<library_excerpts>\n${excerptBlock(input.excerpts)}\n</library_excerpts>` : '',
     '<doctor_message>',
     doctorMessage,
     '</doctor_message>',

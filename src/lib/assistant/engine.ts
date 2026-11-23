@@ -19,6 +19,21 @@ import type {
   ReplyLocale,
 } from './types';
 
+// Five-letter stems that mean the same thing in clinical text, for the relevance gate.
+const SYNONYM_GROUPS = [
+  ['admit', 'admis', 'hospi', 'inpat', 'ward'],
+  ['treat', 'thera', 'manag', 'regim', 'presc'],
+  ['medic', 'drug', 'antib', 'dose'],
+  ['test', 'inves', 'labor', 'ecg', 'troponin', 'count'],
+  ['sign', 'sympt', 'featu', 'findi', 'prese'],
+  ['dange', 'warni', 'red-f', 'sever', 'emerg'],
+  ['disch', 'recov'],
+  ['fluid', 'drink', 'hydra', 'ors'],
+];
+const SYNONYMS: Record<string, string[]> = Object.fromEntries(
+  SYNONYM_GROUPS.flatMap((group) => group.map((stem) => [stem, group])),
+);
+
 const QUESTION_CUE =
   /[?？]|\b(?:what|which|how|when|why|where|should|can|could|is|are|does|do|dose|guideline|protocol|recommend|differential|treatment|manage|test)\b|কী|কি\b|কোন|কখন|কত|কেন|কীভাবে|কিভাবে|উচিত|চিকিৎসা|পরীক্ষা|ki\b|koto|keno|kivabe/iu;
 
@@ -88,17 +103,78 @@ export function excerptAnswer(
   return { text: [intro, '', ...lines].join('\n').trim(), claims };
 }
 
+/** Plain-English description of the case, used to search the library for a case review. */
+export function describeCaseForSearch(patient: EngineInput['patient']): string {
+  const vitals = patient?.vitals ?? {};
+  const findings: string[] = [];
+  if (vitals.temperature_celsius && vitals.temperature_celsius >= 38) findings.push('fever');
+  if (vitals.blood_pressure_systolic && vitals.blood_pressure_systolic < 90) findings.push('hypotension low blood pressure');
+  if (vitals.blood_pressure_systolic && vitals.blood_pressure_systolic >= 140) findings.push('high blood pressure hypertension');
+  if (vitals.heart_rate && vitals.heart_rate > 100) findings.push('tachycardia');
+  if (vitals.spo2_percent && vitals.spo2_percent < 94) findings.push('low oxygen saturation');
+  if (vitals.respiratory_rate && vitals.respiratory_rate >= 30) findings.push('respiratory rate 30');
+  return [patient?.chief_complaint, ...(patient?.symptoms ?? []), patient?.history_of_present_illness, ...findings]
+    .filter(Boolean)
+    .join(', ');
+}
+
+/** One-line case summary built from the record (never from the model). */
+export function caseSummaryLine(patient: EngineInput['patient'], locale: ReplyLocale): string {
+  const isBn = locale === 'bn';
+  const sex = { male: isBn ? 'পুরুষ' : 'male', female: isBn ? 'নারী' : 'female', other: isBn ? 'অন্যান্য' : 'other' }[patient?.gender ?? 'other'] ?? '';
+  const who = patient?.age !== undefined ? (isBn ? `${patient.age} বছর, ${sex}` : `${patient.age}-year-old ${sex}`) : sex;
+  const v = patient?.vitals ?? {};
+  const vitals = [
+    v.blood_pressure_systolic && v.blood_pressure_diastolic ? `BP ${v.blood_pressure_systolic}/${v.blood_pressure_diastolic}` : null,
+    v.heart_rate ? `HR ${v.heart_rate}` : null,
+    v.temperature_celsius ? `${isBn ? 'তাপমাত্রা' : 'Temp'} ${v.temperature_celsius}°C` : null,
+    v.spo2_percent ? `SpO2 ${v.spo2_percent}%` : null,
+    v.respiratory_rate ? `RR ${v.respiratory_rate}` : null,
+  ].filter(Boolean);
+  const parts = [who, patient?.chief_complaint].filter(Boolean).join(isBn ? ', ' : ' with ');
+  const vitalsText = vitals.length ? vitals.join(', ') : isBn ? 'ভাইটালস এখনও রেকর্ড হয়নি' : 'no vitals recorded yet';
+  const stop = isBn ? '।' : '.';
+  return `**${isBn ? 'কেস' : 'Case'}:** ${parts}${stop} ${vitalsText}${stop}`;
+}
+
+/**
+ * Spoken version of a reply: the opening sentence plus up to four list items
+ * read as one natural sentence, about 60 words at most. Citation markers,
+ * Markdown and parenthetical English glosses are removed.
+ */
 export function speechFrom(text: string, locale: ReplyLocale): string {
-  const plain = text
-    .replace(/\s?\[\d+\]/g, '')
-    .replace(/[*_`>#]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const sentences = plain.split(/(?<=[.!?।])\s+/u).slice(0, 2).join(' ');
-  const words = sentences.split(' ');
-  const capped = words.length > 35 ? `${words.slice(0, 35).join(' ')}…` : sentences;
-  if (!capped) return '';
-  return `${capped} ${localized(locale, 'বিস্তারিত স্ক্রিনে দেখুন।', 'Details are on screen.')}`;
+  const isBn = locale === 'bn';
+  const clean = (line: string) =>
+    line
+      .replace(/\s?\[\d+\]/g, '')
+      .replace(/[*_`#>]/g, '')
+      .replace(/^\s*(?:[-•]|\d+[.)])\s+/, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  const lines = text.split('\n').map((line) => ({ bullet: /^\s*(?:[-*•]|\d+[.)])\s+/.test(line), text: clean(line) })).filter((line) => line.text);
+  if (!lines.length) return '';
+
+  const opening = lines.find((line) => !line.bullet)?.text ?? '';
+  const bullets = lines.filter((line) => line.bullet).map((line) => line.text.replace(/[.।:]+$/, ''));
+  // Read only the term before a colon or parenthesis: "Persistent vomiting (≥ 3 ...)" → "Persistent vomiting".
+  const shortBullets = bullets.map((item) => item.split(/[:(]/)[0].trim()).filter(Boolean).slice(0, 4);
+  const sentences = opening.split(/(?<=[.!?।:])\s+/u);
+  // Keep the list intro ("The warning signs are:") so the list makes sense when heard.
+  const firstSentence = sentences.length > 1 && opening.endsWith(':')
+    ? `${sentences[0]} ${sentences[sentences.length - 1]}`
+    : sentences[0] ?? '';
+  const joiner = isBn ? ', ' : ', ';
+  const list = shortBullets.length
+    ? shortBullets.length > 1
+      ? `${shortBullets.slice(0, -1).join(joiner)}${isBn ? ' এবং ' : ' and '}${shortBullets.at(-1)}`
+      : shortBullets[0]
+    : '';
+  let spoken = [firstSentence, list ? `${list}${isBn ? '।' : '.'}` : ''].filter(Boolean).join(' ');
+  const words = spoken.split(' ');
+  if (words.length > 60) spoken = `${words.slice(0, 60).join(' ')}…`;
+  const more = bullets.length > shortBullets.length || lines.length > 1 + bullets.length;
+  const cue = more ? localized(locale, 'বাকিটা স্ক্রিনে আছে।', 'The rest is on screen.') : '';
+  return [spoken, cue].filter(Boolean).join(' ');
 }
 
 /**
@@ -191,7 +267,14 @@ export async function runAssistantTurn(
   let excerpts: Excerpt[] = [];
   let queries: string[] = [];
   let english: string | null = null;
-  const retrievalText = input.question ? `${input.question.text} ${input.text}` : input.text;
+  // A case review searches with the patient's presentation, not the trigger text.
+  const isCaseReview = input.kind === 'evidence_review';
+  const caseDescription = isCaseReview ? describeCaseForSearch(input.patient) : '';
+  const retrievalText = isCaseReview && caseDescription
+    ? caseDescription
+    : input.question
+      ? `${input.question.text} ${input.text}`
+      : input.text;
   if (!isSocial) {
     emit({ type: 'trace', step: 'retrieve', status: 'running' });
     const previousDoctor = [...input.context.history].reverse().find((message) => message.role === 'doctor')?.text;
@@ -217,7 +300,7 @@ export async function runAssistantTurn(
       doctorTitle: input.doctorTitle,
       tone: input.tone,
       verbosity: input.verbosity,
-      mode: isSocial ? 'social' : 'clinical',
+      mode: isSocial ? 'social' : isCaseReview ? 'case_review' : 'clinical',
       patient: input.patient,
       context: input.context,
       excerpts,
@@ -285,19 +368,20 @@ export async function runAssistantTurn(
         .toLowerCase();
       // One shared term is enough for short questions; longer questions need two,
       // so a single incidental word ("mechanisms") cannot pass the gate.
-      const matched = questionTerms.filter((term) => sourceText.includes(term)).length;
+      const matched = questionTerms.filter((term) => (SYNONYMS[term] ?? [term]).some((variant) => sourceText.includes(variant))).length;
       const relevant = questionTerms.length === 0 || matched >= (questionTerms.length >= 4 ? 2 : 1);
       if (!relevant && process.env.DOCMATE_DEBUG_ASSISTANT === '1') {
         console.warn(`[assistant] relevance gate blocked answer; terms=${questionTerms.join(',')} matched=${matched}; cited=${citedChunks.map((e) => e.chunk.section).join(' | ')}; claims=${verified.claims.map((c) => c.chunk_id).join(',')}`);
       }
       if (!relevant) verified.claims.splice(0, verified.claims.length);
       const answered = verified.claims.length > 0;
+      const summary = isCaseReview ? `${caseSummaryLine(input.patient, locale)}\n\n` : '';
       const text = answered
-        ? verified.text
-        : [relevant ? verified.text : '', noEvidenceText(locale, input.tone, sessionId)].filter(Boolean).join('\n\n');
+        ? summary + verified.text
+        : summary + [relevant ? verified.text : '', noEvidenceText(locale, input.tone, sessionId)].filter(Boolean).join('\n\n');
       const followUp =
         acceptModelFollowUp(parsed.meta.follow_up, input.context.followUps) ??
-        (answered ? null : deterministicFollowUp(input.patient, input.context.followUps, locale, input.text, proposedUpdates));
+        (answered && !isCaseReview ? null : deterministicFollowUp(input.patient, input.context.followUps, locale, input.text, proposedUpdates));
 
       return {
         ...base,
@@ -328,7 +412,9 @@ export async function runAssistantTurn(
     return { ...base, text, status: 'social', mode: 'deterministic', claims: [], followUp: null };
   }
 
-  const fallback = excerptAnswer(excerpts, queries, locale);
+  // Match passages to the question itself; patient context alone must not
+  // make a passage look relevant (a case review uses the case description).
+  const fallback = excerptAnswer(excerpts, [retrievalText, english ?? ''], locale);
   const found = fallback.claims.length > 0;
   return {
     ...base,

@@ -1,5 +1,10 @@
 {
-  "analysisGuard": {"reason": "Verified evidence for an automated assessment is unavailable. A physician should review the case directly.", "vitals": "What vital signs have been measured?", "exam": "What findings did the physician document on examination?", "completed": "Review the missing information before continuing."},
+  "analysisGuard": {
+    "reason": "Verified evidence for an automated assessment is unavailable. A physician should review the case directly.",
+    "vitals": "What vital signs have been measured?",
+    "exam": "What findings did the physician document on examination?",
+    "completed": "Review the missing information before continuing."
+  },
   "common": {
     "errorTitle": "Something went wrong",
     "retry": "Retry",
@@ -283,7 +288,7 @@
     "sourceLoadError": "Library sources could not be loaded.",
     "chunkLoadError": "Source passages could not be loaded.",
     "noPassages": "This source has no indexed passages.",
-    "chunkCount": "{count, plural, one {# indexed passage} other {# indexed passages}}",
+    "chunkCount": "Chunks Indexed",
     "passagesDescription": "Read the indexed text in its original language.",
     "passageMetadata": "Page {page} · Evidence level {level}",
     "title": "Internal Medical Library",
@@ -297,8 +302,7 @@
     "evidenceLevel": "Evidence Level",
     "year": "Publication Year",
     "license": "License",
-    "viewChunks": "Browse Passage Chunks",
-    "chunkCount": "Chunks Indexed"
+    "viewChunks": "Browse Passage Chunks"
   },
   "ask": {
     "excerpts": "The library contains the following matching source excerpts.",
@@ -686,7 +690,7 @@
     "reviewDictation": "I’ve added what I heard. Take a moment to check it on screen.",
     "reviewLibraryEvidence": "I found some passages in the library. You can review the exact wording and sources on screen.",
     "libraryAbstained": "I couldn’t find enough evidence in the library to answer that.",
-    "privateMode": "Private mode",
+    "privateMode": "Private Mode",
     "dictationReviewOnly": "Dictation can be reviewed on screen only.",
     "deviceVoice": "Device voices (Bangla and English)",
     "expressiveCloudVoice": "Expressive cloud voice for assistant messages",
@@ -711,7 +715,6 @@
     "seeProofOnScreen": "Proof is on screen",
     "detailsOnScreen": "See details and evidence on screen.",
     "insufficientEvidence": "Insufficient evidence. More clinical details needed.",
-    "privateMode": "Private Mode",
     "privateModeDesc": "Patient names, phone numbers, and addresses will not be spoken aloud.",
     "speechSpeed": "Speech Speed",
     "avatarToggle": "Show Cartoon Doctor",
@@ -720,7 +723,7 @@
     "micDenied": "Microphone access denied. Please grant permission in browser settings or type.",
     "actionRequiresScreen": "Please confirm this action on screen.",
     "send": "Send",
-    "editPlaceholder": "Edit heard transcript or type here...",
+    "editPlaceholder": "Edit transcript here or type...",
     "clearChat": "Clear Messages",
     "settings": "Settings",
     "quickNewPatient": "New Patient",
@@ -738,7 +741,18 @@
     "tourNext": "Next",
     "tourPrev": "Previous",
     "tourDismiss": "Got it",
-    "privacyNotice": "Privacy & Audio: Audio is never stored. Clinical diagnosis and responsibility remain entirely with the doctor."
+    "privacyNotice": "Privacy & Audio: Audio is never stored. Clinical diagnosis and responsibility remain entirely with the doctor.",
+    "readAloud": "Read replies aloud",
+    "readAloudOn": "DocMate will read replies aloud.",
+    "readAloudOff": "Replies stay on screen only.",
+    "replay": "Play again",
+    "stop": "Stop",
+    "emptyTitle": "Talk to DocMate about this case",
+    "emptyDescription": "Hold the mic, ask your question, and let go. DocMate answers from the verified library and reads the reply aloud.",
+    "statusReady": "Ready",
+    "holdHint": "Hold to talk · Space on keyboard",
+    "releaseHint": "Release to send",
+    "stopHint": "Tap to stop speaking"
   },
   "chat": {
     "assistantName": "DocMate",
@@ -804,7 +818,8 @@
     "redFlagAcknowledge": "Acknowledge",
     "redFlagAcknowledged": "Acknowledged",
     "redFlagPinned": "Unacknowledged red flag",
-    "jumpToLatest": "Jump to latest message"
+    "jumpToLatest": "Jump to latest message",
+    "autoReview": "DocMate is reviewing the case"
   },
   "workflow": {
     "label": "Visit steps",

@@ -17,6 +17,7 @@ import {
   MessageScrollerViewport,
 } from '@/components/ui/message-scroller';
 import { useVoice } from '@/context/VoiceContext';
+import type { VoiceMessage } from '@/lib/voice/types';
 import type { MissingInformation, PatientCase, SafetyAlert } from '@/types';
 import { AssistantMessage, PendingAssistantMessage, toAssistantView } from './assistant-message';
 import { ChatComposer, type ChatComposerHandle, type ReplyLanguage } from './chat-composer';
@@ -66,10 +67,11 @@ function useAcknowledged(caseId: string) {
 }
 
 /** Claude/ChatGPT-style case conversation backed by POST /api/cases/[id]/chat. */
-export function CaseChat({ caseId, turns, onTurnsUpdate, onCaseUpdate }: CaseChatProps) {
+export function CaseChat({ caseId, caseData, turns, onTurnsUpdate, onCaseUpdate }: CaseChatProps) {
   const locale = (useLocale() === 'en' ? 'en' : 'bn') as 'bn' | 'en';
   const t = useTranslations('chat');
-  const { openVoicePanel, speakText, registerCaseVoiceHandler } = useVoice();
+  const { openVoicePanel, speakText, registerCaseVoiceHandler, isOpen: voiceOpen, privateMode } = useVoice();
+  const voiceTurnRef = React.useRef(false);
   const [replyLanguage, setReplyLanguage] = React.useState<ReplyLanguage>('auto');
   const composerRef = React.useRef<ChatComposerHandle>(null);
   const { acknowledged, acknowledge } = useAcknowledged(caseId);
@@ -82,11 +84,20 @@ export function CaseChat({ caseId, turns, onTurnsUpdate, onCaseUpdate }: CaseCha
   const { sendAndWait } = chat;
   React.useEffect(() => {
     registerCaseVoiceHandler(async (text, replyLocale) => {
+      voiceTurnRef.current = true;
       const turn = await sendAndWait({ kind: 'observation', text, replyLanguage: replyLocale });
       if (!turn) return null;
       const content = (turn.content ?? {}) as Record<string, unknown>;
-      const displayText = String(content.text ?? '').replace(/\s?\[\d+\]/g, '').trim();
-      return { displayText, speechText: String(content.speech_text ?? displayText), abstained: content.status === 'insufficient_evidence' };
+      const markdown = String(content.text ?? '').trim();
+      const displayText = markdown.replace(/\s?\[\d+\]/g, '').trim();
+      return {
+        displayText,
+        markdown,
+        claims: (content.claims ?? []) as VoiceMessage['claims'],
+        status: content.status as string | undefined,
+        speechText: String(content.speech_text ?? displayText),
+        abstained: content.status === 'insufficient_evidence',
+      };
     });
     return () => registerCaseVoiceHandler(null);
   }, [registerCaseVoiceHandler, sendAndWait]);
@@ -99,6 +110,47 @@ export function CaseChat({ caseId, turns, onTurnsUpdate, onCaseUpdate }: CaseCha
     [visible],
   );
   const lastIsAssistant = visible.length > 0 && visible[visible.length - 1].role !== 'doctor';
+
+  // With the voice panel open and read-aloud on, typed questions are answered
+  // aloud too. Replies to spoken questions are read by the voice panel itself.
+  const spokenTurnIds = React.useRef<Set<string> | null>(null);
+  React.useEffect(() => {
+    const assistantIds = visible.filter((turn) => turn.role !== 'doctor').map((turn) => turn.id);
+    if (spokenTurnIds.current === null) {
+      spokenTurnIds.current = new Set(assistantIds); // never read old history on load
+      return;
+    }
+    const fresh = visible.filter((turn) => turn.role !== 'doctor' && !spokenTurnIds.current!.has(turn.id));
+    for (const turn of fresh) spokenTurnIds.current.add(turn.id);
+    const latest = fresh.at(-1);
+    if (!latest) return;
+    if (voiceTurnRef.current) {
+      voiceTurnRef.current = false;
+      return;
+    }
+    if (!voiceOpen || privateMode) return;
+    const content = (latest.content ?? {}) as Record<string, unknown>;
+    const speech = String(content.speech_text ?? '').trim();
+    const replyLocale = (content.language_metadata as { reply_language?: string } | undefined)?.reply_language === 'en' ? 'en' : 'bn';
+    if (speech) void speakText(speech, undefined, { locale: replyLocale });
+  }, [privateMode, speakText, visible, voiceOpen]);
+
+  // Like a colleague who reads the chart first: once the case has a complaint,
+  // DocMate reviews it without being asked (once per case and browser session).
+  const complaint = caseData?.structured_input?.chief_complaint?.trim();
+  const autoStarted = React.useRef(false);
+  React.useEffect(() => {
+    if (autoStarted.current || !complaint || visible.length > 0 || chat.busy) return;
+    const key = `docmate_auto_review_${caseId}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, '1');
+    } catch {
+      // storage unavailable: the ref still prevents repeats in this view
+    }
+    autoStarted.current = true;
+    void chat.send({ kind: 'evidence_review', text: '', auto: true });
+  }, [caseId, chat, complaint, visible.length]);
 
   const send = React.useCallback(
     (text: string) => chat.send({ kind: 'observation', text }),
@@ -126,6 +178,13 @@ export function CaseChat({ caseId, turns, onTurnsUpdate, onCaseUpdate }: CaseCha
       const data = await response.json();
       if (data.case) onCaseUpdate(data.case);
       await chat.refreshTurns();
+      // When the last pending finding of this message is settled and at least
+      // one was added, review the case again with the new information.
+      const updates = ((data.turn?.content?.proposed_updates ?? []) as Array<{ status: string }>);
+      const settled = updates.length > 0 && updates.every((update) => update.status !== 'pending');
+      if (settled && updates.some((update) => update.status === 'confirmed')) {
+        void chat.send({ kind: 'evidence_review', text: '', auto: true });
+      }
     },
     [caseId, chat, onCaseUpdate, t],
   );
@@ -159,7 +218,7 @@ export function CaseChat({ caseId, turns, onTurnsUpdate, onCaseUpdate }: CaseCha
   }, [acknowledged, visible]);
 
   const pending = chat.pending;
-  const showOptimisticDoctor = pending && !pending.doctorSaved && !pending.input.regenerateOf;
+  const showOptimisticDoctor = pending && !pending.doctorSaved && !pending.input.regenerateOf && !pending.input.auto;
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
@@ -191,6 +250,17 @@ export function CaseChat({ caseId, turns, onTurnsUpdate, onCaseUpdate }: CaseCha
                   return (
                     <MessageScrollerItem key={turn.id} messageId={turn.id} className="flex justify-center">
                       <Badge variant="secondary">{String(content.description ?? content.note ?? '')}</Badge>
+                    </MessageScrollerItem>
+                  );
+                }
+
+                if (turn.role === 'doctor' && content.auto === true) {
+                  return (
+                    <MessageScrollerItem key={turn.id} messageId={turn.id} scrollAnchor className="flex justify-center">
+                      <Badge variant="secondary" className="gap-1.5">
+                        <SparklesIcon data-icon="inline-start" />
+                        {t('autoReview')}
+                      </Badge>
                     </MessageScrollerItem>
                   );
                 }

@@ -100,10 +100,12 @@ test.describe('voice assistant on the synthetic fixture', () => {
     );
     await input.press('Enter');
     const lines = (await (await chatResponse).text()).trim().split('\n').map((line) => JSON.parse(line));
-    expect(lines.at(-1)).toMatchObject({ type: 'final', turn: { content: { status: 'insufficient_evidence' } } });
-    const abstention = 'I couldn’t find enough evidence in the library to answer that.';
-    await expect(page.getByText(abstention, { exact: true })).toBeVisible();
-    await expect.poll(() => page.evaluate(() => window.voiceTestLines.at(-1)?.text)).toBe(abstention);
+    const final = lines.at(-1);
+    expect(final).toMatchObject({ type: 'final', turn: { content: { status: 'insufficient_evidence' } } });
+    // The voice panel shows the reply and reads its spoken summary aloud.
+    const replyText = final.turn.content.text as string;
+    await expect(page.getByRole('complementary').getByText(replyText, { exact: true })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => window.voiceTestLines.at(-1)?.text)).toBe(final.turn.content.speech_text || replyText);
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.getByRole('dialog').getByPlaceholder('Edit transcript here or type...')).toBeVisible();
@@ -197,8 +199,7 @@ test.describe('voice assistant on the synthetic fixture', () => {
     await input.fill('quantum entanglement');
     await input.press('Enter');
     expect((await ask).postDataJSON()).toMatchObject({ text: 'quantum entanglement', reply_language: 'bn' });
-    await expect(page.getByText('এই প্রশ্নের উত্তর দেওয়ার মতো যথেষ্ট প্রমাণ লাইব্রেরিতে খুঁজে পাইনি।', { exact: true }))
-      .toHaveAttribute('lang', 'bn');
+    await expect(page.getByRole('complementary').getByText('No evidence.', { exact: true })).toHaveAttribute('lang', 'bn');
 
     await page.route('**/api/cases/*/chat', (route) => route.fulfill({ status: 500, json: { error: 'x' } }));
     await input.fill('another unrelated question');

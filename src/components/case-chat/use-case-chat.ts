@@ -22,6 +22,8 @@ export interface SendInput {
   regenerateOf?: string;
   /** Overrides the composer's reply language (used by voice). */
   replyLanguage?: 'auto' | 'bn' | 'en';
+  /** Automatic case review started by the app, not typed by the doctor. */
+  auto?: boolean;
 }
 
 export interface PendingRun {
@@ -58,6 +60,7 @@ function draftId(): string {
 export function useCaseChat({ caseId, turns, onTurnsUpdate, locale, replyLanguage }: Options) {
   const [pending, setPending] = React.useState<PendingRun | null>(null);
   const abortRef = React.useRef<AbortController | null>(null);
+  const currentRunRef = React.useRef<Promise<boolean> | null>(null);
   const lastFinalRef = React.useRef<ChatTurn | null>(null);
   const turnsRef = React.useRef(turns);
   React.useEffect(() => {
@@ -76,8 +79,29 @@ export function useCaseChat({ caseId, turns, onTurnsUpdate, locale, replyLanguag
   }, [caseId, onTurnsUpdate]);
 
   const run = React.useCallback(
-    async (input: SendInput) => {
-      if (abortRef.current) return false;
+    async (input: SendInput): Promise<boolean> => {
+      // One reply streams at a time. A message sent meanwhile (e.g. by voice
+      // during the automatic review) waits for it instead of being dropped.
+      while (currentRunRef.current) {
+        try {
+          await currentRunRef.current;
+        } catch {
+          // previous run failed; continue
+        }
+      }
+      const runPromise = executeRef.current(input);
+      currentRunRef.current = runPromise;
+      try {
+        return await runPromise;
+      } finally {
+        if (currentRunRef.current === runPromise) currentRunRef.current = null;
+      }
+    },
+    [],
+  );
+
+  const execute = React.useCallback(
+    async (input: SendInput): Promise<boolean> => {
       const controller = new AbortController();
       abortRef.current = controller;
       const doctorText = input.text;
@@ -100,6 +124,7 @@ export function useCaseChat({ caseId, turns, onTurnsUpdate, locale, replyLanguag
             locale,
             edit_of: input.editOf,
             regenerate_of: input.regenerateOf,
+            auto: input.auto,
           }),
         });
 
@@ -231,6 +256,10 @@ export function useCaseChat({ caseId, turns, onTurnsUpdate, locale, replyLanguag
     },
     [caseId, locale, onTurnsUpdate, refreshTurns, replyLanguage],
   );
+  const executeRef = React.useRef(execute);
+  React.useEffect(() => {
+    executeRef.current = execute;
+  }, [execute]);
 
   const stop = React.useCallback(() => {
     abortRef.current?.abort();

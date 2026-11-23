@@ -120,6 +120,10 @@ export interface VoiceMessage {
     page?: number;
   }>;
   verified?: boolean;
+  /** Reply text is Markdown with [n] markers that refer to `claims`. */
+  markdown?: boolean;
+  claims?: Array<{ ref: number; chunk_id: string; quote: string; text: string; source_title?: string; source_year?: number; page?: number; verified: boolean }>;
+  status?: string;
   timestamp: number;
   intent?: VoiceIntent;
   confidence?: number;

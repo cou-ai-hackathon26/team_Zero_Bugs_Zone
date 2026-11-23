@@ -26,6 +26,8 @@ const bodySchema = z
     locale: z.enum(['bn', 'en']).default('bn'),
     regenerate_of: z.uuid().optional(),
     edit_of: z.uuid().optional(),
+    /** Set by the client for the automatic case review after patient details are recorded. */
+    auto: z.boolean().optional(),
   })
   .refine((body) => body.regenerate_of || body.text.length > 0 || body.kind === 'evidence_review', {
     message: 'text is required',
@@ -193,6 +195,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
               type: 'doctor_observation',
               text,
               action: body.kind === 'evidence_review' ? 'evidence_review' : 'observation',
+              auto: body.auto === true || undefined,
               client_draft_id: body.client_draft_id,
               edited_from: body.edit_of,
             };
@@ -273,6 +276,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         );
       } catch (err) {
         console.error('[case chat] engine failed:', err instanceof Error ? err.message : 'unknown');
+        if (process.env.NODE_ENV === 'development') {
+          send({ type: 'debug', message: err instanceof Error ? `${err.message} @ ${err.stack?.split('\n')[1]?.trim()}` : 'unknown' });
+        }
         reply = {
           text: '',
           status: 'error',

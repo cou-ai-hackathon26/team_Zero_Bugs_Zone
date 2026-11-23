@@ -74,7 +74,7 @@ interface VoiceContextType {
   registerCaseVoiceHandler: (handler: CaseVoiceHandler | null) => void;
 }
 
-export type CaseVoiceHandler = (text: string, replyLocale: 'bn' | 'en') => Promise<{ displayText: string; speechText: string; abstained: boolean } | null>;
+export type CaseVoiceHandler = (text: string, replyLocale: 'bn' | 'en') => Promise<{ displayText: string; speechText: string; abstained: boolean; markdown?: string; claims?: VoiceMessage['claims']; status?: string } | null>;
 
 const DEFAULT_CONFIG: VoiceConfig = {
   enabled: true,
@@ -132,7 +132,15 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     sounds_enabled: speechPreferences?.sounds_enabled ?? systemConfig.sounds_enabled,
   };
   const tone = speechPreferences?.tone_preset ?? systemConfig.persona_preset;
-  const [privateMode, setPrivateMode] = useState(true);
+  const [privateMode, setPrivateModeState] = useState(true);
+  const setPrivateMode = useCallback((enabled: boolean) => {
+    setPrivateModeState(enabled);
+    try {
+      localStorage.setItem('docmate_voice_private_mode', String(enabled));
+    } catch {
+      // storage unavailable
+    }
+  }, []);
   const [avatarVisible, setAvatarVisible] = useState(true);
   const [dailyMinutesRemaining] = useState(60);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
@@ -206,7 +214,14 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         const voice = global.status === 'fulfilled' ? global.value?.config : null;
         if (voice) {
           setSystemConfig((previous) => ({ ...previous, ...voice }));
-          setPrivateMode(voice.private_mode_default ?? true);
+          // A doctor's own "read replies aloud" choice wins over the system default.
+          let saved: string | null = null;
+          try {
+            saved = localStorage.getItem('docmate_voice_private_mode');
+          } catch {
+            saved = null;
+          }
+          setPrivateModeState(saved === null ? voice.private_mode_default ?? false : saved === 'true');
           setAvatarVisible(voice.avatar_enabled_default ?? true);
         }
         if (personal.status === 'fulfilled' && personal.value?.persisted) {
@@ -648,7 +663,10 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
               id: `msg-${Date.now()}`,
               sender: 'assistant',
               locale: replyLocale,
-              text: reply.abstained && privateMode ? phrases.libraryAbstained : reply.displayText,
+              text: reply.markdown || reply.displayText,
+              markdown: Boolean(reply.markdown),
+              claims: reply.claims,
+              status: reply.status,
               speakableText: reply.speechText,
               timestamp: Date.now(),
               intent: 'ask_library',
