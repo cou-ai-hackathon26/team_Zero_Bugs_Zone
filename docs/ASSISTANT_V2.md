@@ -50,6 +50,9 @@ src/lib/assistant/
    - \`<doctor_message>\`
 6. **Deterministic Verification:** The model output is parsed into markdown prose and structured claims. The verifier scans each claim, checks that \`quote\` appears verbatim in the cited chunk, re-indexes marker references, and drops unverified sentences.
 7. **Abstention Fallback:** If no claims verify or retrieval returns 0 hits, status is set to \`insufficient_evidence\`.
+8. **No-Model Fallback:** With no API key, or when the model fails or returns no valid META block, the reply shows the closest verbatim library sentences with status \`excerpts\` (not \`answered\`). Chunks that share fewer than two key terms with the question are not quoted.
+
+Measured results, including run-to-run variation and known gaps, are in \`eval/RESULTS.md\` (regenerate with \`pnpm run eval:chat\`).
 
 ---
 
