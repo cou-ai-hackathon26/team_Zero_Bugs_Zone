@@ -5,7 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { runAssistantTurn } from '../src/lib/assistant/engine';
-import { hybridRetrieve } from '../src/lib/retrieval';
+import { hybridRetrieve, type ScoredChunk } from '../src/lib/retrieval';
 import { buildConversationContext } from '../src/lib/assistant/context';
 import { EvalScenario } from './generate-conversation-scenarios';
 import type { Chunk, StructuredPatientInput } from '../src/types';
@@ -63,21 +63,11 @@ export async function runConversationEvaluation() {
     const isOut = sc.category === 'out_of_library';
 
     // Retrieve via hybridRetrieve with safety fallback for unindexed terms
-    const retrieveFn = async (queries: string[], limit: number): Promise<Chunk[]> => {
+    const retrieveFn = async (queries: string[], limit: number): Promise<ScoredChunk[]> => {
       if (isOut) return [];
       try {
         const hits = await hybridRetrieve(queries, limit);
-        return hits.map((h) => ({
-          id: h.id,
-          source_id: (h as unknown as { source_id?: string }).source_id || 'eval-source',
-          section: (h as unknown as { section?: string }).section || 'general',
-          evidence_level: (h as unknown as { evidence_level?: string }).evidence_level || 'standard',
-          created_at: (h as unknown as { created_at?: string }).created_at || new Date().toISOString(),
-          source_title: h.source_title,
-          source_year: h.source_year,
-          page: h.page,
-          text: h.text,
-        })) as unknown as Chunk[];
+        return hits;
       } catch {
         return [];
       }
@@ -110,7 +100,7 @@ export async function runConversationEvaluation() {
           signal: new AbortController().signal,
         },
         {
-          retrieve: retrieveFn,
+          retrieve: retrieveFn as unknown as (queries: string[], limit: number) => Promise<import('../src/lib/retrieval').ScoredChunk[]>,
           llm: null, // Verifies deterministic ground-truth library excerpts & fallback mode
         },
         () => {}
