@@ -852,6 +852,20 @@ export default function AdminLibraryPage() {
                         <option value="other">Other</option>
                       </select>
                     </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">{tIngest('license')}</label>
+                      <select
+                        value={license}
+                        onChange={(e) => setLicense(e.target.value)}
+                        className="w-full text-xs h-8 px-2 rounded-md border border-border bg-background text-foreground"
+                      >
+                        <option value="CC-BY-4.0">CC-BY-4.0</option>
+                        <option value="Open Access / DGHS">Open Access / DGHS</option>
+                        <option value="Public Domain">Public Domain</option>
+                        <option value="Clinical Open">Clinical Open</option>
+                        <option value="All Rights Reserved">All Rights Reserved</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 

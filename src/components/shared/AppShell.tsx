@@ -130,6 +130,16 @@ export function AppShell({ children, fullHeight = false }: AppShellProps) {
       icon: Cpu,
     },
     {
+      title: tAdmin('voice'),
+      href: '/admin/voice',
+      icon: Mic,
+    },
+    {
+      title: tAdmin('language'),
+      href: '/admin/language',
+      icon: Sparkles,
+    },
+    {
       title: tAdmin('plans'),
       href: '/admin/plans',
       icon: CreditCard,

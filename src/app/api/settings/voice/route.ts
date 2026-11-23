@@ -10,7 +10,7 @@ const configSchema = z.object({
   enabled: z.boolean().optional(),
   kill_switch: z.boolean().optional(),
   stt_provider: z.enum(['browser', 'openai', 'custom_stub']).optional(),
-  tts_provider: z.enum(['browser', 'openai', 'custom_stub', 'maya']).optional(),
+  tts_provider: z.enum(['browser', 'openai', 'custom_stub', 'maya', 'edge']).optional(),
   persona_name: z.string().min(1).max(100).optional(),
   persona_greeting_bn: z.string().min(1).max(500).optional(),
   persona_greeting_en: z.string().min(1).max(500).optional(),
@@ -28,6 +28,9 @@ const configSchema = z.object({
   default_greeting_afternoon_en: z.string().min(1).max(500).optional(),
   default_greeting_evening_en: z.string().min(1).max(500).optional(),
   sounds_enabled: z.boolean().optional(),
+  edge_voice_bn: z.string().max(100).optional(),
+  edge_voice_en: z.string().max(100).optional(),
+  vocal_reactions_enabled: z.boolean().optional(),
 });
 
 export async function GET() {

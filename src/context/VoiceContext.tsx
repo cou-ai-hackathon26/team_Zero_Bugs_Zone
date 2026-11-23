@@ -56,6 +56,7 @@ interface VoiceContextType {
   stopPushToTalk: () => Promise<void>;
   cancelPushToTalk: () => void;
   speakText: (text: string, onEnd?: (error?: string) => void, overrides?: SpeechOverrides) => Promise<void>;
+  playVocalReaction: (category: 'thinking' | 'understood' | 'success' | 'alert' | 'clarify', targetLocale?: 'bn' | 'en') => void;
   stopSpeech: () => void;
   setTranscript: (text: string) => void;
   submitTranscript: (textToSubmit?: string) => Promise<void>;
@@ -82,6 +83,9 @@ const DEFAULT_CONFIG: VoiceConfig = {
   default_speed: 1.0,
   private_mode_default: true,
   avatar_enabled_default: true,
+  vocal_reactions_enabled: true,
+  edge_voice_bn: 'bn-BD-NabanitaNeural',
+  edge_voice_en: 'en-US-JennyNeural',
 };
 
 const VoiceContext = createContext<VoiceContextType | undefined>(undefined);
@@ -238,12 +242,13 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
       stopSpeech();
       setState('speaking');
       setErrorText(null);
-      // Only scripted messages use an expressive synthesis model. Readback of
-      // case text, doses and library excerpts stays on the device.
+      // Expressive neural synthesis is used for scripted messages, preview, or whenever
+      // edge/openai neural providers are configured.
       const conversation = overrides?.scripted === true && !overrides.preview;
       const preferredTone = tone === 'reserved' ? 'neutral' : 'warm';
-      const providerType = overrides?.preview || conversation
-        ? overrides?.provider ?? config.tts_provider
+      const configuredProvider = overrides?.provider ?? config.tts_provider;
+      const providerType = overrides?.preview || conversation || configuredProvider === 'edge' || configuredProvider === 'openai'
+        ? configuredProvider
         : 'browser';
       const useDevice = providerType === 'custom_stub' || (conversation && providerType === 'maya' && mayaFallbackRef.current);
       const provider = createTtsProvider(useDevice ? 'browser' : providerType);
@@ -299,6 +304,24 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     speakTextRef.current = speakText;
   }, [speakText]);
 
+  const playVocalReaction = useCallback(
+    (category: 'thinking' | 'understood' | 'success' | 'alert' | 'clarify', targetLocale?: 'bn' | 'en') => {
+      if (config.vocal_reactions_enabled === false) return;
+      const lang = targetLocale || (locale === 'bn' ? 'bn' : 'en');
+      const count = category === 'thinking' ? 3 : (category === 'understood' || category === 'success' ? 2 : 1);
+      const index = Math.floor(Math.random() * count) + 1;
+      const audioSrc = `/voice/reactions/${lang}-${category}-${index}.mp3`;
+      try {
+        const audio = new Audio(audioSrc);
+        audio.volume = 0.85;
+        void audio.play().catch(() => {});
+      } catch {
+        // Audio playback failed or blocked by autoplay
+      }
+    },
+    [config.vocal_reactions_enabled, locale]
+  );
+
   // Introduce once per session
   const introduceAssistantIfNeeded = useCallback(async () => {
     if (sessionIntroducedRef.current) return;
@@ -340,10 +363,12 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   // Auto-dismiss voice assistant when navigating away from a specific case workspace
   useEffect(() => {
     if (!isCaseWorkspace && isOpen) {
-      stopSpeech();
-      sttRef.current?.abortListening();
-      clearTimeout(pendingSubmitRef.current);
-      setIsOpen(false);
+      queueMicrotask(() => {
+        stopSpeech();
+        sttRef.current?.abortListening();
+        clearTimeout(pendingSubmitRef.current);
+        setIsOpen(false);
+      });
     }
   }, [isCaseWorkspace, isOpen, stopSpeech]);
 
@@ -431,7 +456,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     } catch {
       setState('error');
     }
-  }, [dailyMinutesRemaining, locale, microphoneLocale, speakText, stopSpeech, config.sounds_enabled]);
+  }, [dailyMinutesRemaining, locale, microphoneLocale, speakText, stopSpeech, config.sounds_enabled, isCaseWorkspace]);
 
   const submitTranscript = useCallback(
     async (textToSubmit?: string) => {
@@ -463,6 +488,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
       ]);
 
       setState('thinking');
+      playVocalReaction('thinking', conversationLanguage === 'auto' ? (locale === 'bn' ? 'bn' : 'en') : conversationLanguage);
 
       // Clear any previous reassurance or timeout timers
       if (reassuranceTimerRef.current) clearTimeout(reassuranceTimerRef.current);
@@ -682,7 +708,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         await showLibraryError(phrases.noConnection);
       }
     },
-    [transcript, locale, conversationLanguage, lastTurnLocale, messages, privateMode, speakText, openEvidence, router]
+    [transcript, locale, conversationLanguage, lastTurnLocale, messages, privateMode, speakText, playVocalReaction, openEvidence, router]
   );
 
   const stopPushToTalk = useCallback(async () => {
@@ -753,6 +779,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         stopPushToTalk,
         cancelPushToTalk,
         speakText,
+        playVocalReaction,
         stopSpeech,
         setTranscript,
         submitTranscript,

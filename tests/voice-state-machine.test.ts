@@ -1,15 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { routeVoiceIntent } from '../src/lib/voice/intent-router';
 import {
-  parseBanglaNumber,
-  parseNumber,
   parseBloodPressure,
   parseTemperature,
   parseAllNumbers,
   normalizeDigits,
 } from '../src/lib/voice/number-parser';
 import {
-  formatDoseForSpeech,
   formatDoseScheduleSpeech,
   formatPrescriptionSpeech,
 } from '../src/lib/voice/dose-speech';

@@ -13,7 +13,6 @@ import {
 // Regex constants
 const BANGLA_CHAR_REGEX = /[\u0980-\u09FF]/g;
 const LATIN_CHAR_REGEX = /[a-zA-Z]/g;
-const DIGIT_REGEX = /[0-9\u09E6-\u09EF]/g;
 
 // High-confidence Banglish trigger terms (presence of any strongly implies Banglish)
 const STRONG_BANGLISH_TRIGGERS = new Set([

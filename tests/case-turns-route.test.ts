@@ -6,7 +6,6 @@ const pool = new Pool({
 });
 
 let testDoctorId: string;
-let testPatientId: string;
 let testCaseId: string;
 
 // Mock requirePhysician to return the test doctor user

@@ -1,5 +1,6 @@
 // @ts-nocheck
-import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
+import msedgeTts from 'msedge-tts';
+const { MsEdgeTTS, OUTPUT_FORMAT } = msedgeTts;
 import fs from 'fs';
 import path from 'path';
 

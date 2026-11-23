@@ -32,6 +32,16 @@ import {
 } from 'lucide-react';
 import { LabValue, StructuredPatientInput } from '@/types';
 
+function getInitialDraft(): Record<string, unknown> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const draft = localStorage.getItem('docmate_intake_draft');
+    return draft ? JSON.parse(draft) : {};
+  } catch {
+    return {};
+  }
+}
+
 export default function NewCasePage() {
   const t = useTranslations('intake');
   const tCommon = useTranslations('common');
@@ -42,9 +52,14 @@ export default function NewCasePage() {
   const [loading, setLoading] = useState(false);
 
   // Form State
-  const [patientCode, setPatientCode] = useState('');
-  const [age, setAge] = useState<number | ''>('');
-  const [gender, setGender] = useState<StructuredPatientInput['gender'] | ''>('');
+  const [patientCode, setPatientCode] = useState(() => (getInitialDraft().patientCode as string) || '');
+  const [age, setAge] = useState<number | ''>(() => {
+    const a = getInitialDraft().age;
+    return typeof a === 'number' ? a : '';
+  });
+  const [gender, setGender] = useState<StructuredPatientInput['gender'] | ''>(
+    () => (getInitialDraft().gender as StructuredPatientInput['gender']) || ''
+  );
   const [weightKg, setWeightKg] = useState('');
 
   const [bpSystolic, setBpSystolic] = useState('');
@@ -55,8 +70,8 @@ export default function NewCasePage() {
   const [spo2Percent, setSpo2Percent] = useState('');
 
   // Symptoms
-  const [chiefComplaint, setChiefComplaint] = useState('');
-  const [symptomsInput, setSymptomsInput] = useState('');
+  const [chiefComplaint, setChiefComplaint] = useState(() => (getInitialDraft().chiefComplaint as string) || '');
+  const [symptomsInput, setSymptomsInput] = useState(() => (getInitialDraft().symptomsInput as string) || '');
   const [hpi, setHpi] = useState('');
 
   // History & Meds
@@ -79,17 +94,16 @@ export default function NewCasePage() {
       const draft = localStorage.getItem('docmate_intake_draft');
       if (draft) {
         const parsed = JSON.parse(draft);
-        setTimeout(() => {
+        queueMicrotask(() => {
           if (parsed.patientCode) setPatientCode(parsed.patientCode);
           if (typeof parsed.age === 'number') setAge(parsed.age);
           if (parsed.gender) setGender(parsed.gender);
           if (parsed.chiefComplaint) setChiefComplaint(parsed.chiefComplaint);
           if (parsed.symptomsInput) setSymptomsInput(parsed.symptomsInput);
-        }, 0);
+        });
       }
     } catch {}
   }, []);
-
   const saveToLocalStorage = () => {
     const data = {
       patientCode,
@@ -279,7 +293,7 @@ export default function NewCasePage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-bold flex items-center gap-2">
                 <HeartPulse className="w-5 h-5 text-primary" />
-                <span>Patient Demographics & Vital Signs</span>
+                <span>{t('stepVitals')}</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -443,7 +457,7 @@ export default function NewCasePage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-bold flex items-center gap-2">
                 <Stethoscope className="w-5 h-5 text-primary" />
-                <span>Presenting Symptoms & History of Present Illness</span>
+                <span>{t('stepSymptoms')}</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -507,14 +521,14 @@ export default function NewCasePage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-bold flex items-center gap-2">
                 <Pill className="w-5 h-5 text-primary" />
-                <span>Past History, Current Medications & Drug Allergies</span>
+                <span>{t('stepHistory')}</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="allergies" className="text-xs font-bold text-destructive flex items-center gap-1.5">
                   <AlertCircle className="w-4 h-4" />
-                  <span>{t('allergies')} (Strict Safety Stop)</span>
+                  <span>{t('allergies')}</span>
                 </Label>
                 <Input
                   id="allergies"
@@ -606,7 +620,7 @@ export default function NewCasePage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-bold flex items-center gap-2">
                 <TestTube2 className="w-5 h-5 text-primary" />
-                <span>Laboratory Findings & Final Review</span>
+                <span>{t('stepLabs')}</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">

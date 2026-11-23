@@ -267,6 +267,18 @@ export function AssistantSettingsCard({ userName }: { userName?: string }) {
           </div>
 
           <p id="sample-voice-disclosure" className="text-xs text-muted-foreground">{t('generatedVoice')}</p>
+
+          {config.tts_provider === 'edge' && (
+            <div className="flex items-center gap-2 p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-[11px]">
+              <Sparkles className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+              <span>
+                {isBn
+                  ? 'সিস্টেম স্থায়ী ফ্রি মাইক্রোসফট এজ নিউরাল ভয়েস ও ইনস্ট্যান্ট হিউম্যান রিঅ্যাকশন মোডে চলছে।'
+                  : 'Active voice engine: Edge Neural TTS with 0ms Instant Human Vocal Reactions.'}
+              </span>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs text-muted-foreground">{isBn ? 'সহকারী ভয়েস:' : 'Voice:'}</span>

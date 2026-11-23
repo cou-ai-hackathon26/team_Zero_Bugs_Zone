@@ -202,12 +202,12 @@ export default function AdminLanguagePage() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
             <Languages className="w-6 h-6 text-primary" />
-            <span>{isBn ? 'ভাষা ও শব্দকোষ ব্যবস্থাপনা' : 'Language & Term Aliases Management'}</span>
+            <span>{isBn ? 'ভাষা ও পরিভাষা ব্যবস্থাপনা' : 'Language & Terminology'}</span>
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             {isBn
-              ? 'বাংলা, ইংরেজি, বাংলিশ ও মিশ্র টেক্সটের সঠিক ক্লিনিকাল অর্থায়ন ও প্রতিশব্দ নিয়ন্ত্রণ'
-              : 'Configure multilingual normalization, Banglish term aliases, and review unmatched terms'}
+              ? 'বাংলা, ইংরেজি ও বাংলিশ ক্লিনিকাল পরিভাষা নিয়ন্ত্রণ করুন।'
+              : 'Manage multilingual terms, Banglish aliases, and unmatched entries.'}
           </p>
         </div>
 
@@ -253,8 +253,8 @@ export default function AdminLanguagePage() {
                   </CardTitle>
                   <CardDescription className="text-xs">
                     {isBn
-                      ? 'চিকিৎসকদের ব্যবহৃত বাংলা, বাংলিশ ও প্রতিবর্ণিক শব্দকে সঠিক প্রমিত ইংরেজি চিকিৎসা শব্দে রূপান্তর করে।'
-                      : 'Maps variations of clinical terms in Bengali script, Banglish, and phonetics to canonical English terms.'}
+                      ? 'বাংলা ও বাংলিশ পরিভাষাকে প্রমিত ক্লিনিকাল চিকিৎসা শব্দে রূপান্তর করে।'
+                      : 'Maps Bengali, Banglish, and phonetic terms to standard clinical terms.'}
                   </CardDescription>
                 </div>
 

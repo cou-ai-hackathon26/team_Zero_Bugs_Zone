@@ -77,6 +77,7 @@ export function humanize(
   safetyAlerts: SafetyAlert[] = []
 ): HumanizedResult {
   const isBn = locale === 'bn';
+  const activePreset = prefs.tone_preset || persona.defaultPreset || (persona as any).preset || 'friendly';
   const doctorTitle = formatDoctorTitle(prefs.address_style, locale, context.userName);
   const signals = analyzeDoctorInput(doctorInputText, context, safetyAlerts);
 
@@ -97,7 +98,7 @@ export function humanize(
   // ----------------------------------------------------
   if (signals.isThanks && (!cleanedClinicalAnswer || isDefaultRecordedAck)) {
     const thanksText = selectPhrase('thanks_reply', locale, {
-      preset: prefs.tone_preset,
+      preset: activePreset,
       doctorTitle,
       sessionId: context.sessionId,
     });
@@ -140,7 +141,7 @@ export function humanize(
   const criticalAlert = safetyAlerts.find((a) => a.severity === 'critical');
   if (criticalAlert) {
     const alertIntro = selectPhrase('alert_intro', locale, {
-      preset: prefs.tone_preset,
+      preset: activePreset,
       doctorTitle,
       sessionId: context.sessionId,
     });
@@ -168,7 +169,7 @@ export function humanize(
   if (verifiedResult.status === 'insufficient_evidence' || verifiedResult.found === false) {
     reactions.push('thinking');
     const noEvidenceIntro = selectPhrase('no_evidence', locale, {
-      preset: prefs.tone_preset,
+      preset: activePreset,
       doctorTitle,
       sessionId: context.sessionId,
     });
@@ -245,9 +246,9 @@ export function humanize(
   reactions.push('understood', 'explaining');
 
   // 1. Acknowledgment (only when polite, omitted in reserved or short turns)
-  const ack = prefs.tone_preset === 'friendly' && context.turnCount !== 0
+  const ack = activePreset === 'friendly' && context.turnCount !== 0
     ? selectPhrase('acknowledge', locale, {
-        preset: prefs.tone_preset,
+        preset: activePreset,
         doctorTitle,
         sessionId: context.sessionId,
       }) + ' '

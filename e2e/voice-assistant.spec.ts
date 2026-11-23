@@ -77,12 +77,20 @@ test.describe('voice assistant on the synthetic fixture', () => {
     const sample = page.getByRole('button', { name: 'Sample Voice' });
     await sample.click();
     await expect(sample).toBeEnabled();
+    await expect.poll(() => page.evaluate(() => window.voiceTestLines.length)).toBe(1);
+    expect(await page.evaluate(() => window.voiceTestLines[0])).toMatchObject({
+      lang: 'en-GB', voice: 'Daniel', rate: 0.95, pitch: 1,
+    });
+
+    // Voice assistant button is scoped to case workspaces
+    const casesRes = await page.request.get('/api/cases');
+    const caseId = (await casesRes.json()).cases[0].id;
+    await page.goto(`/en/cases/${caseId}`);
     await page.getByRole('button', { name: 'Open DocMate Voice Assistant' }).click();
-    await expect.poll(() => page.evaluate(() => window.voiceTestLines.length)).toBe(2);
-    expect(await page.evaluate(() => window.voiceTestLines)).toMatchObject([
-      { lang: 'en-GB', voice: 'Daniel', rate: 0.95, pitch: 1 },
-      { lang: 'en-GB', voice: 'Daniel', rate: 0.95, pitch: 1 },
-    ]);
+    await expect.poll(() => page.evaluate(() => window.voiceTestLines.length)).toBe(1);
+    expect(await page.evaluate(() => window.voiceTestLines[0])).toMatchObject({
+      lang: 'en-GB', voice: 'Daniel', rate: 0.95, pitch: 1,
+    });
 
     const input = page.getByPlaceholder('Edit transcript here or type...');
     await input.fill('quantum entanglement');
@@ -112,7 +120,9 @@ test.describe('voice assistant on the synthetic fixture', () => {
       mayaRequests += 1;
       return route.fulfill({ status: 503 });
     });
-    await page.goto('/en/settings');
+    const casesRes = await page.request.get('/api/cases');
+    const caseId = (await casesRes.json()).cases[0].id;
+    await page.goto(`/en/cases/${caseId}`);
     const greetingRequest = page.waitForRequest('**/api/voice/synthesize');
     await page.getByRole('button', { name: 'Open DocMate Voice Assistant' }).click();
     expect((await greetingRequest).postDataJSON()).toMatchObject({ provider: 'maya', locale: 'en', conversationTone: 'warm' });
@@ -157,7 +167,9 @@ test.describe('voice assistant on the synthetic fixture', () => {
     });
     await page.route('**/api/settings/voice', (route) => route.fulfill({ json: { config: { tts_provider: 'browser' } } }));
     await page.route('**/api/ask', (route) => route.fulfill({ json: { found: false, status: 'insufficient_evidence' } }));
-    await page.goto('/en/settings');
+    const casesRes = await page.request.get('/api/cases');
+    const caseId = (await casesRes.json()).cases[0].id;
+    await page.goto(`/en/cases/${caseId}`);
     await page.getByRole('button', { name: 'Open DocMate Voice Assistant' }).click();
 
     const selector = page.getByRole('combobox', { name: 'Conversation language' });
