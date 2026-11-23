@@ -100,7 +100,7 @@ export async function runConversationEvaluation() {
           signal: new AbortController().signal,
         },
         {
-          retrieve: retrieveFn as unknown as (queries: string[], limit: number) => Promise<import('../src/lib/retrieval').ScoredChunk[]>,
+          retrieve: retrieveFn,
           llm: null, // Verifies deterministic ground-truth library excerpts & fallback mode
         },
         () => {}
