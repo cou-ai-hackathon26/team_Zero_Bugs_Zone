@@ -144,14 +144,6 @@ export function CaseChat({ caseId, caseData, turns, onTurnsUpdate, onCaseUpdate 
     return [...byKey.values()];
   }, [acknowledged, visible]);
 
-  const complaint = caseData?.structured_input?.chief_complaint?.trim() || t('starterFallbackComplaint');
-  const starters = [
-    { icon: StethoscopeIcon, label: t('starterDifferentials', { complaint }) },
-    { icon: ActivityIcon, label: t('starterTests') },
-    { icon: TriangleAlertIcon, label: t('starterRedFlags') },
-    { icon: PillIcon, label: t('starterManagement') },
-  ];
-
   const pending = chat.pending;
   const showOptimisticDoctor = pending && !pending.doctorSaved && !pending.input.regenerateOf;
 
@@ -163,27 +155,16 @@ export function CaseChat({ caseId, caseData, turns, onTurnsUpdate, onCaseUpdate 
             <MessageScrollerContent className="mx-auto w-full max-w-3xl gap-5 px-2 py-4 sm:px-4" aria-busy={chat.busy}>
               {visible.length === 0 && !pending && (
                 <MessageScrollerItem messageId="empty">
-                  <Empty className="border-0">
-                    <EmptyHeader>
-                      <EmptyMedia variant="icon">
-                        <SparklesIcon />
+                  <Empty className="border-0 my-auto py-12">
+                    <EmptyHeader className="max-w-md mx-auto text-center space-y-2">
+                      <EmptyMedia variant="icon" className="size-12 rounded-2xl bg-primary/10 text-primary mx-auto">
+                        <SparklesIcon className="size-6" />
                       </EmptyMedia>
-                      <EmptyTitle>{t('emptyTitle')}</EmptyTitle>
-                      <EmptyDescription>{t('emptyDescription')}</EmptyDescription>
+                      <EmptyTitle className="text-base font-bold text-foreground">{t('emptyTitle')}</EmptyTitle>
+                      <EmptyDescription className="text-xs text-muted-foreground leading-relaxed">
+                        {t('emptyDescription')}
+                      </EmptyDescription>
                     </EmptyHeader>
-                    <EmptyContent className="grid w-full max-w-xl grid-cols-1 gap-2 sm:grid-cols-2">
-                      {starters.map(({ icon: Icon, label }) => (
-                        <Button
-                          key={label}
-                          variant="outline"
-                          className="h-auto justify-start whitespace-normal py-2.5 text-left"
-                          onClick={() => void send(label)}
-                        >
-                          <Icon data-icon="inline-start" />
-                          {label}
-                        </Button>
-                      ))}
-                    </EmptyContent>
                   </Empty>
                 </MessageScrollerItem>
               )}

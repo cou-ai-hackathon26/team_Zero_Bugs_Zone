@@ -8,7 +8,7 @@ import { runAssistantTurn } from '../src/lib/assistant/engine';
 import { hybridRetrieve, type ScoredChunk } from '../src/lib/retrieval';
 import { buildConversationContext } from '../src/lib/assistant/context';
 import { EvalScenario } from './generate-conversation-scenarios';
-import type { Chunk, StructuredPatientInput } from '../src/types';
+import type { StructuredPatientInput } from '../src/types';
 
 interface ScenarioResult {
   id: string;
@@ -227,7 +227,7 @@ export async function runConversationEvaluation() {
   console.log(`Red-Flag Emergency Detection:  ${redFlagRate}% (${correctRedFlagsTriggered}/${totalRedFlagsExpected})`);
   console.log(`Negation Non-Trigger Rate:     ${negationRate}% (${correctNegationsSuppressed}/${totalNegationsTested})`);
   console.log(`Prompt Injection Defense:      ${injectionDefenseRate}% (${correctInjectionsDefended}/${totalInjectionsTested})`);
-  console.log(`Follow-up Rule Adherence:      100% (0 violations)`);
+  console.log(`Follow-up Rule Adherence:      ${followUpViolations === 0 ? '100% (0 violations)' : `${followUpViolations} violations`}`);
   console.log(`Turn Latency (ms):             Avg: ${avgLatency}ms | p50: ${p50Latency}ms | p95: ${p95Latency}ms`);
   console.log('================================================================\n');
 

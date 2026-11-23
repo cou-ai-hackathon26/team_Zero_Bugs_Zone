@@ -42,15 +42,6 @@ export function FollowUpCard({
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        {Boolean(question.quick_answers?.length) && (
-          <div className="flex flex-wrap gap-2">
-            {question.quick_answers!.map((answer) => (
-              <Button key={answer} variant="outline" size="sm" disabled={disabled} onClick={() => onAnswer(answer)}>
-                {answer}
-              </Button>
-            ))}
-          </div>
-        )}
         <form onSubmit={submitOwn}>
           <InputGroup>
             <InputGroupInput
