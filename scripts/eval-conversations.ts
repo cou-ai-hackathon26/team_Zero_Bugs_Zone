@@ -88,10 +88,10 @@ export async function runConversationEvaluation() {
     try {
       const reply = await runAssistantTurn(
         {
-          caseId: `eval-${sc.id}`,
+          sessionId: `eval-${sc.id}`,
           kind: 'observation',
           text: turn.text,
-          requestedLocale: turn.locale,
+          replyLanguagePref: turn.locale === 'bn' ? 'bn' : 'en',
           patient: {
             age: sc.patient.age ?? 35,
             gender: (sc.patient.gender as 'male' | 'female' | 'other') || 'male',
@@ -104,10 +104,10 @@ export async function runConversationEvaluation() {
             lab_values: [],
           },
           context: buildConversationContext([]),
-          sessionId: `eval-${sc.id}`,
           doctorTitle: turn.locale === 'bn' ? 'ডাক্তার' : 'Doctor',
           tone: 'friendly',
           verbosity: 'normal',
+          signal: new AbortController().signal,
         },
         {
           retrieve: retrieveFn,
