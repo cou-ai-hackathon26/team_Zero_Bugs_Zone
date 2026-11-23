@@ -69,13 +69,27 @@ function useAcknowledged(caseId: string) {
 export function CaseChat({ caseId, turns, onTurnsUpdate, onCaseUpdate }: CaseChatProps) {
   const locale = (useLocale() === 'en' ? 'en' : 'bn') as 'bn' | 'en';
   const t = useTranslations('chat');
-  const { openVoicePanel, speakText } = useVoice();
+  const { openVoicePanel, speakText, registerCaseVoiceHandler } = useVoice();
   const [replyLanguage, setReplyLanguage] = React.useState<ReplyLanguage>('auto');
   const composerRef = React.useRef<ChatComposerHandle>(null);
   const { acknowledged, acknowledge } = useAcknowledged(caseId);
   const [feedback, setFeedback] = React.useState<Record<string, 'helpful' | 'unhelpful'>>({});
 
   const chat = useCaseChat({ caseId, turns, onTurnsUpdate, locale, replyLanguage });
+
+  // While this case is open, spoken questions and dictation go through this
+  // conversation, so voice answers use the patient record and verified sources.
+  const { sendAndWait } = chat;
+  React.useEffect(() => {
+    registerCaseVoiceHandler(async (text, replyLocale) => {
+      const turn = await sendAndWait({ kind: 'observation', text, replyLanguage: replyLocale });
+      if (!turn) return null;
+      const content = (turn.content ?? {}) as Record<string, unknown>;
+      const displayText = String(content.text ?? '').replace(/\s?\[\d+\]/g, '').trim();
+      return { displayText, speechText: String(content.speech_text ?? displayText), abstained: content.status === 'insufficient_evidence' };
+    });
+    return () => registerCaseVoiceHandler(null);
+  }, [registerCaseVoiceHandler, sendAndWait]);
   const visible = React.useMemo(
     () => turns.filter((turn) => !(turn.content as Record<string, unknown>)?.superseded),
     [turns],

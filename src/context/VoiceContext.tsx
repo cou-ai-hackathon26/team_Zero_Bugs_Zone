@@ -67,7 +67,14 @@ interface VoiceContextType {
   setSpeechSpeed: (speed: number) => void;
   resetSession: () => void;
   clearMessages: () => void;
+  /**
+   * An open case registers a handler so spoken questions go through the case
+   * conversation (patient context, verified citations) instead of library search.
+   */
+  registerCaseVoiceHandler: (handler: CaseVoiceHandler | null) => void;
 }
+
+export type CaseVoiceHandler = (text: string, replyLocale: 'bn' | 'en') => Promise<{ displayText: string; speechText: string; abstained: boolean } | null>;
 
 const DEFAULT_CONFIG: VoiceConfig = {
   enabled: true,
@@ -132,6 +139,10 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   const [errorText, setErrorText] = useState<string | null>(null);
 
   const sttRef = useRef<SttProvider | null>(null);
+  const caseVoiceHandlerRef = useRef<CaseVoiceHandler | null>(null);
+  const registerCaseVoiceHandler = useCallback((handler: CaseVoiceHandler | null) => {
+    caseVoiceHandlerRef.current = handler;
+  }, []);
   const capturedTranscriptRef = useRef('');
   const pendingSubmitRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const playbackRef = useRef<{
@@ -516,6 +527,11 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         }
       };
 
+      const showCaseError = async (text: string) => {
+        setMessages((previous) => [...previous, { id: crypto.randomUUID(), sender: 'assistant', locale: replyLocale, text, timestamp: Date.now() }]);
+        await speakText(text, undefined, scripted);
+      };
+
       const quickReply = conversationalReply(query);
       if (quickReply) {
         clearThinkingTimers();
@@ -616,7 +632,44 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // 3. Clinical Dictation
+      // 3. On an open case, dictation and questions go to the case conversation.
+      const caseHandler = caseVoiceHandlerRef.current;
+      if (caseHandler) {
+        try {
+          const reply = await caseHandler(query, replyLocale === 'bn' ? 'bn' : 'en');
+          clearThinkingTimers();
+          if (!reply) {
+            await showCaseError(phrases.conversationLibraryError);
+            return;
+          }
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `msg-${Date.now()}`,
+              sender: 'assistant',
+              locale: replyLocale,
+              text: reply.abstained && privateMode ? phrases.libraryAbstained : reply.displayText,
+              speakableText: reply.speechText,
+              timestamp: Date.now(),
+              intent: 'ask_library',
+              verified: true,
+            },
+          ]);
+          // Private mode never reads clinical content aloud; it only says where to look.
+          const spoken = privateMode
+            ? reply.abstained
+              ? phrases.libraryAbstained
+              : phrases.reviewLibraryEvidence
+            : reply.speechText || reply.displayText;
+          await speakText(spoken, undefined, { locale: replyLocale });
+        } catch {
+          clearThinkingTimers();
+          await showCaseError(phrases.conversationLibraryError);
+        }
+        return;
+      }
+
+      // 3b. Clinical Dictation
       if (routing.intent === 'dictate') {
         clearThinkingTimers();
         const extracted = extractClinicalFacts(query, {
@@ -790,6 +843,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         setSpeechSpeed,
         resetSession,
         clearMessages,
+        registerCaseVoiceHandler,
       }}
     >
       {children}

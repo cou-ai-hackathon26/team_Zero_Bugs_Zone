@@ -8,7 +8,7 @@ import { verifyQuoteInChunk } from '@/lib/verifier';
 import { bestSentences, keyTerms, selectExcerpts, type Excerpt } from './excerpts';
 import { acceptModelFollowUp, deterministicFollowUp } from './followups';
 import { buildMessages, META_DELIMITER } from './prompt';
-import { buildRetrievalQueries } from './retrieval-queries';
+import { buildWeightedRetrievalQueries } from './retrieval-queries';
 import { parseModelOutput, verifyModelAnswer } from './verify';
 import type {
   AssistantReply,
@@ -190,13 +190,18 @@ export async function runAssistantTurn(
   // 3. Retrieval for clinical turns.
   let excerpts: Excerpt[] = [];
   let queries: string[] = [];
+  let english: string | null = null;
+  const retrievalText = input.question ? `${input.question.text} ${input.text}` : input.text;
   if (!isSocial) {
     emit({ type: 'trace', step: 'retrieve', status: 'running' });
     const previousDoctor = [...input.context.history].reverse().find((message) => message.role === 'doctor')?.text;
-    const retrievalText = input.question ? `${input.question.text} ${input.text}` : input.text;
-    queries = buildRetrievalQueries(retrievalText, understanding, input.patient, previousDoctor);
+    // Library sources are English: translate Bangla and Banglish questions first.
+    const needsTranslation = /[\u0980-\u09FF]/.test(retrievalText) || understanding?.detectedLang === 'banglish';
+    english = needsTranslation && deps.llm?.translate ? await deps.llm.translate(retrievalText) : null;
+    const weighted = buildWeightedRetrievalQueries(retrievalText, understanding, input.patient, previousDoctor, english);
+    queries = weighted.queries;
     try {
-      excerpts = selectExcerpts(await deps.retrieve(queries, 8), 6);
+      excerpts = selectExcerpts(await deps.retrieve(weighted.queries, 8, weighted.weights), 6);
       emit({ type: 'trace', step: 'retrieve', status: 'done', count: excerpts.length });
     } catch {
       excerpts = [];
@@ -250,6 +255,7 @@ export async function runAssistantTurn(
       const verified = verifyModelAnswer(parsed.answer, parsed.meta, excerpts, {
         framingWordLimit: isSocial ? 40 : 18,
         allowUncitedProse: isSocial,
+        question: input.question ? `${input.question.text} ${input.text}` : input.text,
       });
       emit({ type: 'trace', step: 'verify', status: 'done', count: verified.claims.length });
 
@@ -265,10 +271,30 @@ export async function runAssistantTurn(
         };
       }
 
+      // Relevance gate: the cited quotes must share at least one key term with
+      // the question itself (not the patient context). This stops answers to a
+      // different question, e.g. hypertension drugs for a physics question.
+      const questionSources = [english ?? '', understanding?.canonicalEnglishQuery ?? '', retrievalText];
+      const acronyms = questionSources.join(' ').match(/\b[A-Z][A-Z0-9-]{1,6}\b/g)?.map((acronym) => acronym.toLowerCase()) ?? [];
+      // Five-letter stems so "definition" matches "defined".
+      const questionTerms = [...new Set([...keyTerms(questionSources).map((term) => term.slice(0, 5)), ...acronyms])];
+      const citedChunks = excerpts.filter((excerpt) => verified.claims.some((claim) => claim.chunk_id === excerpt.chunk.id));
+      const sourceText = citedChunks
+        .map((excerpt) => `${excerpt.chunk.source_title ?? ''} ${excerpt.chunk.section ?? ''} ${excerpt.chunk.text}`)
+        .join(' ')
+        .toLowerCase();
+      // One shared term is enough for short questions; longer questions need two,
+      // so a single incidental word ("mechanisms") cannot pass the gate.
+      const matched = questionTerms.filter((term) => sourceText.includes(term)).length;
+      const relevant = questionTerms.length === 0 || matched >= (questionTerms.length >= 4 ? 2 : 1);
+      if (!relevant && process.env.DOCMATE_DEBUG_ASSISTANT === '1') {
+        console.warn(`[assistant] relevance gate blocked answer; terms=${questionTerms.join(',')} matched=${matched}; cited=${citedChunks.map((e) => e.chunk.section).join(' | ')}; claims=${verified.claims.map((c) => c.chunk_id).join(',')}`);
+      }
+      if (!relevant) verified.claims.splice(0, verified.claims.length);
       const answered = verified.claims.length > 0;
       const text = answered
         ? verified.text
-        : [verified.text, noEvidenceText(locale, input.tone, sessionId)].filter(Boolean).join('\n\n');
+        : [relevant ? verified.text : '', noEvidenceText(locale, input.tone, sessionId)].filter(Boolean).join('\n\n');
       const followUp =
         acceptModelFollowUp(parsed.meta.follow_up, input.context.followUps) ??
         (answered ? null : deterministicFollowUp(input.patient, input.context.followUps, locale, input.text, proposedUpdates));

@@ -20,6 +20,8 @@ export interface SendInput {
   question?: { id: string; text: string };
   editOf?: string;
   regenerateOf?: string;
+  /** Overrides the composer's reply language (used by voice). */
+  replyLanguage?: 'auto' | 'bn' | 'en';
 }
 
 export interface PendingRun {
@@ -56,6 +58,7 @@ function draftId(): string {
 export function useCaseChat({ caseId, turns, onTurnsUpdate, locale, replyLanguage }: Options) {
   const [pending, setPending] = React.useState<PendingRun | null>(null);
   const abortRef = React.useRef<AbortController | null>(null);
+  const lastFinalRef = React.useRef<ChatTurn | null>(null);
   const turnsRef = React.useRef(turns);
   React.useEffect(() => {
     turnsRef.current = turns;
@@ -93,7 +96,7 @@ export function useCaseChat({ caseId, turns, onTurnsUpdate, locale, replyLanguag
             question_id: input.question?.id,
             question: input.question?.text,
             client_draft_id: input.regenerateOf ? undefined : draftId(),
-            reply_language: replyLanguage,
+            reply_language: input.replyLanguage ?? replyLanguage,
             locale,
             edit_of: input.editOf,
             regenerate_of: input.regenerateOf,
@@ -174,6 +177,7 @@ export function useCaseChat({ caseId, turns, onTurnsUpdate, locale, replyLanguag
             case 'final': {
               receivedFinal = true;
               const turn = event.turn as ChatTurn;
+              lastFinalRef.current = turn;
               const next = [...turnsRef.current, turn];
               turnsRef.current = next;
               onTurnsUpdate(next);
@@ -247,8 +251,19 @@ export function useCaseChat({ caseId, turns, onTurnsUpdate, locale, replyLanguag
     return run(input);
   }, [pending, run]);
 
+  /** Sends a message and resolves with the saved assistant turn (used by voice). */
+  const sendAndWait = React.useCallback(
+    async (input: SendInput): Promise<ChatTurn | null> => {
+      lastFinalRef.current = null;
+      await run(input);
+      return lastFinalRef.current;
+    },
+    [run],
+  );
+
   return {
     pending,
+    sendAndWait,
     busy: pending !== null && pending.status !== 'error',
     send: run,
     stop,

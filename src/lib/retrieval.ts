@@ -198,27 +198,30 @@ export async function singleQueryHybridSearch(query: string, limit = 15): Promis
 }
 
 // Multi-query hybrid retrieval with reciprocal rank fusion across key findings
-export async function hybridRetrieve(queries: string[], maxChunks = 12): Promise<ScoredChunk[]> {
-  const cacheKey = queries.map((q) => q.trim().toLowerCase()).sort().join('||');
+// Multi-query fusion. `weights` (default 1 each) scale each query's
+// reciprocal-rank contribution, so broad helper queries such as a single
+// entity term ("dengue") cannot outvote the doctor's actual question.
+export async function hybridRetrieve(queries: string[], maxChunks = 12, weights?: number[]): Promise<ScoredChunk[]> {
+  const weighted = queries
+    .map((query, index) => ({ query, weight: weights?.[index] ?? 1 }))
+    .filter((entry) => entry.query && entry.query.trim());
+  const cacheKey = weighted.map((entry) => `${entry.query.trim().toLowerCase()}@${entry.weight}`).sort().join('||');
   const cached = retrievalCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return cached.chunks.slice(0, maxChunks);
   }
 
-  const results = await Promise.all(
-    queries.filter(Boolean).map((q) => singleQueryHybridSearch(q, 10))
-  );
+  const results = await Promise.all(weighted.map((entry) => singleQueryHybridSearch(entry.query, 10)));
 
   const merged = new Map<string, ScoredChunk>();
-  for (const list of results) {
+  results.forEach((list, index) => {
+    const weight = weighted[index].weight;
     for (const chunk of list) {
-      if (merged.has(chunk.id)) {
-        merged.get(chunk.id)!.rrfScore += chunk.rrfScore;
-      } else {
-        merged.set(chunk.id, { ...chunk });
-      }
+      const existing = merged.get(chunk.id);
+      if (existing) existing.rrfScore += chunk.rrfScore * weight;
+      else merged.set(chunk.id, { ...chunk, rrfScore: chunk.rrfScore * weight });
     }
-  }
+  });
 
   const sorted = Array.from(merged.values())
     .sort((a, b) => b.rrfScore - a.rrfScore);

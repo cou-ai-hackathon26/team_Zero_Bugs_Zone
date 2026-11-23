@@ -82,6 +82,19 @@ export const ChatComposer = React.forwardRef<ChatComposerHandle, ChatComposerPro
     focus: () => textareaRef.current?.focus(),
   }));
 
+  // The visit-steps bar can prefill the composer (e.g. a vitals template).
+  React.useEffect(() => {
+    const onPrefill = (event: Event) => {
+      const detail = (event as CustomEvent<{ caseId: string; text: string }>).detail;
+      if (detail?.caseId !== caseId) return;
+      setText(detail.text);
+      persist(detail.text);
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    };
+    window.addEventListener('docmate:prefill', onPrefill);
+    return () => window.removeEventListener('docmate:prefill', onPrefill);
+  }, [caseId, persist]);
+
   // Auto-grow up to ~8 lines.
   React.useLayoutEffect(() => {
     const element = textareaRef.current;

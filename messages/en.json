@@ -805,5 +805,34 @@
     "redFlagAcknowledged": "Acknowledged",
     "redFlagPinned": "Unacknowledged red flag",
     "jumpToLatest": "Jump to latest message"
+  },
+  "workflow": {
+    "label": "Visit steps",
+    "next": "Next",
+    "details": {
+      "title": "Patient details",
+      "hint": "Record the complaint and vitals. Type them in the chat, e.g. \"BP 120/80, HR 88, temp 38.5\", then confirm.",
+      "action": "Add vitals"
+    },
+    "ask": {
+      "title": "Ask DocMate",
+      "hint": "Ask about this patient. Every answer shows its library source.",
+      "action": "Ask a question"
+    },
+    "diagnosis": {
+      "title": "Working diagnosis",
+      "hint": "Choose your working diagnosis. You decide; DocMate only suggests.",
+      "action": "Set diagnosis"
+    },
+    "treatment": {
+      "title": "Treatment & safety",
+      "hint": "Review the treatment plan and medicine safety checks.",
+      "action": "Open treatment"
+    },
+    "report": {
+      "title": "Report",
+      "hint": "Review and print the visit report.",
+      "action": "Open report"
+    }
   }
 }

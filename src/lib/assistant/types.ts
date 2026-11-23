@@ -89,8 +89,8 @@ export type LlmStreamer = (
 ) => AsyncIterable<string>;
 
 export interface EngineDeps {
-  retrieve: (queries: string[], limit: number) => Promise<ScoredChunk[]>;
-  llm: { stream: LlmStreamer; model: string } | null;
+  retrieve: (queries: string[], limit: number, weights?: number[]) => Promise<ScoredChunk[]>;
+  llm: { stream: LlmStreamer; model: string; translate?: (text: string) => Promise<string | null> } | null;
 }
 
 export interface EngineInput {

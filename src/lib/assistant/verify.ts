@@ -4,18 +4,31 @@ import type { Excerpt } from './excerpts';
 import { META_DELIMITER } from './prompt';
 import type { CitedClaim } from './types';
 
+const claimSchema = z.object({
+  id: z.coerce.number().int().min(1).max(99),
+  excerpt: z.string().max(300),
+  quote: z.string().min(1).max(3000),
+});
+
 const metaSchema = z.object({
   status: z.enum(['answered', 'partial', 'insufficient_evidence', 'social']).catch('answered'),
+  // Claims are validated one by one: a single malformed claim must not discard
+  // the others. A claim whose quote was put in "excerpt" is repaired.
   claims: z
-    .array(
-      z.object({
-        id: z.coerce.number().int().min(1).max(99),
-        excerpt: z.string().max(300),
-        quote: z.string().max(3000),
-      }),
-    )
-    .max(20)
-    .catch([]),
+    .array(z.unknown())
+    .catch([])
+    .transform((items) =>
+      items
+        .slice(0, 20)
+        .map((item) => {
+          const raw = (item ?? {}) as Record<string, unknown>;
+          const excerpt = typeof raw.excerpt === 'string' ? raw.excerpt : '';
+          const quote = typeof raw.quote === 'string' ? raw.quote : excerpt.length > 12 ? excerpt : '';
+          return claimSchema.safeParse({ id: raw.id, excerpt: quote === excerpt ? '' : excerpt, quote });
+        })
+        .filter((result) => result.success)
+        .map((result) => result.data!),
+    ),
   follow_up: z
     .object({
       question: z.string().max(500).nullish(),
@@ -87,7 +100,9 @@ export function firstJsonObject(text: string): string | null {
 const MARKER = /\[(\d{1,3})\]/g;
 const DOSE = /\b\d+(?:[.,]\d+)?\s?(?:mg|mcg|µg|g|gm|ml|mL|IU|units?|tabs?|tablets?|capsules?|drops?)\b(?:\s*\/\s*(?:kg|day|d|dose))?/giu;
 const DIGIT = /[0-9০-৯]/u;
-const NEGATION = /\b(?:no|not|never|without|none|neither|nor|absent|avoid|don't|doesn't|isn't|aren't)\b|নেই|না\b|নয়|নিষেধ|এড়িয়ে/iu;
+const NEGATION = /\b(?:no|not|never|without|none|neither|nor|absent|avoid|contraindicated|don't|doesn't|isn't|aren't)\b|নেই|না(?=[\s।,.!?]|$)|নয়|নিষেধ|নিষিদ্ধ|এড়িয়ে|এড়ান/iu;
+// Negations that flip what is recommended. They must agree in both directions.
+const PREDICATE_NEGATION = /\b(?:not|never|avoid|avoided|contraindicated|must not|should not|don't|doesn't|isn't|aren't)\b|নয়|নিষেধ|নিষিদ্ধ|এড়িয়ে|এড়ান|না(?=[\s।,.!?]|$)/iu;
 const LIST_PREFIX = /^\s*(?:[-*•]|\d+[.)])\s+/;
 const SYNTHETIC_ID_START = 500;
 
@@ -180,6 +195,44 @@ export function quoteAppearsIn(quote: string, chunkText: string): boolean {
   return true;
 }
 
+function withMarker(plain: string, id: number): string {
+  const trailing = plain.match(/[.!?।:]$/)?.[0] ?? '';
+  const core = trailing ? plain.slice(0, -1).trimEnd() : plain;
+  return `${core} [${id}]${trailing}`;
+}
+
+/**
+ * True when a quote covers a (possibly shortened) sentence: at least 75% of the
+ * sentence's words appear in the quote (all of them for 1-3 word bullets), with
+ * every number present and the same negation. Words match on their first six
+ * letters so "symptom" matches "symptoms".
+ */
+export function quoteCovers(quote: string, sentence: string, allowedNumbers: Set<string> = new Set()): boolean {
+  // Bangla sentences are checked on their English terms, e.g. "প্যারাসিটামল (Paracetamol)".
+  const bangla = /[\u0980-\u09FF]/.test(sentence);
+  const words = tokens(sentence).filter((token) => !/^\d/.test(token) && (!bangla || /^[a-z]/.test(token)));
+  if (words.length === 0 || (bangla && words.length < 2)) return false;
+  const stems = new Set(tokens(quote).map((token) => token.slice(0, 6)));
+  const present = words.filter((word) => stems.has(word.slice(0, 6))).length;
+  const needed = bangla || words.length <= 3 ? words.length : Math.ceil(words.length * 0.75);
+  if (present < needed) return false;
+  const quoteNumbers = new Set([...numbersIn(quote), ...allowedNumbers]);
+  if (!numbersIn(sentence).every((number) => quoteNumbers.has(number))) return false;
+  // A negation in the sentence must come from the quote. Predicate negations
+  // must agree both ways, so "is recommended" never inherits "is not
+  // recommended"; qualifiers such as "without comorbidities" may be omitted.
+  if (NEGATION.test(sentence) && !NEGATION.test(quote)) return false;
+  return PREDICATE_NEGATION.test(sentence) === PREDICATE_NEGATION.test(quote);
+}
+
+/**
+ * Numbers that carry clinical meaning. Digits inside names such as "CRB-65",
+ * "PDE-5" or "12-lead" are part of the term, not a value, and are ignored.
+ */
+export function numbersIn(text: string): string[] {
+  return (toAsciiDigits(text).replace(/\b[A-Za-z]+-\d+\b|\b\d+-(?:lead|item|point)\b/g, ' ').match(/\d+(?:[.,]\d+)*/g) ?? []);
+}
+
 export interface VerifiedAnswer {
   text: string;
   claims: CitedClaim[];
@@ -200,9 +253,11 @@ export function verifyModelAnswer(
   answer: string,
   meta: ModelMeta | null,
   excerpts: Excerpt[],
-  options: { framingWordLimit?: number; maxFramingSentences?: number; allowUncitedProse?: boolean } = {},
+  options: { framingWordLimit?: number; maxFramingSentences?: number; allowUncitedProse?: boolean; question?: string } = {},
 ): VerifiedAnswer {
   const framingWordLimit = options.framingWordLimit ?? 18;
+  // Numbers the doctor wrote (e.g. "a score of 3") may be repeated in the answer.
+  const allowedNumbers = new Set(numbersIn(options.question ?? ''));
   const maxFramingSentences = options.maxFramingSentences ?? 3;
   let framingUsed = 0;
   const byRef = new Map(excerpts.map((excerpt) => [excerpt.ref.toUpperCase(), excerpt]));
@@ -267,65 +322,104 @@ export function verifyModelAnswer(
     if (!doses.every((dose) => quotes.some((quote) => looseNormalize(quote).includes(looseNormalize(dose))))) return false;
     // Every number in a cited sentence (thresholds, durations, doses) must come
     // from the quote it cites. Bangla digits are compared as ASCII.
-    const quoteNumbers = new Set(quotes.flatMap((quote) => toAsciiDigits(quote).match(/\d+(?:[.,]\d+)*/g) ?? []));
-    const sentenceNumbers = toAsciiDigits(plain.replace(MARKER, '')).match(/\d+(?:[.,]\d+)*/g) ?? [];
-    return sentenceNumbers.every((number) => quoteNumbers.has(number) || quoteNumbers.has(number.replace(/,/g, '')));
+    const quoteNumbers = new Set([...quotes.flatMap((quote) => numbersIn(quote)), ...allowedNumbers]);
+    return numbersIn(plain.replace(MARKER, '')).every((number) => quoteNumbers.has(number) || quoteNumbers.has(number.replace(/,/g, '')));
   };
 
-  let droppedSentences = 0;
-  const keptLines: string[] = [];
-
-  for (const rawLine of answer.split('\n')) {
+  // Pass 1: classify every sentence. Sentences that are neither cited nor
+  // supported word for word stay "pending" for pass 2.
+  interface Entry {
+    line: number;
+    block: number;
+    prefix: string;
+    isListItem: boolean;
+    sentence: string;
+    plain: string;
+    markers: number[];
+    result: string | null | undefined; // string = keep, null = drop, undefined = pending
+  }
+  const entries: Entry[] = [];
+  const lines = answer.split('\n');
+  let block = 0;
+  lines.forEach((rawLine, lineIndex) => {
     const line = rawLine.trimEnd();
     if (!line.trim()) {
-      keptLines.push('');
-      continue;
+      block++;
+      return;
     }
     const prefixMatch = line.match(/^(\s*(?:[-*•]|\d+[.)])\s+|\s*#{1,3}\s+|\s*>\s*)/);
     const prefix = prefixMatch?.[0] ?? '';
     const isListItem = LIST_PREFIX.test(prefix);
-    const body = line.slice(prefix.length);
-
-    const keptSentences: string[] = [];
-    for (const sentence of splitLineIntoSentences(body)) {
+    for (const sentence of splitLineIntoSentences(line.slice(prefix.length))) {
       const markers = [...sentence.matchAll(MARKER)].map((match) => Number(match[1]));
       const plain = sentence.replace(MARKER, '').trim();
-
+      let result: string | null | undefined;
       if (markers.length > 0 && markers.every((id) => verifiedById.has(id))) {
         const quotes = markers.map((id) => verifiedById.get(id)!.quote);
-        if (dosesSupported(plain, quotes)) {
-          keptSentences.push(sentence);
-          continue;
-        }
+        if (dosesSupported(plain, quotes)) result = sentence;
       }
-
-      const support = findSupport(plain, units);
-      if (support && dosesSupported(plain, [support.text])) {
-        const trailing = plain.match(/[.!?।:]$/)?.[0] ?? '';
-        const core = trailing ? plain.slice(0, -1).trimEnd() : plain;
-        keptSentences.push(`${core} [${citeUnit(support)}]${trailing}`);
-        continue;
+      if (result === undefined) {
+        const support = findSupport(plain, units);
+        if (support && dosesSupported(plain, [support.text])) result = withMarker(plain, citeUnit(support));
       }
-
-      // Uncited text is kept only as a short list intro ("Watch for these signs:"),
-      // or as conversational text in social replies.
-      const isFraming =
-        markers.length === 0 &&
-        !isListItem &&
-        framingUsed < maxFramingSentences &&
-        !DIGIT.test(plain) &&
-        wordCount(plain) <= framingWordLimit &&
-        (options.allowUncitedProse === true || plain.endsWith(':'));
-      if (isFraming) {
-        framingUsed++;
-        keptSentences.push(sentence);
-      } else {
-        droppedSentences++;
-      }
+      entries.push({ line: lineIndex, block, prefix, isListItem, sentence, plain, markers, result });
     }
+  });
 
-    if (keptSentences.length > 0) keptLines.push(prefix + keptSentences.join(' '));
+  // Pass 2: a pending sentence may inherit a verified citation used in the same
+  // paragraph or list (models often cite only the last bullet), but only when
+  // the quote itself covers the sentence: nearly all its words, every number,
+  // and the same negation. Otherwise it is kept only as short framing.
+  for (const entry of entries) {
+    if (entry.result !== undefined) continue;
+    const blockIds = new Set(
+      entries
+        .filter((other) => other.block === entry.block && typeof other.result === 'string')
+        .flatMap((other) => [...(other.result as string).matchAll(MARKER)].map((match) => Number(match[1]))),
+    );
+    const candidates = [...blockIds, ...[...verifiedById.keys()].filter((id) => !blockIds.has(id))];
+    const isListIntro = entry.plain.endsWith(':') && !DIGIT.test(entry.plain) && entry.markers.length === 0;
+    const inherited = isListIntro ? undefined : candidates.find((id) => {
+      const quote = verifiedById.get(id)?.quote;
+      return quote ? quoteCovers(quote, entry.plain, allowedNumbers) && dosesSupported(entry.plain, [quote]) : false;
+    });
+    if (inherited !== undefined && entry.markers.every((id) => !verifiedById.has(id) || id === inherited)) {
+      entry.result = withMarker(entry.plain, inherited);
+      continue;
+    }
+    // Otherwise try every library sentence the model was shown.
+    const unit = isListIntro
+      ? undefined
+      : units.find((candidate) => quoteCovers(candidate.text, entry.plain, allowedNumbers) && dosesSupported(entry.plain, [candidate.text]));
+    if (unit && entry.markers.every((id) => !verifiedById.has(id))) {
+      entry.result = withMarker(entry.plain, citeUnit(unit));
+      continue;
+    }
+    // Uncited text is kept only as a short list intro ("Watch for these signs:"),
+    // or as conversational text in social replies.
+    const isFraming =
+      entry.markers.length === 0 &&
+      !entry.isListItem &&
+      framingUsed < maxFramingSentences &&
+      !DIGIT.test(entry.plain) &&
+      wordCount(entry.plain) <= framingWordLimit &&
+      (options.allowUncitedProse === true || entry.plain.endsWith(':'));
+    if (isFraming) framingUsed++;
+    entry.result = isFraming ? entry.sentence : null;
   }
+
+  let droppedSentences = 0;
+  const keptLines: string[] = [];
+  lines.forEach((rawLine, lineIndex) => {
+    if (!rawLine.trim()) {
+      keptLines.push('');
+      return;
+    }
+    const lineEntries = entries.filter((entry) => entry.line === lineIndex);
+    droppedSentences += lineEntries.filter((entry) => entry.result === null).length;
+    const kept = lineEntries.filter((entry) => typeof entry.result === 'string').map((entry) => entry.result as string);
+    if (kept.length > 0) keptLines.push(lineEntries[0].prefix + kept.join(' '));
+  });
 
   // Remove dangling list headers ("Key points:" with nothing after) and extra blank lines.
   const cleaned: string[] = [];

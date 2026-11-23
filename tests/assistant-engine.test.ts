@@ -142,7 +142,7 @@ describe('verifyModelAnswer', () => {
     });
     const good = verifyModelAnswer('Watch for warning signs [1].', meta('Warning signs of severe dengue include abdominal pain ... and lethargy.'), excerpts);
     expect(good.claims).toHaveLength(1);
-    const bad = verifyModelAnswer('Watch for warning signs [1].', meta('Warning signs of severe dengue include ... high blood pressure.'), excerpts);
+    const bad = verifyModelAnswer('High blood pressure is a dengue warning sign [1].', meta('Warning signs of severe dengue include ... high blood pressure.'), excerpts);
     expect(bad.claims).toHaveLength(0);
   });
 
@@ -395,5 +395,76 @@ describe('language detection regressions', () => {
     expect(detectLanguage('Patient denies any chest pain, shortness of breath, or palpitations.').lang).toBe('en');
     expect(detectLanguage('rogir 3 din dhore jor ar kashi').lang).toBe('banglish');
     expect(detectLanguage('jor ache, kashi nai').lang).toBe('banglish');
+  });
+});
+
+describe('citation inheritance within a paragraph or list', () => {
+  const pneumonia =
+    'Classical symptoms include cough, fever, pleuritic chest pain, dyspnea, and production of purulent or rust-colored sputum. For previously healthy adult outpatients with mild community-acquired pneumonia, oral Amoxicillin 500 mg to 1000 mg three times daily for 5 to 7 days is the recommended first-line therapy. Clinical improvement is expected within 48 to 72 hours.';
+  const excerpts = selectExcerpts([chunk('p1', pneumonia, 'Pneumonia Guideline')]);
+  const meta = (quote: string) => ({ status: 'answered' as const, claims: [{ id: 1, excerpt: 'E1', quote }], follow_up: null, missing_information: [] });
+
+  it('keeps short bullets covered by the quote cited at the end of the list', () => {
+    const answer = 'Classic symptoms:\n- **Cough**\n- **Fever**\n- **Dyspnea**\n- Purulent or rust-colored sputum [1].';
+    const result = verifyModelAnswer(answer, meta('Classical symptoms include cough, fever, pleuritic chest pain, dyspnea, and production of purulent or rust-colored sputum.'), excerpts);
+    expect(result.text).toContain('Cough');
+    expect(result.text).toContain('Fever');
+    expect(result.text).toContain('Dyspnea');
+  });
+
+  it('keeps an uncited sentence whose numbers and words are all in a verified quote', () => {
+    const answer = 'First-line is **oral Amoxicillin 500 mg to 1000 mg three times daily for 5 to 7 days**. Improvement is expected within 48 to 72 hours [1].';
+    const result = verifyModelAnswer(answer, meta(pneumonia), excerpts);
+    expect(result.text).toContain('Amoxicillin');
+  });
+
+  it('does not inherit when a number or the negation differs', () => {
+    const answer = 'Give Amoxicillin 2000 mg three times daily. Amoxicillin is not first-line therapy. Improvement is expected within 48 to 72 hours [1].';
+    const result = verifyModelAnswer(answer, meta(pneumonia), excerpts);
+    expect(result.text).not.toContain('2000');
+    expect(result.text).not.toContain('not first-line');
+  });
+});
+
+describe('META claims parsing', () => {
+  it('keeps valid claims when one is malformed and repairs a quote placed in "excerpt"', () => {
+    const raw = `Admit [1]. Watch [2].\n${META_DELIMITER}\n${JSON.stringify({
+      status: 'answered',
+      claims: [{ id: 1, excerpt: 'E1', quote: 'Patients with warning signs should be admitted' }, { id: 2, excerpt: 'Platelet counts should be checked daily' }, { id: 'x' }],
+      follow_up: null,
+      missing_information: [],
+    })}`;
+    const meta = parseModelOutput(raw).meta!;
+    expect(meta.claims).toHaveLength(2);
+    expect(meta.claims[1].quote).toBe('Platelet counts should be checked daily');
+  });
+});
+
+describe('relevance gate', () => {
+  it('abstains when the cited source has nothing to do with the question', async () => {
+    const hypertension = chunk('h1', 'Four primary classes of antihypertensives are recommended for initial therapy, including ACE inhibitors.', 'Hypertension Guideline');
+    const output = `ACE inhibitors are recommended [1].\n${META_DELIMITER}\n${JSON.stringify({
+      status: 'answered',
+      claims: [{ id: 1, excerpt: 'E1', quote: 'Four primary classes of antihypertensives are recommended for initial therapy' }],
+      follow_up: null,
+      missing_information: [],
+    })}`;
+    const reply = await runAssistantTurn(
+      input({ text: 'Explain the Schrodinger cat paradox in quantum mechanics' }),
+      { retrieve: async () => [hypertension], llm: fakeLlm(output) },
+      () => {},
+    );
+    expect(reply.status).toBe('insufficient_evidence');
+    expect(reply.text).not.toContain('ACE');
+  });
+});
+
+describe('vitals extraction', () => {
+  it('reads SpO2 without a percent sign', async () => {
+    const { extractClinicalFacts } = await import('../src/lib/clinical-extractor');
+    const updates = extractClinicalFacts('BP 110/70, HR 96, temp 38.6, SpO2 98', patient);
+    expect(updates.map((update) => update.field_path)).toEqual(
+      expect.arrayContaining(['vitals.blood_pressure', 'vitals.heart_rate', 'vitals.temperature_celsius', 'vitals.spo2_percent']),
+    );
   });
 });
