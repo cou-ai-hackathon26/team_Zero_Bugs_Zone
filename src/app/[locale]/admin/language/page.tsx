@@ -15,12 +15,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   XCircle,
-  Eye,
-  RotateCcw,
   BookOpen,
-  Sparkles,
   Loader2,
-  Keyboard,
   BarChart3,
   ShieldCheck,
 } from 'lucide-react';
@@ -76,20 +72,6 @@ export default function AdminLanguagePage() {
   // Unmatched state
   const [unmatched, setUnmatched] = useState<UnmatchedTermItem[]>([]);
   const [updatingUnmatchedId, setUpdatingUnmatchedId] = useState<string | null>(null);
-
-  // Eval runs
-  const [evalRuns, setEvalRuns] = useState<Array<Record<string, unknown>>>([
-    {
-      id: 'eval-latest',
-      runDate: new Date().toISOString(),
-      dataset: 'Clinical Multilingual Test Suite (200 cases)',
-      languageAccuracy: '98.5%',
-      negationAccuracy: '99.0%',
-      numberAccuracy: '99.2%',
-      intentAccuracy: '94.0%',
-      passed: true,
-    },
-  ]);
 
   // Load aliases & unmatched
   const fetchAliases = async () => {
