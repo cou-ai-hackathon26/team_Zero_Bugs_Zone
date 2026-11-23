@@ -27,7 +27,7 @@ export const RED_FLAG_RULES: RedFlagRule[] = [
       'Acute severe/crushing chest pain radiating to arm or jaw indicates possible myocardial infarction. Immediate stat 12-lead ECG, Troponin I, and cardiology escalation required.',
     patterns: [
       /(?:^|[^\p{L}\p{N}])(chest\s+pain\s+(?:radiat|spread)\w*|crushing\s+(?:substernal\s+)?chest\s+pain|substernal\s+chest\s+pain|severe\s+chest\s+pain|acute\s+coronary\s+syndrome)(?=[^\p{L}\p{N}]|$)/giu,
-      /(?:^|[^\p{L}\p{N}])(বুকে\s+তীব্র\s+ব্যথা|বুকে\s+মারাত্মক\s+ব্যথা|বুকে\s+প্রচণ্ড\s+ব্যথা|বুকের\s+ব্যথা\s+(?:বাম\s+হাতে|বাহুতে|চোয়ালে)\s+ছড়াচ্ছে|বুকের\s+(?:মাঝখানে\s+)?চাপ\s+ধরা\s+ব্যথা)(?=[^\p{L}\p{N}]|$)/giu,
+      /(?:^|[^\p{L}\p{N}])(বুকে\s+(?:তীব্র|মারাত্মক|প্রচণ্ড)\s+(?:চাপযুক্ত\s+|চাপ\s+ধরা\s+)?ব্যথা|বুকের\s+ব্যথা\s+(?:বাম\s+হাতে|বাহুতে|চোয়ালে)\s+ছড়াচ্ছে|বাম\s+বাহুতে\s+ছড়িয়ে|বুকের\s+(?:মাঝখানে\s+)?চাপ\s+ধরা\s+ব্যথা)(?=[^\p{L}\p{N}]|$)/giu,
       /(?:^|[^\p{L}\p{N}])(buke\s+(?:tibro|procando|marattok)?\s*betha|crushing\s+chest\s+pain|chest\s+pain\s+radiat\w*)(?=[^\p{L}\p{N}]|$)/giu,
     ],
   },
@@ -56,7 +56,7 @@ export const RED_FLAG_RULES: RedFlagRule[] = [
     description_en:
       'Patient is unconscious, unresponsive, or in severe hemodynamic collapse. Perform immediate ABC stabilization and initiate intensive emergency response.',
     patterns: [
-      /(?:^|[^\p{L}\p{N}])(unconscious|loss\s+of\s+consciousness|unresponsive|cardiogenic\s+shock|hypovolemic\s+shock|septic\s+shock|anaphylaxis|profound\s+hypotension)(?=[^\p{L}\p{N}]|$)/giu,
+      /(?:^|[^\p{L}\p{N}])(unconscious|loss\s+of\s+consciousness|unresponsive(?:ness)?|altered\s+mental\s+(?:state|status)|confusion.*systolic\s+bp|cardiogenic\s+shock|hypovolemic\s+shock|septic\s+shock|anaphylaxis|profound\s+hypotension)(?=[^\p{L}\p{N}]|$)/giu,
       /(?:^|[^\p{L}\p{N}])(অচেতন|জ্ঞান\s+হারিয়েছে|অজ্ঞান\s+হয়ে|চেতনা\s+নেই|মারাত্মক\s+শক|অ্যানাফিল্যাক্সিস)(?=[^\p{L}\p{N}]|$)/giu,
       /(?:^|[^\p{L}\p{N}])(ocheton|oggan|unconscious|unresponsive|anaphylaxis)(?=[^\p{L}\p{N}]|$)/giu,
     ],

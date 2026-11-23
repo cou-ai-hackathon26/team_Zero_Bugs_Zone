@@ -72,6 +72,7 @@ export async function POST(request: Request) {
 
     if (provider === 'edge') {
       try {
+        // @ts-expect-error msedge-tts lacks bundled type definitions
         const { MsEdgeTTS, OUTPUT_FORMAT } = await import('msedge-tts');
         const tts = new MsEdgeTTS();
 

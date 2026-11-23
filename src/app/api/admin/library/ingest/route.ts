@@ -7,6 +7,24 @@ import { ingestionWorker } from '@/workers/ingestion-worker';
 import AdmZip from 'adm-zip';
 import path from 'path';
 
+export const dynamic = 'force-dynamic';
+
+export async function GET() {
+  return NextResponse.json({
+    status: 'ok',
+    service: 'library-ingest',
+    supportedMimes: [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+      'text/markdown',
+      'text/html',
+      'application/json',
+      'application/zip',
+    ],
+  });
+}
+
 // Helper to detect medicine-like payload
 function isMedicinePayload(data: unknown): boolean {
   if (!data) return false;
