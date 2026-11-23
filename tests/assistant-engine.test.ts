@@ -290,7 +290,7 @@ describe('runAssistantTurn', () => {
     const reply = await runAssistantTurn(input(), { retrieve: retrieveDengue, llm: fakeLlm('no meta here') }, (event) => events.push(event));
     expect(events.some((event) => event.type === 'reset')).toBe(true);
     expect(reply.mode).toBe('library_excerpts');
-    expect(reply.status).toBe('answered');
+    expect(reply.status).toBe('excerpts');
     for (const claim of reply.claims) expect(dengueText).toContain(claim.quote);
   });
 
@@ -362,5 +362,38 @@ describe('excerptAnswer', () => {
     expect(claims.length).toBeGreaterThan(0);
     expect(text).toContain('[1]');
     for (const claim of claims) expect(dengueText).toContain(claim.quote);
+  });
+});
+
+describe('regressions found by eval:chat', () => {
+  it('does not quote a chunk that shares no terms with the question', () => {
+    const unrelated = chunk('demo', 'No test result is attached. Harbor-31 lists the ECG as pending, with no result attached.', 'Demo resource library');
+    const { claims } = excerptAnswer(selectExcerpts([unrelated]), ['should she be admitted given these vitals'], 'en');
+    expect(claims).toHaveLength(0);
+  });
+
+  it('raises a cardiac red flag for "the pain is crushing and radiating to the left arm"', async () => {
+    const { checkRedFlags } = await import('../src/lib/red-flags');
+    expect(checkRedFlags('Now the pain is crushing and radiating to the left arm.', 'en')).toHaveLength(1);
+    expect(checkRedFlags('No pain radiating to the arm', 'en')).toHaveLength(0);
+    expect(checkRedFlags('back pain radiating to the leg', 'en')).toHaveLength(0);
+  });
+});
+
+describe('META parsing', () => {
+  it('tolerates a stray closing brace and braces inside strings', () => {
+    const raw = `Answer [1].\n${META_DELIMITER}\n{"status":"answered","claims":[{"id":1,"excerpt":"E1","quote":"a {curly} \\"quoted\\" value"}],"follow_up":null,"missing_information":[]}}`;
+    const parsed = parseModelOutput(raw);
+    expect(parsed.meta?.claims[0].quote).toBe('a {curly} "quoted" value');
+  });
+});
+
+describe('language detection regressions', () => {
+  it('keeps English clinical sentences English and Banglish Banglish', async () => {
+    const { detectLanguage } = await import('../src/lib/language/detector');
+    expect(detectLanguage('Can I prescribe Ibuprofen or Ketorolac for high fever and body ache in suspected dengue?').lang).toBe('en');
+    expect(detectLanguage('Patient denies any chest pain, shortness of breath, or palpitations.').lang).toBe('en');
+    expect(detectLanguage('rogir 3 din dhore jor ar kashi').lang).toBe('banglish');
+    expect(detectLanguage('jor ache, kashi nai').lang).toBe('banglish');
   });
 });

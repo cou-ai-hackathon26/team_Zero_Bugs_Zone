@@ -1,13 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import { ActivityIcon, PillIcon, RotateCcwIcon, SparklesIcon, StethoscopeIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
+import { RotateCcwIcon, SparklesIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Alert, AlertAction, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import {
   MessageScroller,
   MessageScrollerButton,
@@ -66,7 +66,7 @@ function useAcknowledged(caseId: string) {
 }
 
 /** Claude/ChatGPT-style case conversation backed by POST /api/cases/[id]/chat. */
-export function CaseChat({ caseId, caseData, turns, onTurnsUpdate, onCaseUpdate }: CaseChatProps) {
+export function CaseChat({ caseId, turns, onTurnsUpdate, onCaseUpdate }: CaseChatProps) {
   const locale = (useLocale() === 'en' ? 'en' : 'bn') as 'bn' | 'en';
   const t = useTranslations('chat');
   const { openVoicePanel, speakText } = useVoice();

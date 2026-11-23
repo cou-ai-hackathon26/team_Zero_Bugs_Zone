@@ -29,6 +29,8 @@ export const RED_FLAG_RULES: RedFlagRule[] = [
       /(?:^|[^\p{L}\p{N}])(chest\s+pain\s+(?:radiat|spread)\w*|crushing\s+(?:substernal\s+)?chest\s+pain|substernal\s+chest\s+pain|severe\s+chest\s+pain|acute\s+coronary\s+syndrome)(?=[^\p{L}\p{N}]|$)/giu,
       /(?:^|[^\p{L}\p{N}])(বুকে\s+(?:তীব্র|মারাত্মক|প্রচণ্ড)\s+(?:চাপযুক্ত\s+|চাপ\s+ধরা\s+)?ব্যথা|বুকের\s+ব্যথা\s+(?:বাম\s+হাতে|বাহুতে|চোয়ালে)\s+ছড়াচ্ছে|বাম\s+বাহুতে\s+ছড়িয়ে|বুকের\s+(?:মাঝখানে\s+)?চাপ\s+ধরা\s+ব্যথা)(?=[^\p{L}\p{N}]|$)/giu,
       /(?:^|[^\p{L}\p{N}])(buke\s+(?:tibro|procando|marattok)?\s*betha|crushing\s+chest\s+pain|chest\s+pain\s+radiat\w*)(?=[^\p{L}\p{N}]|$)/giu,
+      // "the pain is crushing", "pain radiating to the left arm / jaw"
+      /(?:^|[^\p{L}\p{N}])((?:chest\s+)?pain\s+(?:is\s+|feels\s+)?(?:crushing|squeezing)|(?:pain|discomfort)[^.!?\n]{0,40}?radiat\w*\s+(?:to|into|down)\s+(?:the\s+)?(?:left\s+)?(?:arm|jaw|shoulder|neck))(?=[^\p{L}\p{N}]|$)/giu,
     ],
   },
   {

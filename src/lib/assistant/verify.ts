@@ -45,16 +45,43 @@ export function parseModelOutput(raw: string): ParsedModelOutput {
     .replace(/^\s*```(?:json)?/i, '')
     .replace(/```\s*$/, '')
     .trim();
-  const start = jsonText.indexOf('{');
-  const end = jsonText.lastIndexOf('}');
-  if (start === -1 || end <= start) return { answer, meta: null };
+  const objectText = firstJsonObject(jsonText);
+  if (!objectText) return { answer, meta: null };
 
   try {
-    const parsed = metaSchema.safeParse(JSON.parse(jsonText.slice(start, end + 1)));
+    const parsed = metaSchema.safeParse(JSON.parse(objectText));
     return { answer, meta: parsed.success ? parsed.data : null };
   } catch {
     return { answer, meta: null };
   }
+}
+
+/**
+ * Returns the first balanced {...} object, ignoring braces inside strings.
+ * Models sometimes add a stray closing brace or trailing text after the JSON.
+ */
+export function firstJsonObject(text: string): string | null {
+  const start = text.indexOf('{');
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < text.length; index++) {
+    const char = text[index];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === '\\') escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') inString = true;
+    else if (char === '{') depth++;
+    else if (char === '}') {
+      depth--;
+      if (depth === 0) return text.slice(start, index + 1);
+    }
+  }
+  return null;
 }
 
 const MARKER = /\[(\d{1,3})\]/g;
@@ -69,7 +96,11 @@ function wordCount(text: string): number {
 }
 
 function splitLineIntoSentences(line: string): string[] {
-  return line.split(/(?<=[.!?।](?:\s?\[\d{1,3}\])*)\s+/u).filter((part) => part.trim().length > 0);
+  return line.split(/(?<=[.!?।](?:\s?\[\d{1,3}\])*)\s+(?!\[\d)/u).filter((part) => part.trim().length > 0);
+}
+
+function toAsciiDigits(text: string): string {
+  return text.replace(/[০-৯]/g, (digit) => String(digit.charCodeAt(0) - 0x09e6));
 }
 
 /** Lowercase, strip Markdown and punctuation; keeps letters, digits and marks. */
@@ -162,7 +193,7 @@ export interface VerifiedAnswer {
  * - a sentence or bullet is kept when all its markers verify, or when a library
  *   sentence supports it word for word (it is then cited to that sentence);
  * - otherwise only a short list intro ending in ":" survives (or social small talk);
- * - dose strings survive only when they appear in the supporting quote.
+ * - doses and every other number survive only when they appear in the supporting quote.
  * Surviving markers are renumbered 1..n in reading order.
  */
 export function verifyModelAnswer(
@@ -233,7 +264,12 @@ export function verifyModelAnswer(
 
   const dosesSupported = (plain: string, quotes: string[]): boolean => {
     const doses = plain.match(DOSE) ?? [];
-    return doses.every((dose) => quotes.some((quote) => looseNormalize(quote).includes(looseNormalize(dose))));
+    if (!doses.every((dose) => quotes.some((quote) => looseNormalize(quote).includes(looseNormalize(dose))))) return false;
+    // Every number in a cited sentence (thresholds, durations, doses) must come
+    // from the quote it cites. Bangla digits are compared as ASCII.
+    const quoteNumbers = new Set(quotes.flatMap((quote) => toAsciiDigits(quote).match(/\d+(?:[.,]\d+)*/g) ?? []));
+    const sentenceNumbers = toAsciiDigits(plain.replace(MARKER, '')).match(/\d+(?:[.,]\d+)*/g) ?? [];
+    return sentenceNumbers.every((number) => quoteNumbers.has(number) || quoteNumbers.has(number.replace(/,/g, '')));
   };
 
   let droppedSentences = 0;

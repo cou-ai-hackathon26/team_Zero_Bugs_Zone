@@ -52,7 +52,10 @@ export function bestSentences(text: string, terms: string[], max = 2): string[] 
     const score = terms.reduce((total, term) => total + (lower.includes(term) ? 1 : 0), 0);
     return { sentence, index, score };
   });
+  // Without a model, a sentence is quoted only when it shares at least two key
+  // terms with the question (one for very short questions). Otherwise the chunk
+  // is skipped and the reply abstains rather than quoting loosely related text.
+  const minimum = terms.length >= 3 ? 2 : 1;
   const top = [...scored].sort((a, b) => b.score - a.score || a.index - b.index).slice(0, max);
-  if (top.every((entry) => entry.score === 0)) return [sentences[0]];
-  return top.filter((entry) => entry.score > 0).sort((a, b) => a.index - b.index).map((entry) => entry.sentence);
+  return top.filter((entry) => entry.score >= minimum).sort((a, b) => a.index - b.index).map((entry) => entry.sentence);
 }

@@ -82,8 +82,8 @@ export function excerptAnswer(
   if (claims.length === 0) return { text: '', claims };
   const intro = localized(
     locale,
-    'লাইব্রেরিতে যা পেয়েছি, হুবহু উদ্ধৃতি দিচ্ছি:',
-    'Here is what the library says, quoted word for word:',
+    'পূর্ণ উত্তর তৈরি করা যায়নি। লাইব্রেরির সবচেয়ে কাছের অংশগুলো হুবহু দিচ্ছি, যাচাই করে দেখুন:',
+    "I couldn't write a full answer, so here are the closest library passages, quoted word for word:",
   );
   return { text: [intro, '', ...lines].join('\n').trim(), claims };
 }
@@ -287,6 +287,9 @@ export async function runAssistantTurn(
     }
 
     // Model failed or returned no usable META block: discard the draft.
+    if (process.env.DOCMATE_DEBUG_ASSISTANT === '1') {
+      console.warn(`[assistant] model output unusable (${failed ? 'stream error' : 'no valid META'}), ${raw.length} chars; tail: ${raw.slice(-300)}`);
+    }
     emit({ type: 'reset' });
     emit({ type: 'trace', step: 'generate', status: 'error' });
   }
@@ -300,11 +303,11 @@ export async function runAssistantTurn(
   }
 
   const fallback = excerptAnswer(excerpts, queries, locale);
-  const answered = fallback.claims.length > 0;
+  const found = fallback.claims.length > 0;
   return {
     ...base,
-    text: answered ? fallback.text : noEvidenceText(locale, input.tone, sessionId),
-    status: answered ? 'answered' : 'insufficient_evidence',
+    text: found ? fallback.text : noEvidenceText(locale, input.tone, sessionId),
+    status: found ? 'excerpts' : 'insufficient_evidence',
     mode: 'library_excerpts',
     claims: fallback.claims,
     followUp: deterministicFollowUp(input.patient, input.context.followUps, locale, input.text, proposedUpdates),

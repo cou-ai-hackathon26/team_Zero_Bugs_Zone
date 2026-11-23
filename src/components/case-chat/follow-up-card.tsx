@@ -3,7 +3,6 @@
 import * as React from 'react';
 import { MessageCircleQuestionIcon, SendIcon } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group';
 import type { MissingInformation } from '@/types';

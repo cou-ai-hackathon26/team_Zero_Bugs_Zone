@@ -6,6 +6,8 @@ export type ReplyLocale = 'bn' | 'en';
 
 export type AssistantStatus =
   | 'answered'
+  /** Verbatim related passages without a synthesized answer (no model, or the model failed). */
+  | 'excerpts'
   | 'insufficient_evidence'
   | 'social'
   | 'system'

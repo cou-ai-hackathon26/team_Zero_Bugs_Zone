@@ -57,7 +57,7 @@ test.describe('Offline synthetic release guardrails', () => {
     );
     await page.getByRole('dialog').getByRole('button', { name: 'Proceed to Treatment Planning' }).click();
     expect((await diagnosis).ok()).toBe(true);
-    await expect(page.getByText('Treatment suggestions are unavailable', { exact: false })).toBeVisible();
+    await expect(page.getByText('Treatment suggestions require verified formulary data', { exact: false })).toBeVisible();
     const finalization = await page.request.post(`/api/cases/${id}/finalize`);
     expect(finalization.status()).toBe(409);
     await page.getByRole('tab', { name: 'Safety Checks' }).click();
@@ -73,7 +73,7 @@ test.describe('Offline synthetic release guardrails', () => {
     const question = page.getByRole('textbox');
     await question.fill('quantum entanglement');
     await question.press('Enter');
-    await expect(page.getByText('This clinical query could not be substantiated', { exact: false })).toBeVisible();
+    await expect(page.getByText('No library match found', { exact: false })).toBeVisible();
     await question.fill('amoxicillin');
     await question.press('Enter');
     await expect(page.getByText('The library contains the following matching source excerpts.')).toBeVisible();
