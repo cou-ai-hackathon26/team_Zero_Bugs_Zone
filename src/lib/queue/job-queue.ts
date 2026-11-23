@@ -136,7 +136,7 @@ export class JobQueue {
 
   async retryJob(jobId: string): Promise<void> {
     const existing = await this.getJob(jobId);
-    const existingLogs = Array.isArray(existing?.metadata?.logs) ? (existing!.metadata.logs as any[]) : [];
+    const existingLogs = Array.isArray(existing?.metadata?.logs) ? (existing!.metadata.logs as Record<string, unknown>[]) : [];
     const retryLog = {
       timestamp: new Date().toISOString(),
       stage: 'queued',

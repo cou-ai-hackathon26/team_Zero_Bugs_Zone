@@ -48,7 +48,6 @@ import {
   CopyCheck,
   Sparkles,
   Info,
-  ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 

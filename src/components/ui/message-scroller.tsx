@@ -8,6 +8,7 @@ import { ArrowDownIcon } from "lucide-react";
 interface MessageScrollerContextValue {
   viewportRef: React.RefObject<HTMLDivElement | null>;
   isAtBottom: boolean;
+  setIsAtBottom?: (atBottom: boolean) => void;
   scrollToBottom: (smooth?: boolean) => void;
   scrollToTop: (smooth?: boolean) => void;
 }
@@ -87,6 +88,7 @@ export function MessageScrollerProvider({
     () => ({
       viewportRef,
       isAtBottom,
+      setIsAtBottom,
       scrollToBottom,
       scrollToTop,
     }),
@@ -100,7 +102,7 @@ export function MessageScrollerProvider({
   );
 }
 
-export interface MessageScrollerProps extends React.HTMLAttributes<HTMLDivElement> {}
+export type MessageScrollerProps = React.HTMLAttributes<HTMLDivElement>;
 
 export function MessageScroller({ className, children, ...props }: MessageScrollerProps) {
   return (
@@ -117,7 +119,7 @@ export function MessageScroller({ className, children, ...props }: MessageScroll
   );
 }
 
-export interface MessageScrollerViewportProps extends React.HTMLAttributes<HTMLDivElement> {}
+export type MessageScrollerViewportProps = React.HTMLAttributes<HTMLDivElement>;
 
 export function MessageScrollerViewport({
   className,
@@ -135,7 +137,7 @@ export function MessageScrollerViewport({
       const el = e.currentTarget;
       const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 48;
       if (context && context.isAtBottom !== atBottom) {
-        // tracking scroll position
+        context.setIsAtBottom?.(atBottom);
       }
     },
     [onScroll, context]
@@ -157,7 +159,7 @@ export function MessageScrollerViewport({
   );
 }
 
-export interface MessageScrollerContentProps extends React.HTMLAttributes<HTMLDivElement> {}
+export type MessageScrollerContentProps = React.HTMLAttributes<HTMLDivElement>;
 
 export function MessageScrollerContent({ className, children, ...props }: MessageScrollerContentProps) {
   return (

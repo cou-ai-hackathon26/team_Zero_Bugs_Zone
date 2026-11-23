@@ -77,7 +77,7 @@ export function humanize(
   safetyAlerts: SafetyAlert[] = []
 ): HumanizedResult {
   const isBn = locale === 'bn';
-  const activePreset = prefs.tone_preset || persona.defaultPreset || (persona as any).preset || 'friendly';
+  const activePreset = prefs.tone_preset || persona.defaultPreset || 'friendly';
   const doctorTitle = formatDoctorTitle(prefs.address_style, locale, context.userName);
   const signals = analyzeDoctorInput(doctorInputText, context, safetyAlerts);
 
