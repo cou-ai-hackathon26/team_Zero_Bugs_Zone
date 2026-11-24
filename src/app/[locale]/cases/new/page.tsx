@@ -597,8 +597,13 @@ function NewCaseContent() {
     });
   }
 
-  const hasDemographics = /^P-[0-9]{3,8}$/.test(patientCode.trim()) &&
-    age !== '' && Number.isInteger(age) && age >= 0 && age <= 130 && gender !== '';
+  const hasDemographics =
+    /^[Pp]-(?:[0-9A-Za-z]+-)*[0-9A-Za-z]+$/.test(patientCode.trim()) &&
+    age !== '' &&
+    !isNaN(Number(age)) &&
+    Number(age) >= 0 &&
+    Number(age) <= 130 &&
+    gender !== '';
 
   const handleSubmit = async () => {
     if (!hasDemographics) {
@@ -616,7 +621,7 @@ function NewCaseContent() {
     setLoading(true);
 
     const structuredPayload: StructuredPatientInput = {
-      age,
+      age: Number(age),
       gender,
       weight_kg: weightKg && !isNaN(Number(weightKg)) && Number(weightKg) > 0 ? Number(weightKg) : undefined,
       chief_complaint: chiefComplaint.trim(),
@@ -652,12 +657,12 @@ function NewCaseContent() {
           spo2Percent && !isNaN(Number(spo2Percent)) && Number(spo2Percent) >= 0 && Number(spo2Percent) <= 100 ? Number(spo2Percent) : undefined,
       },
       lab_values: labValues
-        .filter((l) => l.name && l.name.trim() !== '' && l.value !== '' && l.value !== undefined)
+        .filter((l) => l.name && l.name.trim() !== '' && l.value !== '' && l.value !== undefined && String(l.value).trim() !== '')
         .map((l) => ({
           name: l.name.trim(),
           value: typeof l.value === 'number' ? l.value : String(l.value).trim(),
           unit: (l.unit || '').trim(),
-          reference_range: (l.reference_range || '').trim() || undefined,
+          reference_range: l.reference_range && String(l.reference_range).trim() !== '' ? String(l.reference_range).trim() : undefined,
         })),
       is_pregnant: isPregnant,
       pregnancy_trimester: isPregnant ? (Number(pregnancyTrimester) as 1 | 2 | 3) : undefined,
@@ -671,7 +676,7 @@ function NewCaseContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          patient_code: patientCode,
+          patient_code: patientCode.trim().toUpperCase(),
           profile_id: linkedProfileId || undefined,
           structured_input: structuredPayload,
         }),
@@ -704,7 +709,9 @@ function NewCaseContent() {
       toast.success(locale === 'bn' ? 'কেস সফলভাবে তৈরি হয়েছে এবং এআই বিশ্লেষণ সম্পন্ন' : 'Patient case created & diagnostic evaluation started');
       router.push(`/cases/${caseId}`);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Error starting analysis');
+      const msg = err instanceof Error ? err.message : 'Error starting analysis';
+      console.error('Case submission error:', err);
+      toast.error(msg, { duration: 6000 });
       setLoading(false);
     }
   };

@@ -85,9 +85,10 @@ export async function POST(request: Request) {
     const user = await requirePhysician();
     if (user instanceof NextResponse) return user;
 
-    const input = caseInput.safeParse(await boundedJson(request));
+    const rawBody = await boundedJson(request);
+    const input = caseInput.safeParse(rawBody);
     if (!input.success) {
-      console.error('[API /api/cases Validation Error]:', input.error.format());
+      console.error('[API /api/cases Validation Error]:', JSON.stringify(input.error.issues, null, 2));
       return NextResponse.json(
         {
           error: 'Invalid synthetic case input',
@@ -122,7 +123,9 @@ export async function POST(request: Request) {
 
       return NextResponse.json({ case: newCase });
     });
-  } catch {
-    return NextResponse.json({ error: 'Failed to create case' }, { status: 500 });
+  } catch (err: unknown) {
+    console.error('[API /api/cases Exception]:', err);
+    const message = err instanceof Error ? err.message : 'Failed to create case';
+    return NextResponse.json({ error: 'Failed to create case', details: message }, { status: 500 });
   }
 }

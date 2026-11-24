@@ -29,7 +29,7 @@ export function GlobalSearchCommand({ role }: { role?: UserRole }) {
 
   useEffect(() => {
     const down = (event: KeyboardEvent) => {
-      if (event.key && event.key.toLowerCase() === 'k' && (event.metaKey || event.ctrlKey)) {
+      if (typeof event?.key === 'string' && event.key.toLowerCase() === 'k' && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         setOpen((previous) => !previous);
         setValue('');
