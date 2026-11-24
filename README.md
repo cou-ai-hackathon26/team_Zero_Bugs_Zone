@@ -31,18 +31,21 @@
 1. [Executive Summary & Problem Statement](#-executive-summary--problem-statement)
 2. [Key Clinical Innovations & Safety Architecture](#-key-clinical-innovations--safety-architecture)
 3. [Visual Product Tour (Screenshots)](#-visual-product-tour)
-4. [Core Features & System Capabilities](#-core-features--system-capabilities)
-5. [Clinical Role Matrix & Demo Credentials](#-clinical-role-matrix--demo-credentials)
-6. [System Architecture & Data Pipeline](#-system-architecture--data-pipeline)
-7. [Bilingual (Bangla & English) & Banglish Engine](#-bilingual-bangla--english-native-experience)
-8. [Voice Assistant & Interactive Avatars](#-voice-assistant--interactive-avatars)
-9. [Patient-Centric Health Records & Consent Flow](#-patient-centric-health-records--consent-flow)
-10. [Local Development & Quickstart](#-local-development--quickstart)
-11. [Production Deployment (Render, Vercel & Docker)](#-production-deployment)
-12. [Testing, Benchmarks & QA Compliance](#-testing-benchmarks--qa-compliance)
-13. [Project Structure](#-project-structure)
-14. [Comprehensive Documentation Index](#-comprehensive-documentation-index)
-15. [Hackathon & Team Credits](#-hackathon--team-credits)
+4. [🤖 AI Models, Vision & Audio Technologies Used](#-ai-models-vision--audio-technologies-used)
+5. [⚙️ How DocMate AI Works Under The Hood (Machine Execution Lifecycle)](#️-how-docmate-ai-works-under-the-hood-machine-execution-lifecycle)
+6. [Core Features & System Capabilities](#-core-features--system-capabilities)
+7. [Clinical Role Matrix & Demo Credentials](#-clinical-role-matrix--demo-credentials)
+8. [System Architecture & Data Pipeline](#-system-architecture--data-pipeline)
+9. [Bilingual (Bangla & English) & Banglish Engine](#-bilingual-bangla--english-native-experience)
+10. [Voice Assistant & Interactive Avatars](#-voice-assistant--interactive-avatars)
+11. [Patient-Centric Health Records & Consent Flow](#-patient-centric-health-records--consent-flow)
+12. [Local Development & Quickstart](#-local-development--quickstart)
+13. [Production Deployment (Render, Vercel & Docker)](#-production-deployment)
+14. [Testing, Benchmarks & QA Compliance](#-testing-benchmarks--qa-compliance)
+15. [Project Structure](#-project-structure)
+16. [Comprehensive Documentation Index](#-comprehensive-documentation-index)
+17. [🔗 External Resources, Model Weights & Guidelines](#-external-resources-model-weights--guidelines)
+18. [Hackathon & Team Credits](#-hackathon--team-credits)
 
 ---
 
@@ -131,6 +134,162 @@ High-resolution screenshots captured directly from the running DocMate AI platfo
 ### 6. Bilingual Clinical Authentication
 *Fast persona switching for evaluation and role-based access control.*
 ![Authentication](docs/screenshots/01_login_bn.png)
+
+---
+
+## 🤖 AI Models, Vision & Audio Technologies Used
+
+DocMate AI combines large language models, dense vector embeddings, local offline neural speech synthesis, WebAssembly-based optical character recognition, and deterministic rule algorithms into a unified clinical pipeline:
+
+```
+┌───────────────────────────────────────────────────────────────────────────────────────┐
+│                             DOCMATE AI MODEL MATRIX                                  │
+├─────────────────────────┬───────────────────────────────┬─────────────────────────────┤
+│ Capability              │ Model / Technology            │ Role & Execution Layer      │
+├─────────────────────────┼───────────────────────────────┼─────────────────────────────┤
+│ Primary Clinical LLM    │ OpenAI GPT-4o / GPT-4o-mini   │ Differential synthesis,     │
+│                         │ (temp: 0.1, max_tokens: 1200) │ strict cited output         │
+├─────────────────────────┼───────────────────────────────┼─────────────────────────────┤
+│ Alternative Providers   │ Google Gemini (1.5 Pro/Flash) │ Multi-provider fallback via │
+│                         │ Anthropic Claude 3.5 Sonnet   │ OpenAI-compatible API layer │
+├─────────────────────────┼───────────────────────────────┼─────────────────────────────┤
+│ Dense Vector Embeddings │ text-embedding-3-small        │ 1536-dim semantic retrieval │
+│                         │ (Cosine Similarity Metric)    │ indexed in pgvector         │
+├─────────────────────────┼───────────────────────────────┼─────────────────────────────┤
+│ Local Neural TTS Voice  │ Maya 2 Native (4-bit Quant.)  │ Zero-cost local Bangla &    │
+│                         │ (HuggingFace: maya2-native)   │ English clinical speech     │
+├─────────────────────────┼───────────────────────────────┼─────────────────────────────┤
+│ Cloud Speech Synthesis  │ Microsoft Edge-TTS            │ Realistic Bangla audio:     │
+│                         │ (PradeepNeural, Nabanita)     │ bn-BD-PradeepNeural         │
+├─────────────────────────┼───────────────────────────────┼─────────────────────────────┤
+│ Prescription Vision/OCR │ Tesseract.js (Wasm / Node.js) │ Bilingual 'eng+ben' OCR for │
+│                         │ with tessdata/ben.traineddata │ scanned Rx & lab slips      │
+├─────────────────────────┼───────────────────────────────┼─────────────────────────────┤
+│ PDF Document Engine     │ pdfjs-dist & pdf-parse        │ Rasterization & in-memory   │
+│                         │                               │ page text extraction        │
+├─────────────────────────┼───────────────────────────────┼─────────────────────────────┤
+│ Near-Duplicate Detector │ SimHash 64-bit Fingerprint    │ Fast guideline revisioning  │
+│                         │ (Hamming Distance ≤ 3)        │ and deduplication           │
+├─────────────────────────┼───────────────────────────────┼─────────────────────────────┤
+│ Clinical Verifier Gate  │ Deterministic TypeScript Engine│ Verbatim quote substring   │
+│                         │ (Zero Hallucination Gate)     │ normalized comparison       │
+└─────────────────────────┴───────────────────────────────┴─────────────────────────────┘
+```
+
+### 1. Large Language Models (LLM Layer)
+- **OpenAI GPT-4o-mini / GPT-4o**: Serving as the primary clinical reasoning engine. It operates with a **temperature of `0.1`** to enforce near-deterministic output and minimize creative divergence.
+- **Multi-Provider Fallback**: Configurable through `/admin/ai` to support **Google Gemini** (`generativelanguage.googleapis.com`), **Anthropic Claude**, or self-hosted local models (via Ollama, vLLM, or LMStudio).
+- **Zero-Model Fallback Mode (`excerptAnswer`)**: If no API key is provided or external networks fail, the engine runs completely offline, extracting relevant sentences from top retrieved guideline chunks with guaranteed verbatim validity.
+
+### 2. Dense Vector Embeddings & Hybrid Search
+- **`text-embedding-3-small`**: Generates 1536-dimensional embeddings for each clinical chunk.
+- **Cosine Distance ($1 - \text{cosine\_dist} \ge 0.30$)**: Enforces high semantic relevance before any candidate passage is considered.
+- **Reciprocal Rank Fusion (RRF)**: Merges dense vector rankings with BM25 full-text keyword searches (`websearch_to_tsquery` and `plainto_tsquery`) to ensure exact drug and dosage matching.
+
+### 3. Speech & Voice Technologies (Maya Neural Voice & Edge-TTS)
+- **Maya 2 Native Local Speech (`maya2-mlx` / `maya2-native`)**: An open-weights neural speech synthesis model quantized to 4-bit precision, serving locally on port `8319`. Enables 100% private, on-premise clinical voice output with zero audio data transmitted to external clouds.
+- **Edge-TTS Cloud Fallback**: Generates natural speech using authentic Bangladeshi voices (`bn-BD-PradeepNeural` and `bn-BD-NabanitaNeural`).
+- **Web Speech API**: Zero-latency client-side voice recognition and read-aloud fallback.
+
+### 4. Vision & OCR Ingestion Engine
+- **Tesseract.js Engine**: Runs inside a Node.js worker with WebAssembly binaries. Uses both English (`eng`) and Bengali (`ben`) trained models to read handwritten and printed diagnostic slips, prescriptions, and medical reports.
+- **Document Chunking Pipeline**: Splits medical documents into chunks of up to 500 words with 10% overlap, maintaining section hierarchy and citation provenance.
+
+---
+
+## ⚙️ How DocMate AI Works Under The Hood (Machine Execution Lifecycle)
+
+Understanding what happens inside the machine when a doctor inputs patient findings:
+
+```
+[Doctor Types / Speaks]
+         │
+         ▼
+ 1. NLU Preprocessor ──────────► [Phonetic Normalization & Negation Parsing]
+         │
+         ▼
+ 2. Safety Red-Flag Gate ──────► [Emergency Alert Check: Acute Chest Pain / Shock]
+         │
+         ▼
+ 3. Search Query Translator ───► [Cached Bangla/Banglish -> Standardized Medical English]
+         │
+         ▼
+ 4. Hybrid RAG Search ─────────► [PostgreSQL: pgvector Cosine Sim + tsvector BM25]
+         │                       (Combined using Reciprocal Rank Fusion)
+         ▼
+ 5. Untrusted Prompt Assembly ─► [Encapsulate Cases in Immutable XML Blocks]
+         │
+         ▼
+ 6. LLM Streaming Engine ──────► [OpenAI / Gemini / Local Model at temp: 0.1]
+         │
+         ▼
+ 7. Deterministic Code Verifier► [Whitespace-Normalized Chunk Verification]
+         │                       (Unverified claims stripped; Insufficiency handled)
+         ▼
+ 8. Deterministic Drug Safety ─► [DGDA Interactions, eGFR, Age, Allergy Engine]
+         │
+         ▼
+ 9. SSE Streaming UI ──────────► [Server-Sent Events -> Dual-Language Display]
+         │
+         ▼
+10. Voice & Mood Avatar ───────► [Edge-TTS / Maya Neural Voice + Dynamic SVGs]
+```
+
+### Detailed Execution Steps:
+
+#### Step 1: Input Intake & NLU Preprocessing (`src/lib/language/`)
+- When a doctor types or dictates findings (e.g., *"Patient has high fever for 4 days, buke kono betha nai, bp 110/70"*):
+- The **Phonetic Normalizer** detects Romanized Bangla (Banglish) terms like *"buke"*, *"betha"*, *"jor"*, converting them to clinical concepts.
+- The **Negation Parser (`isTermNegated`)** checks context windows around key terms. It identifies *"kono betha nai"* (no pain) as an active negation, successfully suppressing false-positive cardiac alerts.
+
+#### Step 2: Red-Flag Emergency Triage (`src/lib/red-flags.ts`)
+- A deterministic rule engine checks for critical life-threatening conditions (e.g., unnegated acute central chest pain radiating to the left arm, oxygen saturation $< 90\%$, systolic BP $< 90\text{ mmHg}$).
+- If triggered, an immediate blocking alert is pinned to the clinician's workspace before further generation proceeds.
+
+#### Step 3: Canonical English Query Generation (`src/lib/assistant/llm.ts`)
+- The internal guideline library is curated in standardized medical English.
+- The query translator converts colloquial inputs into concise search terms (e.g., *"high fever 4 days"* $\rightarrow$ `"dengue fever prolonged pyrexia clinical protocol"`).
+- Queries are cached in an LRU memory store to reduce external latency and API token consumption.
+
+#### Step 4: Hybrid RAG with Reciprocal Rank Fusion (`src/lib/retrieval.ts`)
+The system simultaneously executes two queries against PostgreSQL 16:
+1. **Dense Vector Search**: Generates a 1536-dimensional query vector and searches `chunks` using cosine distance:
+   $$\text{Score}_{\text{vec}} = 1 - (c.\text{embedding} \Leftrightarrow q_{\text{vec}})$$
+2. **Sparse Lexical Search**: Runs `websearch_to_tsquery` and keyword-OR expansions against `tsvector` indexes.
+3. **Reciprocal Rank Fusion (RRF)**: Blends both rankings using the standard RRF formula:
+   $$RRF(d) = \sum_{m \in \{\text{vector}, \text{text}\}} \frac{1}{60 + \text{rank}_m(d)}$$
+Only published, active chunks from authorized sources are retained.
+
+#### Step 5: Untrusted Prompt Assembly (`src/lib/assistant/prompt.ts`)
+- Doctor notes and patient inputs are wrapped inside `<untrusted_clinical_data>` tags to prevent prompt injection.
+- The system prompt strictly bounds the LLM: *"You have no outside knowledge. Answer strictly using only the provided library excerpts. If the excerpts do not contain the answer, declare insufficient evidence."*
+
+#### Step 6: Low-Temperature LLM Streaming (`src/lib/assistant/engine.ts`)
+- The LLM streams tokens back over Server-Sent Events (SSE).
+- The model outputs structured candidate diagnoses, each paired with candidate claims and explicit `[chunk_id]` references.
+
+#### Step 7: Deterministic Verbatim Code Verification Gate (`src/lib/verifier.ts`)
+- **Deterministic Code Verification**: Every quote candidate is verified against the database chunk text:
+  ```typescript
+  export function verifyQuoteInChunk(quote: string, chunkText: string): boolean {
+    const normalizedQuote = quote.replace(/\s+/g, ' ').trim();
+    const normalizedChunk = chunkText.replace(/\s+/g, ' ').trim();
+    return normalizedQuote.length > 0 && normalizedChunk.includes(normalizedQuote);
+  }
+  ```
+- If a sentence claims evidence not found verbatim in that chunk, **the claim is immediately dropped**.
+- If the remaining evidence does not meet certainty criteria, the case status transitions to **`insufficient_evidence`** with generated follow-up questions.
+
+#### Step 8: Deterministic Drug Safety Engine (`src/lib/safety-engine.ts`)
+- When treatments or prescriptions are considered, the deterministic TypeScript engine queries:
+  - **Allergies Table**: Cross-checks penicillin, sulfa, and NSAID hypersensitivities.
+  - **DGDA Interactions**: Evaluates drug-drug combinations (e.g., Ciprofloxacin + Theophylline $\rightarrow$ CYP1A2 inhibition risk).
+  - **Renal & Age Safety**: Evaluates contraindications against patient age and estimated Glomerular Filtration Rate (eGFR).
+
+#### Step 9: Real-Time SSE Streaming & Mood Synchronization
+- The verified assessment streams to the doctor's browser.
+- Interactive SVG avatars switch states dynamically: `docmate-thinking` $\rightarrow$ `docmate-explaining` $\rightarrow$ `docmate-understood`.
+- Audio streams concurrently via Edge-TTS or the local Maya neural voice model.
 
 ---
 
@@ -418,6 +577,30 @@ Explore our in-depth engineering and clinical specifications:
 - 📖 **[Voice & Bedside Tone (VOICE_AND_TONE.md)](docs/VOICE_AND_TONE.md)** — Empathetic audio interaction guidelines.
 - 📖 **[Clinical Compliance & Ethics (COMPLIANCE.md)](docs/COMPLIANCE.md)** — Patient privacy, safety disclosures, and synthetic data safeguards.
 - 📖 **[Development Rules & Standards (AGENTS.md)](AGENTS.md)** — Hard engineering rules and design guidelines.
+
+---
+
+## 🔗 External Resources, Model Weights & Guidelines
+
+Key frameworks, machine learning models, medical datasets, and protocols powering DocMate AI:
+
+### AI Models & Repositories
+- **Maya 2 Native Local Neural Voice**: [Hugging Face Model Repository](https://huggingface.co/maya-research/maya2-native)
+- **Maya 2 MLX (Apple Silicon Port)**: [GitHub Repository](https://github.com/AkashKhamkar/maya2-mlx)
+- **Tesseract OCR (Bengali Data)**: [tessdata Bengali Repository](https://github.com/tesseract-ocr/tessdata/blob/main/ben.traineddata)
+- **OpenAI Platform & Embeddings**: [text-embedding-3-small Docs](https://platform.openai.com/docs/guides/embeddings)
+- **Google Gemini API**: [Gemini Interactions API](https://ai.google.dev/docs)
+
+### Clinical Guidelines & Datasets
+- **DGDA Bangladesh**: [Directorate General of Drug Administration Formulary](https://dgda.gov.bd)
+- **National Malaria & Dengue Guidelines**: Ministry of Health and Family Welfare (MOHFW), Bangladesh
+- **WHO IMCI (Integrated Management of Childhood Illness)**: [WHO Clinical Protocols](https://www.who.int/teams/maternal-newborn-child-adolescent-health-and-ageing/child-health/integrated-management-of-childhood-illness)
+- **AHA/ACC Hypertension Management Guidelines**: American Heart Association & ACC Protocols
+
+### Infrastructure & Developer Tools
+- **PostgreSQL `pgvector` Extension**: [Official pgvector GitHub](https://github.com/pgvector/pgvector)
+- **Drizzle ORM**: [Drizzle Documentation](https://orm.drizzle.team)
+- **Next.js 15 Documentation**: [Next.js App Router Guide](https://nextjs.org/docs)
 
 ---
 
