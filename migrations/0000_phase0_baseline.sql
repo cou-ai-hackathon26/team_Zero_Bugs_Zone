@@ -2,13 +2,16 @@
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Try enabling pgvector if available
+-- Try enabling pgvector if available, with fallback domain if extension not in database
 DO $$
 BEGIN
   CREATE EXTENSION IF NOT EXISTS "vector";
 EXCEPTION
   WHEN OTHERS THEN
     RAISE NOTICE 'pgvector extension could not be enabled automatically: %', SQLERRM;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'vector') THEN
+      CREATE DOMAIN vector AS real[];
+    END IF;
 END $$;
 
 -- 1. Users

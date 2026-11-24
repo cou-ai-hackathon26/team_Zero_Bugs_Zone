@@ -40,13 +40,11 @@ COPY --from=builder /app/messages ./messages
 COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/migrations ./migrations
 
-RUN mkdir -p /app/data/storage && chown -R nextjs:nodejs /app/data
+RUN chmod +x ./scripts/*.sh 2>/dev/null || true
+RUN mkdir -p /app/data/storage && chown -R nextjs:nodejs /app/data /app/scripts
 
 USER nextjs
 
 EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/bn/login || exit 1
-
-CMD ["sh", "-c", "node scripts/migrate.mjs && node_modules/.bin/next start"]
+CMD ["sh", "scripts/start.sh"]

@@ -14,6 +14,7 @@ export const pool =
     connectionString,
     max: 10,
     idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
     ssl: isLocal ? false : { rejectUnauthorized: false },
   });
 
