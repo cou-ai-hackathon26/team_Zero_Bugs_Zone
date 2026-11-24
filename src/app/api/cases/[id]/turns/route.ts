@@ -11,7 +11,10 @@ import { understandText } from '@/lib/language';
 import { detectSystemQuery } from '@/lib/system-query';
 import { checkRedFlags } from '@/lib/red-flags';
 import { buildRetrievalQueries } from '@/lib/assistant/query-builder';
-import { MissingInformation, SafetyAlert, StructuredPatientInput, DecisionChip, ClinicalScoreResult } from '@/types';
+import { generateAdaptiveFollowUpQuestions } from '@/lib/clinical/follow-up-engine';
+import { interpretLabPanel } from '@/lib/clinical/lab-engine';
+import { evaluateAllDiseaseReasoning } from '@/lib/clinical/disease-reasoning';
+import type { MissingInformation, SafetyAlert, StructuredPatientInput, DecisionChip, ClinicalScoreResult } from '@/types';
 import { interpretLabReport } from '@/lib/clinical/report-interpreter';
 import { calculateCurb65, assessDengueProtocol } from '@/lib/clinical/calculators';
 import { synthesizeConsensus } from '@/lib/clinical/consensus-engine';
@@ -210,80 +213,31 @@ export async function POST(
             : 'Thank you Doctor, your response has been recorded in the case consultation.';
       }
 
-      const tGuardEffective = (effectiveLocale === 'bn' ? bn : en).analysisGuard;
-      const nextMissingInfo: MissingInformation[] = [];
+      // Adaptive Clinical Follow-Up Question Engine
+      const turnLabReport = interpretLabPanel(patientInput.lab_values || [], {
+        age: patientInput.age,
+        gender: patientInput.gender,
+        isPregnant: patientInput.is_pregnant,
+        pregnancyTrimester: patientInput.pregnancy_trimester,
+      });
+      const turnDiseaseReasoning = evaluateAllDiseaseReasoning(patientInput, turnLabReport);
 
-      const hasVitalsNow =
-        hasPreexistingVitals ||
-        answeredQuestionIds.has('vitals-followup') ||
-        proposedUpdates.some((p) => p.field_path.startsWith('vitals.'));
+      const adaptiveResult = generateAdaptiveFollowUpQuestions({
+        patient: patientInput,
+        labReport: turnLabReport,
+        diseaseReasoning: turnDiseaseReasoning,
+        answeredQuestionIds,
+        pastConversationText: pastTurnsHistory,
+        locale: effectiveLocale,
+      });
 
-      if (!hasVitalsNow) {
-        nextMissingInfo.push({
-          id: 'vitals-followup',
-          type: 'exam',
-          text: tGuardEffective.vitals,
-          why_it_helps:
-            effectiveLocale === 'bn'
-              ? 'রোগের তীব্রতা এবং কার্ডিওপালমোনারি স্থিতি মূল্যায়ন করতে'
-              : 'To assess disease severity and cardiopulmonary stability',
-          which_diagnoses_it_separates:
-            effectiveLocale === 'bn'
-              ? ['নিউমোনিয়া (Pneumonia)', 'অ্যাকিউট করোনারি সিন্ড্রোম (ACS)']
-              : ['Pneumonia', 'Acute Coronary Syndrome'],
-          quick_answers:
-            effectiveLocale === 'bn'
-              ? ['বিপি ১২০/৮০, পালস ৭৬, তাপমাত্রা স্বাভাবিক', 'বিপি ১৩০/৮৫, পালস ৮৮', 'অস্থির ভাইটালস']
-              : ['BP 120/80, Pulse 76, Afebrile', 'BP 130/85, HR 88', 'Hemodynamically unstable'],
-        });
+      // Never delay emergency escalation while collecting additional answers
+      if (adaptiveResult.hasEmergencyEscalation) {
+        const warn = effectiveLocale === 'bn' ? adaptiveResult.emergencyWarningBn : adaptiveResult.emergencyWarningEn;
+        ackText = `${warn}\n\n${ackText}`;
       }
 
-      const isRespiratory = /cough|breath|dyspnea|chest|sputum|কাশি|শ্বাস|বুক|কফ/i.test(
-        `${patientInput.chief_complaint || ''} ${(patientInput.symptoms || []).join(' ')} ${data.answer}`
-      );
-
-      if (isRespiratory && !answeredQuestionIds.has('chest-auscultation-followup')) {
-        nextMissingInfo.push({
-          id: 'chest-auscultation-followup',
-          type: 'exam',
-          text:
-            effectiveLocale === 'bn'
-              ? 'স্টেথোস্কোপে ফুসফুসের শব্দ (Auscultation) কেমন? কোনো অস্বাভাবিক ক্রেপিটেশন বা হুইজ আছে?'
-              : 'What are the chest auscultation findings? Any localized crackles, bronchial breathing, or wheezing?',
-          why_it_helps:
-            effectiveLocale === 'bn'
-              ? 'ফুসফুসে কনসলিডেশন (নিউমোনিয়া) বনাম ব্রঙ্কিয়াল বাধা (অ্যাজমা/সিওপিডি) আলাদা করতে'
-              : 'To differentiate localized consolidation (CAP) from bronchospasm (Asthma/COPD)',
-          which_diagnoses_it_separates:
-            effectiveLocale === 'bn'
-              ? ['কমিউনিটি-অ্যাকওয়ার্ড নিউমোনিয়া (CAP)', 'সিওপিডি / অ্যাজমা (COPD/Asthma)']
-              : ['Community-Acquired Pneumonia (CAP)', 'COPD / Asthma Exacerbation'],
-          quick_answers:
-            effectiveLocale === 'bn'
-              ? ['ক্রেপিটেশন বিদ্যমান (Crackles present)', 'হুইজ বিদ্যমান (Wheezing present)', 'ফুসফুসের শব্দ স্বাভাবিক (Clear)', 'বায়ু চলাচল হ্রাসপ্রাপ্ত (Decreased air entry)']
-              : ['Crackles present', 'Wheezing present', 'Clear breath sounds', 'Decreased air entry'],
-        });
-      } else if (!isRespiratory && !answeredQuestionIds.has('exam-general-followup')) {
-        nextMissingInfo.push({
-          id: 'exam-general-followup',
-          type: 'question',
-          text: tGuardEffective.exam,
-          why_it_helps:
-            effectiveLocale === 'bn'
-              ? 'শারীরিক অনুসন্ধানের ফলাফল লিপিবদ্ধ করতে'
-              : 'To document focused physical examination findings',
-          which_diagnoses_it_separates:
-            effectiveLocale === 'bn'
-              ? ['ভাইরাল বনাম ব্যাকটেরিয়াল সংক্রমণ']
-              : ['Viral vs Bacterial Etiology'],
-          quick_answers:
-            effectiveLocale === 'bn'
-              ? ['শারীরিক লক্ষণ স্থিতিশীল', 'তীব্র ব্যথা বিদ্যমান', 'কোনো জরুরি লক্ষণ নেই']
-              : ['Clinically stable', 'Severe acute discomfort', 'No emergent focal signs'],
-        });
-      }
-
-      const selectedNextFollowup = nextMissingInfo.filter((q) => !answeredQuestionIds.has(q.id)).slice(0, 1);
+      const selectedNextFollowup = adaptiveResult.suggestedFollowUpForChat ? [adaptiveResult.suggestedFollowUpForChat] : [];
 
       const humanized = humanize(
         {

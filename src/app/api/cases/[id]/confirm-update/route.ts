@@ -84,6 +84,33 @@ export async function POST(
             allergies.push(val);
           }
           updatedPatientInput.allergies = allergies;
+        } else if (path === 'examination_findings') {
+          updatedPatientInput.examination_findings = String(val);
+        } else if (path === 'past_medical_history') {
+          const pmh = [...(updatedPatientInput.past_medical_history || [])];
+          if (!pmh.includes(String(val))) pmh.push(String(val));
+          updatedPatientInput.past_medical_history = pmh;
+        } else if (path === 'current_medicines') {
+          const meds = [...(updatedPatientInput.current_medicines || [])];
+          if (!meds.includes(String(val))) meds.push(String(val));
+          updatedPatientInput.current_medicines = meds;
+        } else if (path === 'clinical_notes') {
+          updatedPatientInput.clinical_notes = `${updatedPatientInput.clinical_notes || ''}\n${String(val)}`.trim();
+        } else if (path === 'lab_values' || path.startsWith('lab_values.')) {
+          const labs = [...(updatedPatientInput.lab_values || [])];
+          const testName = targetUpdate.label_en || path.replace('lab_values.', '');
+          const existingIdx = labs.findIndex((l) => l.name.toLowerCase() === testName.toLowerCase());
+          const newLabItem = {
+            name: testName,
+            value: typeof val === 'object' && val !== null && 'value' in val ? (val as any).value : val,
+            unit: typeof val === 'object' && val !== null && 'unit' in val ? (val as any).unit : '',
+          };
+          if (existingIdx >= 0) {
+            labs[existingIdx] = newLabItem;
+          } else {
+            labs.push(newLabItem);
+          }
+          updatedPatientInput.lab_values = labs;
         }
 
         // Persist updated structured patient input

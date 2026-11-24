@@ -136,22 +136,104 @@ export function checkContraindications(
   drug: DrugRecord,
   pastHistory: string[],
   symptoms: string[],
-  age?: number
+  age?: number,
+  chiefComplaint?: string,
+  labValues?: Array<{ name: string; value: string | number; unit: string }>
 ): SafetyAlert[] {
   const alerts: SafetyAlert[] = [];
-  const clinical = [...pastHistory, ...symptoms].map(normalizeName);
-  for (const condition of drug.contraindications.conditions) {
-    const normalized = normalizeName(condition);
-    if (!normalized || !clinical.includes(normalized)) continue;
+  const clinicalTexts = [...pastHistory, ...symptoms, chiefComplaint || ''].filter(Boolean);
+  const clinical = clinicalTexts.map(normalizeName);
+  const fullText = clinicalTexts.join(' ').toLowerCase();
+
+  // Check thrombocytopenia in lab values
+  const hasThrombocytopenia = (labValues || []).some((lv) => {
+    if (/platelet/i.test(lv.name)) {
+      const num = parseFloat(String(lv.value).replace(/,/g, ''));
+      return !isNaN(num) && num < 100000;
+    }
+    return false;
+  });
+
+  const isNsaidOrAntiplatelet =
+    /nsaid|aspirin|ibuprofen|diclofenac|ketorolac|naproxen/i.test(drug.generic_name) ||
+    /nsaid|antiplatelet/i.test(drug.drug_class);
+
+  // NSAID contraindication in suspected dengue or significant thrombocytopenia
+  if (isNsaidOrAntiplatelet && (hasThrombocytopenia || /dengue/i.test(fullText))) {
     alerts.push({
-      id: `condition-${drug.id}-${normalized}`,
+      id: `contraindication-nsaid-dengue-${drug.id}`,
       drug_id: drug.id,
       drug_name: drug.generic_name,
       severity: 'critical',
       type: 'contraindication',
-      title: `Recorded contraindication: ${condition}`,
-      description: `The formulary lists this condition as a contraindication for ${drug.generic_name}.`,
+      title: `Critical Contraindication: NSAIDs Prohibited in Dengue Fever / Thrombocytopenia`,
+      description: `WHO Dengue Guidelines strictly prohibit NSAIDs (including ${drug.generic_name}) and Aspirin due to profound hemorrhagic risk, platelet dysfunction, and gastric bleeding.`,
     });
+  }
+
+  // NSAID contraindication in Acute Kidney Injury / severe renal impairment
+  const hasElevatedCreatinine = (labValues || []).some((lv) => {
+    if (/creatinine/i.test(lv.name)) {
+      const num = parseFloat(String(lv.value));
+      return !isNaN(num) && num >= 1.8;
+    }
+    return false;
+  });
+  const hasRenalFailureSigns = hasElevatedCreatinine || /oliguria|anuria|acute kidney injury|aki|renal failure/i.test(fullText);
+  if (isNsaidOrAntiplatelet && hasRenalFailureSigns) {
+    alerts.push({
+      id: `contraindication-nsaid-renal-${drug.id}`,
+      drug_id: drug.id,
+      drug_name: drug.generic_name,
+      severity: 'critical',
+      type: 'contraindication',
+      title: `Critical Contraindication: NSAIDs Prohibited in Acute Kidney Injury / Renal Impairment`,
+      description: `KDIGO Guidelines strictly contraindicate NSAIDs (${drug.generic_name}) in acute kidney injury or severe renal impairment due to risk of accelerated nephron loss and anuric renal shutdown.`,
+    });
+  }
+
+  // Paracetamol contraindication in Acute Liver Failure / severe hepatic encephalopathy
+  const hasHepaticNecrosisSigns = /liver failure|hepatic encephalopathy|cirrhosis|jaundice|acute liver/i.test(fullText);
+  if (/paracetamol|acetaminophen/i.test(drug.generic_name) && hasHepaticNecrosisSigns) {
+    alerts.push({
+      id: `contraindication-paracetamol-hepatic-${drug.id}`,
+      drug_id: drug.id,
+      drug_name: drug.generic_name,
+      severity: 'critical',
+      type: 'contraindication',
+      title: `Critical Contraindication: Paracetamol Prohibited in Acute Hepatic Failure / Severe Liver Injury`,
+      description: `Paracetamol is strictly contraindicated in severe acute liver injury and decompensated cirrhosis due to depleted glutathione and fatal toxic NAPQI accumulation.`,
+    });
+  }
+
+  for (const condition of drug.contraindications.conditions) {
+    const normalized = normalizeName(condition);
+    if (!normalized) continue;
+    // Skip duplicate Dengue alert if already flagged above
+    if (/dengue/i.test(normalized) && alerts.some((a) => a.id.includes('dengue'))) {
+      continue;
+    }
+    // Skip duplicate Renal alert if already flagged above
+    if (/renal|kidney/i.test(normalized) && alerts.some((a) => a.id.includes('renal'))) {
+      continue;
+    }
+    // Skip duplicate Hepatic alert if already flagged above
+    if (/liver|hepatic/i.test(normalized) && alerts.some((a) => a.id.includes('hepatic'))) {
+      continue;
+    }
+    if (!normalized) continue;
+    const isDirectMatch = clinical.some((c) => c.includes(normalized) || normalized.includes(c));
+    if (isDirectMatch) {
+      alerts.push({
+        id: `condition-${drug.id}-${normalized}`,
+        drug_id: drug.id,
+        drug_name: drug.generic_name,
+        severity: 'critical',
+        type: 'contraindication',
+        title: `Recorded contraindication: ${condition}`,
+        description: `The formulary lists this condition as a contraindication for ${drug.generic_name}.`,
+      });
+    }
   }
 
   const { age_min: minimum, age_max: maximum } = drug.contraindications;
@@ -200,11 +282,10 @@ export function checkRenalAdjustment(
       title: isAvoid
         ? `Renal Contraindication: eGFR ${egfr} mL/min (Threshold < ${drug.renal_adjustment.egfr_threshold})`
         : `Renal Dose Adjustment Required: eGFR ${egfr} mL/min`,
-      description: `${drug.renal_adjustment.note}. ${
-        drug.renal_adjustment.adjusted_dose
-          ? `Recommended adjusted regimen: ${drug.renal_adjustment.adjusted_dose}`
-          : ''
-      }`,
+      description: `${drug.renal_adjustment.note}. ${drug.renal_adjustment.adjusted_dose
+        ? `Recommended adjusted regimen: ${drug.renal_adjustment.adjusted_dose}`
+        : ''
+        }`,
     });
   }
 
@@ -222,7 +303,7 @@ export function evaluateDrugSafety(
   alerts.push(...checkAllergies(drug, patient.allergies || []));
   alerts.push(...checkInteractions(drug, patient.current_medicines || [], interactionsDb));
   alerts.push(...checkPregnancy(drug, patient.is_pregnant));
-  alerts.push(...checkContraindications(drug, patient.past_medical_history || [], patient.symptoms || [], patient.age));
+  alerts.push(...checkContraindications(drug, patient.past_medical_history || [], patient.symptoms || [], patient.age, patient.chief_complaint, patient.lab_values));
   alerts.push(...checkRenalAdjustment(drug, patient.egfr));
 
   const genericName = normalizeName(drug.generic_name);

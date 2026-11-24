@@ -299,7 +299,7 @@ export default function PatientProfilePage() {
               <div className="flex flex-wrap items-center gap-2.5">
                 {isProfile && (
                   <Link
-                    href={`/patients/new`}
+                    href={`/cases/new?profileId=${patient.id}&name=${encodeURIComponent(patient.name)}&age=${patient.age}&gender=${patient.gender}`}
                     className={buttonVariants({
                       className: 'min-h-11 px-4 text-xs font-bold bg-primary text-primary-foreground shadow-sm gap-1.5',
                     })}

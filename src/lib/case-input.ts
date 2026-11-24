@@ -26,8 +26,10 @@ export const caseInput = z.object({
       spo2_percent: z.number().min(0).max(100).optional(),
     }).optional().default({}),
     lab_values: z.array(z.object({
-      name: shortText, unit: z.string().max(50), value: z.union([shortText, z.number()]),
-      reference_range: shortText.optional(),
+      name: shortText,
+      unit: z.string().max(50).optional().default(''),
+      value: z.union([shortText, z.number()]),
+      reference_range: z.string().trim().max(250).optional().nullable().transform((v) => (v && v.length > 0 ? v : undefined)),
     })).max(50).optional().default([]),
     is_pregnant: z.boolean().optional(),
     pregnancy_trimester: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),

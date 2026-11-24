@@ -27,13 +27,13 @@ export async function GET(
 
     // Get latest analysis
     const latestAnalysis = await db.query.analyses.findFirst({
-      where: and(eq(analyses.caseId, id), eq(analyses.model, abstentionModel)),
+      where: eq(analyses.caseId, id),
       orderBy: [desc(analyses.round)],
     });
 
     // Get all analyses for this case (history)
     const allAnalyses = await db.query.analyses.findMany({
-      where: and(eq(analyses.caseId, id), eq(analyses.model, abstentionModel)),
+      where: eq(analyses.caseId, id),
       orderBy: [desc(analyses.round)],
     });
 

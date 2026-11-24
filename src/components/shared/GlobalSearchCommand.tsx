@@ -29,7 +29,7 @@ export function GlobalSearchCommand({ role }: { role?: UserRole }) {
 
   useEffect(() => {
     const down = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() === 'k' && (event.metaKey || event.ctrlKey)) {
+      if (event.key && event.key.toLowerCase() === 'k' && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         setOpen((previous) => !previous);
         setValue('');
@@ -82,7 +82,7 @@ export function GlobalSearchCommand({ role }: { role?: UserRole }) {
     { path: '/dashboard', label: t('dashboard') },
     ...(role === 'doctor' || role === 'super_admin' ? [
       { path: '/cases', label: t('cases') },
-      { path: '/patients/new', label: t('newCase') },
+      { path: '/cases/new', label: t('newCase') },
     ] : []),
     { path: '/library', label: t('library') },
     { path: '/ask', label: t('ask') },

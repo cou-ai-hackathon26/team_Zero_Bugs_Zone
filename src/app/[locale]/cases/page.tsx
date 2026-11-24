@@ -153,7 +153,7 @@ export default function CasesPage() {
           title={t('title')}
           subtitle={t('subtitle')}
           action={
-            <Link href="/patients/new">
+            <Link href="/cases/new">
               <Button className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs">
                 <PlusCircle className="w-4 h-4" />
                 <span>{t('newIntake')}</span>
@@ -254,7 +254,7 @@ export default function CasesPage() {
                 title={getEmptyMessage()}
                 description="You can start a new patient intake or reset your search and filter criteria."
                 actionLabel={t('newIntake')}
-                onAction={() => router.push('/patients/new')}
+                onAction={() => router.push('/cases/new')}
               />
             ) : (
               <Table>

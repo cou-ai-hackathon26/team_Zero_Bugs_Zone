@@ -25,6 +25,7 @@ import {
   Users,
   Loader2,
   KeyRound,
+  Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -108,6 +109,17 @@ export default function NewPatientIntakePage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  // Forward old intake flow directly to advanced /cases/new
+  useEffect(() => {
+    if (flowStep === 'intake') {
+      if (selectedProfile) {
+        router.push(`/cases/new?profileId=${selectedProfile.id}&name=${encodeURIComponent(selectedProfile.name)}&age=${selectedProfile.age}&gender=${selectedProfile.gender}`);
+      } else {
+        router.push('/cases/new');
+      }
+    }
+  }, [flowStep, selectedProfile, router]);
+
   // Step 2: Chief Complaint & Symptoms
   const [chiefComplaint, setChiefComplaint] = useState('');
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
@@ -180,9 +192,11 @@ export default function NewPatientIntakePage() {
     setCreateGender(prof.gender as 'male' | 'female' | 'other');
     if (prof.bloodGroup) setCreateBloodGroup(prof.bloodGroup);
 
-    // If active grant or author, directly proceed to intake
+    // If active grant or author, directly proceed to new clinical case intake
     if (prof.hasActiveGrant || !prof.hasOtherDoctorRecords) {
-      setFlowStep('intake');
+      router.push(`/cases/new?profileId=${prof.id}&name=${encodeURIComponent(prof.name)}&age=${prof.age}&gender=${prof.gender}`);
+    } else {
+      setIsConsentOpen(true);
     }
   };
 
@@ -228,21 +242,7 @@ export default function NewPatientIntakePage() {
       }
 
       toast.success(isBn ? 'রোগীর প্রোফাইল সফলভাবে তৈরি হয়েছে' : 'Profile created successfully');
-      setSelectedProfile({
-        id: data.profile.id,
-        name: data.profile.name,
-        nameMasked: data.profile.name,
-        relation: data.profile.relation,
-        age: data.profile.age,
-        gender: data.profile.gender,
-        bloodGroup: data.profile.bloodGroup,
-        hasOtherDoctorRecords: false,
-        hasActiveGrant: true,
-        grantScope: 'this_doctor_only',
-        expiresAt: null,
-      });
-
-      setFlowStep('intake');
+      router.push(`/cases/new?profileId=${data.profile.id}&name=${encodeURIComponent(data.profile.name)}&age=${data.profile.age}&gender=${data.profile.gender}`);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Error creating profile');
     } finally {
@@ -411,6 +411,15 @@ export default function NewPatientIntakePage() {
                     )}
                     <span>{tFlow('findPatient')}</span>
                   </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.push('/cases/new')}
+                    className="h-12 px-4 text-xs font-semibold border-primary/30 text-primary hover:bg-primary/10 gap-2 shrink-0"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>{isBn ? 'সরাসরি নতুন গ্রহণ (Direct Intake)' : 'Direct Clinical Intake'}</span>
+                  </Button>
                 </div>
 
                 {/* Demo Phone Shortcuts */}
@@ -569,7 +578,13 @@ export default function NewPatientIntakePage() {
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={() => setFlowStep('intake')}
+                              onClick={() => {
+                                if (selectedProfile) {
+                                  router.push(`/cases/new?profileId=${selectedProfile.id}&name=${encodeURIComponent(selectedProfile.name)}&age=${selectedProfile.age}&gender=${selectedProfile.gender}`);
+                                } else {
+                                  router.push('/cases/new');
+                                }
+                              }}
                               className="text-xs h-9"
                             >
                               {tFlow('skipForNow')}
@@ -1149,7 +1164,7 @@ export default function NewPatientIntakePage() {
                 grantScope: grant.scope,
                 expiresAt: grant.expiresAt,
               });
-              setFlowStep('intake');
+              router.push(`/cases/new?profileId=${selectedProfile.id}&name=${encodeURIComponent(selectedProfile.name)}&age=${selectedProfile.age}&gender=${selectedProfile.gender}`);
             }}
           />
         )}

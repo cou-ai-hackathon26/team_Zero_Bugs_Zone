@@ -198,7 +198,7 @@ export function AppShell({ children, fullHeight = false }: AppShellProps) {
           },
           {
             title: t('newCase'),
-            href: '/patients/new',
+            href: '/cases/new',
             icon: PlusCircle,
           },
           {

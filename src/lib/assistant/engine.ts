@@ -284,7 +284,7 @@ export async function runAssistantTurn(
     const weighted = buildWeightedRetrievalQueries(retrievalText, understanding, input.patient, previousDoctor, english);
     queries = weighted.queries;
     try {
-      excerpts = selectExcerpts(await deps.retrieve(weighted.queries, 8, weighted.weights), 6);
+      excerpts = selectExcerpts(await deps.retrieve(weighted.queries, 12, weighted.weights), 8);
       emit({ type: 'trace', step: 'retrieve', status: 'done', count: excerpts.length });
     } catch {
       excerpts = [];

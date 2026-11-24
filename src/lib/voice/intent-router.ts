@@ -24,10 +24,16 @@ const BLOCKED_ACTION_PATTERNS = [
 
 const NAVIGATION_PATTERNS: Array<{ pattern: RegExp; route: string; labelBn: string; labelEn: string }> = [
   {
+    pattern: /new\s+intake|new\s+case|নতুন\s+গ্রহণ|নতুন\s+কেস|notun\s+(?:grohon|case)/i,
+    route: '/cases/new',
+    labelBn: 'নতুন ক্লিনিকাল গ্রহণ পাতা খুলছি...',
+    labelEn: 'Opening New Clinical Intake...',
+  },
+  {
     pattern: /new\s+patient|নতুন\s+রোগী(?:র)?\s*(?:ফাইল|এন্ট্রি|পাতা|ভর্তি|পেজে)?|notun\s+rogi/i,
     route: '/patients/new',
-    labelBn: 'নতুন রোগী গ্রহণ পাতা খুলছি...',
-    labelEn: 'Opening New Patient intake...',
+    labelBn: 'নতুন রোগী পাতা খুলছি...',
+    labelEn: 'Opening New Patient page...',
   },
   {
     pattern: /patient\s+list|রোগী(?:র)?\s+তালিকা|সব\s+রোগী|rogir\s+talika/i,
